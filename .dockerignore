@@ -1,0 +1,62 @@
+# ==============================================================================
+# Build context for backend/Dockerfile and frontend/Dockerfile is the REPO ROOT:
+#   docker build -f backend/Dockerfile .
+#   docker build -f frontend/Dockerfile --build-arg NEXT_PUBLIC_API_URL=... .
+#
+# This is the only ignore file. A <Dockerfile>.dockerignore next to a
+# Dockerfile would silently take precedence over this one, so none exist.
+#
+# Never ignore what the Dockerfiles COPY:
+#   package.json, pnpm-lock.yaml, pnpm-workspace.yaml
+#   backend/package.json, backend/tsconfig.json, backend/prisma.config.ts,
+#   backend/prisma/, backend/app/, backend/docker-entrypoint.sh
+#   frontend/ (whole package, minus the rebuilt or secret paths below)
+# ==============================================================================
+
+# Repository metadata and tooling
+.git
+.claude
+.github
+.husky
+scripts
+docker-compose.yml
+
+# Not part of any image
+docs
+hack
+e2e
+deployment
+
+# Dependencies (installed in the image from the lockfile)
+**/node_modules
+
+# Secrets: every .env variant, in every package
+**/.env
+**/.env.*
+backend/.env
+frontend/.env*
+
+# Build outputs, caches, runtime data (rebuilt or mounted)
+**/dist
+**/.next
+**/out
+**/coverage
+**/logs
+**/uploads
+**/*.log
+**/*.tsbuildinfo
+**/generated
+
+# Tests are not compiled into the images (tsconfig excludes them as well)
+**/_tests_
+**/*.test.ts
+**/*.test.tsx
+
+# Docker files themselves (the Dockerfile is passed with -f)
+**/Dockerfile*
+**/.dockerignore
+
+# Documentation and editor files
+**/*.md
+**/.DS_Store
+**/.editorconfig

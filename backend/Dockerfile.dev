@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1
+# ==============================================================================
+# Backend development image (tsx watch, source mounted by docker compose)
+#
+# Build context is the REPOSITORY ROOT:
+#   docker build -f backend/Dockerfile.dev -t bp-backend-dev .
+# ==============================================================================
+FROM node:24-bookworm-slim
+
+ENV NODE_ENV=development \
+    HUSKY=0 \
+    CI=true \
+    PNPM_HOME=/pnpm \
+    PORT=3011
+ENV PATH="$PNPM_HOME:$PATH"
+
+# bash for the entrypoint script, curl for health checks, pnpm via npm (no corepack)
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends bash ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm i -g pnpm@11.26.0 \
+    && groupadd -r nodejs -g 1001 \
+    && useradd -r -g nodejs -u 1001 -d /usr/src/app -s /sbin/nologin nodejs
+
+WORKDIR /usr/src/app
+
+# Workspace manifests plus the Prisma schema and CLI config: the backend's
+# postinstall runs `prisma generate` (app/ itself is mounted at runtime)
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY backend/package.json backend/
+COPY backend/prisma backend/prisma
+COPY backend/prisma.config.ts backend/prisma.config.ts
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --filter bp-monolith-backend...
+
+COPY backend/tsconfig.json backend/tsconfig.json
+COPY backend/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+    && chown -R nodejs:nodejs /usr/src/app
+
+USER nodejs
+WORKDIR /usr/src/app/backend
+
+EXPOSE 3011
+
+# Migrations + client generation happen in the entrypoint, then tsx watch
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["pnpm", "run", "dev"]

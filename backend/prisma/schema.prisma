@@ -1,0 +1,309 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../app/generated/prisma"
+  runtime             = "nodejs"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== USER MANAGEMENT SYSTEM ====================
+
+enum AuthSecurityMode {
+  NONE              @map("none")
+  TWO_FACTOR        @map("two_factor")
+  ONE_TIME_PASSWORD @map("one_time_password")
+}
+
+model User {
+  id                       Int       @id @default(autoincrement())
+  email                    String    @unique
+  password                 String
+  firstName                String    @map("first_name")
+  lastName                 String    @map("last_name")
+  phone                    String?
+  department               String?
+  position                 String?
+  isActive                 Boolean   @default(true) @map("is_active")
+  emailVerified            Boolean   @default(false) @map("email_verified")
+  emailVerificationToken   String?   @unique @map("email_verification_token")
+  emailVerificationExpires DateTime? @map("email_verification_expires")
+  preferredLanguage        String    @default("en") @map("preferred_language")
+  failedAttempts           Int       @default(0) @map("failed_attempts")
+  lockedUntil              DateTime? @map("locked_until")
+  lastLogin                DateTime? @map("last_login")
+  lastLoginAt              DateTime? @map("last_login_at")
+  passwordChangedAt        DateTime? @map("password_changed_at")
+  resetToken               String?   @unique @map("reset_token")
+  resetTokenExpires        DateTime? @map("reset_token_expires")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+  createdBy                Int?      @map("created_by")
+  updatedBy                Int?      @map("updated_by")
+
+  // Two-Factor Authentication fields
+  twoFactorEnabled  Boolean          @default(false) @map("two_factor_enabled")
+  twoFactorVerified Boolean          @default(false) @map("two_factor_verified")
+  loginSecurityMode AuthSecurityMode @default(NONE) @map("login_security_mode")
+
+  userRoles             UserRole[]
+  sessions              Session[]
+  auditLogs             AuditLog[]              @relation("UserAuditLogs")
+  createdUsers          User[]                  @relation("UserCreator")
+  creatorUser           User?                   @relation("UserCreator", fields: [createdBy], references: [id])
+  notifications         Notification[]
+  twoFactorAuth         TwoFactorAuth?
+  twoFactorBackupCodes  TwoFactorBackupCode[]
+  oneTimePasswordLogins OneTimePasswordLogin[]
+  tempTokens            TempToken[]
+  fieldPermissions      FieldPermission[]
+  permissionAuditLogs   PermissionAuditLog[]
+
+  @@index([email])
+  @@index([isActive])
+  @@map("users")
+}
+
+model OneTimePasswordLogin {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @map("user_id")
+  challengeToken String    @unique @map("challenge_token")
+  codeHash       String    @map("code_hash")
+  deepLinkHash   String?   @map("deep_link_hash")
+  expiresAt      DateTime  @map("expires_at")
+  consumedAt     DateTime? @map("consumed_at")
+  attempts       Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_one_time_password_user_id")
+  @@index([expiresAt], map: "idx_one_time_password_expires_at")
+  @@map("one_time_password_logins")
+}
+
+model Role {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  name         String
+  nameGerman   String   @map("name_german")
+  description  String?
+  isSystemRole Boolean  @default(false) @map("is_system_role")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  userRoles        UserRole[]
+  rolePermissions  RolePermission[]
+  fieldPermissions FieldPermission[]
+
+  @@index([code])
+  @@map("roles")
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  module      String
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@unique([module, resource, action])
+  @@index([module])
+  @@map("permissions")
+}
+
+model UserRole {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @map("user_id")
+  roleId     Int       @map("role_id")
+  assignedAt DateTime  @default(now()) @map("assigned_at")
+  assignedBy Int?      @map("assigned_by")
+  expiresAt  DateTime? @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           Int @id @default(autoincrement())
+  roleId       Int @map("role_id")
+  permissionId Int @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model Session {
+  id             String   @id @default(uuid())
+  userId         Int      @map("user_id")
+  token          String   @unique
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  expiresAt      DateTime @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+  active         Boolean  @default(true)
+  metadata       Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([active])
+  @@map("sessions")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  entityType String   @map("entity_type")
+  entityId   Int?     @map("entity_id")
+  action     String
+  changes    Json?
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation("UserAuditLogs", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  type      String
+  title     String
+  message   String
+  metadata  Json?
+  isRead    Boolean   @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([type])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model TwoFactorAuth {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @unique @map("user_id")
+  type              String    @default("totp")
+  secret            String?
+  tempSecret        String?   @map("temp_secret")
+  tempSecretExpires DateTime? @map("temp_secret_expires")
+  verifiedAt        DateTime? @map("verified_at")
+  lastUsed          DateTime? @map("last_used")
+  metadata          Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@map("two_factor_auth")
+}
+
+model TwoFactorBackupCode {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  code      String    @unique
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("two_factor_backup_codes")
+}
+
+model RevokedToken {
+  id        Int      @id @default(autoincrement())
+  tokenId   String   @unique @map("token_id")
+  revokedAt DateTime @default(now()) @map("revoked_at")
+  reason    String?
+
+  @@index([tokenId])
+  @@index([revokedAt])
+  @@map("revoked_tokens")
+}
+
+model TempToken {
+  id        Int       @id @default(autoincrement())
+  tokenId   String    @unique @map("token_id")
+  userId    Int       @map("user_id")
+  purpose   String
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenId])
+  @@index([purpose])
+  @@index([expiresAt])
+  @@map("temp_tokens")
+}
+
+model FieldPermission {
+  id        Int      @id @default(autoincrement())
+  resource  String   @db.VarChar(255)
+  action    String   @db.VarChar(50)
+  roleId    Int?     @map("role_id")
+  userId    Int?     @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  role Role? @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([resource, action, roleId, userId], name: "unique_field_permission")
+  @@index([resource], name: "idx_field_permissions_resource")
+  @@index([roleId], name: "idx_field_permissions_role")
+  @@index([userId], name: "idx_field_permissions_user")
+  @@map("field_permissions")
+}
+
+model PermissionAuditLog {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  action         String   @db.VarChar(50)
+  resource       String   @db.VarChar(255)
+  oldPermissions Json?    @map("old_permissions") @db.Json
+  newPermissions Json?    @map("new_permissions") @db.Json
+  reason         String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("permission_audit_log")
+}

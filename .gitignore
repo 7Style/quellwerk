@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+build/
+.next/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker volumes (local data)
+db-data*/
+postgres_data/
+
+# SSL certificates (generated)
+nginx-ssl-proxy/ssl/*.key
+nginx-ssl-proxy/ssl/*.crt
+nginx-ssl-proxy/ssl/*.pem
+!nginx-ssl-proxy/ssl/.gitkeep
+
+# Generated nginx configs
+nginx-ssl-proxy/generated/
+
+# Installation flags
+.installed-*
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Uploads (Volume backend_uploads bzw. UPLOAD_DIR)
+uploads/
+
+# Prisma 7 generated client (rebuilt by `prisma generate`)
+backend/app/generated/
+
+# Claude Code worktrees and local settings
+.claude/worktrees/
+.claude/settings.local.json
+
+# Compose validation env files (never commit real values)
+*.validate.env
+
+# Quellwerk seed
+node_modules
+.next
+out
+dist
+coverage
+backend/evals/results/*.json
+/tmp
+CLAUDE.local.md
+backend/uploads/
+backups/
+
+# Local History der IDE, nicht Teil des Repos
+.lh/

@@ -1,0 +1,177 @@
+# ==============================================================================
+# bp-monolith - Docker Compose (Repo-Root)
+# ==============================================================================
+# Kompletter Stack aus Produktions-Images: db, redis, backend, frontend.
+# Alle Host-Ports nur auf 127.0.0.1.
+#
+# Variablen:
+#   - .env im Repo-Root (cp example.env .env): POSTGRES_*, REDIS_PASSWORD,
+#     APP_NAME, APP_DESCRIPTION, NEXT_PUBLIC_API_URL, SEED_ON_START,
+#     SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_DEMO_USERS, SEED_DEMO_PASSWORD.
+#     Ohne Passwort bricht Compose ab (${VAR:?}-Syntax), es gibt keine Defaults.
+#   - backend/.env (env_file): Anwendungs-Einstellungen des Backends
+#     (JWT_*, ENCRYPTION_KEY, CORS_ORIGIN, SMTP_*, UPLOAD_*,
+#     RATE_LIMIT_*, LOG_LEVEL).
+#
+# Vorrang: `environment` gewinnt gegen `env_file`. DATABASE_URL, REDIS_URL,
+# PORT, NODE_ENV, APP_NAME, UPLOAD_DIR und alle SEED_* werden hier gesetzt;
+# Werte dafür in backend/.env sind im Container wirkungslos.
+#
+# Prisma Studio: nicht als Service (bindet ab Prisma 7 nur localhost).
+# Auf dem Host: pnpm --filter bp-monolith-backend exec prisma studio
+#
+# Sicherheitsregeln:
+#   1. NIE ports: "PORT:PORT" (bindet 0.0.0.0)
+#   2. IMMER ports: "127.0.0.1:PORT:PORT"
+#   3. IMMER Passwörter für Redis und PostgreSQL
+#   4. NIE den Docker-Socket mounten
+#   5. Nur Container untereinander: gar keine ports
+# ==============================================================================
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: bp-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER fehlt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB fehlt}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+
+  redis:
+    image: redis:8-alpine
+    container_name: bp-redis
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD fehlt}
+      - --appendonly
+      - "yes"
+      - --maxmemory-policy
+      - noeviction
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD fehlt}", "--no-auth-warning", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: bp-backend
+    ports:
+      - "127.0.0.1:3011:3011"
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3011
+      APP_NAME: ${APP_NAME:-bp-monolith}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      UPLOAD_DIR: /usr/src/app/uploads
+      # Seed: alle Werte aus der Root-.env. Leer = nicht gesetzt (das Backend
+      # behandelt "" wie fehlend); SEED_*-Werte in backend/.env sind im
+      # Container wirkungslos, weil `environment` gegen `env_file` gewinnt.
+      SEED_ON_START: ${SEED_ON_START:-false}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-false}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
+    volumes:
+      - backend_uploads:/usr/src/app/uploads
+      # NIE den Docker-Socket mounten: wer den Socket hat, ist root auf dem Host
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3011/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        # NEXT_PUBLIC_* wird beim Build eingebrannt; als `environment` zur
+        # Laufzeit wäre es wirkungslos. Origin ohne /api-Suffix.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3011}
+        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-bp-monolith}
+        NEXT_PUBLIC_APP_DESCRIPTION: ${APP_DESCRIPTION:-}
+    container_name: bp-frontend
+    ports:
+      - "127.0.0.1:3010:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_uploads:
+
+# Internes Netz: nur Container untereinander
+networks:
+  internal:
+    driver: bridge

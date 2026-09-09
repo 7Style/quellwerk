@@ -1,0 +1,205 @@
+name: bp-dev
+
+# ==============================================================================
+# bp-monolith - DEV/Staging-Server (Domain bp-dev.7style.net, Let's Encrypt)
+# ==============================================================================
+# Nur Nginx hat Host-Ports (80/443). Postgres und Redis haben gar keine Ports.
+#
+# Variablen: .env im Repo-Root (--env-file .env), backend/.env per env_file.
+# Vorrang: `environment` gewinnt gegen `env_file` (DATABASE_URL, REDIS_URL,
+# PORT, NODE_ENV, APP_NAME, UPLOAD_DIR und alle SEED_* werden hier gesetzt).
+#
+# Aufruf (vom Repo-Root):
+#   docker compose --env-file .env -f deployment/dev/docker/docker-compose.yml up -d --build
+#
+# Sicherheitsregeln: keine Ports auf 0.0.0.0 für interne Dienste, Redis mit
+# Passwort, keine Default-Passwörter, NIE den Docker-Socket mounten.
+# ==============================================================================
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: bp-dev-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER fehlt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB fehlt}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    mem_limit: 512m
+    cpus: 1.0
+    logging: *logging
+
+  redis:
+    image: redis:8-alpine
+    container_name: bp-dev-redis
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD fehlt}
+      - --appendonly
+      - "yes"
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD fehlt}", "--no-auth-warning", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+    mem_limit: 256m
+    cpus: 0.5
+    logging: *logging
+
+  backend:
+    build:
+      context: ../../..
+      dockerfile: backend/Dockerfile
+    container_name: bp-dev-backend
+    env_file:
+      - ../../../backend/.env
+    environment:
+      NODE_ENV: development
+      PORT: 3011
+      APP_NAME: ${APP_NAME:-bp-monolith}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      UPLOAD_DIR: /usr/src/app/uploads
+      # Seed: alle Werte aus der Root-.env. Leer = nicht gesetzt (das Backend
+      # behandelt "" wie fehlend); SEED_*-Werte in backend/.env sind im
+      # Container wirkungslos, weil `environment` gegen `env_file` gewinnt.
+      SEED_ON_START: ${SEED_ON_START:-false}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-false}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
+    volumes:
+      - backend_uploads:/usr/src/app/uploads
+      # NIE den Docker-Socket mounten
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3011/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    cpus: 1.0
+    logging: *logging
+
+  frontend:
+    build:
+      context: ../../..
+      dockerfile: frontend/Dockerfile
+      args:
+        # NEXT_PUBLIC_* wird beim Build eingebrannt; als `environment` zur
+        # Laufzeit wäre es wirkungslos. Origin ohne /api-Suffix: die
+        # Frontend-Endpunkte tragen /api selbst.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL fehlt (z. B. https://bp-dev.7style.net)}
+        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-bp-monolith}
+        NEXT_PUBLIC_APP_DESCRIPTION: ${APP_DESCRIPTION:-}
+    container_name: bp-dev-frontend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    cpus: 1.0
+    logging: *logging
+
+  nginx-ssl-proxy:
+    build:
+      context: ../../local/nginx
+      dockerfile: Dockerfile
+    container_name: bp-dev-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DEV_DOMAIN:-bp-dev.7style.net}
+      ENVIRONMENT: development
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL fehlt}
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - nginx_ssl:/etc/nginx/ssl
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.5
+    logging: *logging
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_uploads:
+  nginx_ssl:
+
+networks:
+  internal:
+    driver: bridge

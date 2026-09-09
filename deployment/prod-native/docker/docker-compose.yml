@@ -1,0 +1,104 @@
+name: bp-prod-native
+
+# ==============================================================================
+# bp-monolith - PROD mit nativen Datenbanken (Option B)
+# ==============================================================================
+# Postgres und Redis laufen nativ auf dem Host (nur 127.0.0.1), Docker nur für
+# Backend und Frontend. Beide Container nutzen network_mode: host und binden
+# ihre Ports deshalb selbst: das Frontend über HOSTNAME, das Backend über HOST,
+# beide auf 127.0.0.1. Der Host-Nginx (siehe SERVER-SETUP.md) ist der einzige
+# öffentliche Dienst; UFW bleibt die zweite Schranke.
+#
+# Voraussetzungen:
+#   1. postgresql-17 und redis-server nativ, beide nur auf 127.0.0.1
+#   2. Docker daemon.json: { "iptables": false, "bridge": "none" } (deployment/server/daemon.json)
+#   3. UFW: nur 22/80/443
+#   4. deployment/prod-native/SERVER-SETUP.md
+#
+# Variablen: .env im Repo-Root (--env-file .env), backend/.env per env_file.
+# Vorrang: `environment` gewinnt gegen `env_file` (DATABASE_URL, REDIS_URL,
+# PORT, HOST, NODE_ENV, APP_NAME, UPLOAD_DIR werden hier gesetzt). Seed ist in
+# production gesperrt, darum keine SEED_*-Variablen.
+#
+# Aufruf (vom Repo-Root):
+#   docker compose --env-file .env -f deployment/prod-native/docker/docker-compose.yml up -d --build
+# ==============================================================================
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  backend:
+    build:
+      context: ../../..
+      dockerfile: backend/Dockerfile
+    container_name: bp-prod-backend
+    network_mode: host
+    env_file:
+      - ../../../backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: ${BACKEND_PORT:-3011}
+      # Host-Netz: nur loopback binden, öffentlich ist allein der Host-Nginx
+      HOST: 127.0.0.1
+      APP_NAME: ${APP_NAME:-bp-monolith}
+      # Native Dienste auf dem Host, nicht im Docker-Netz
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER fehlt}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}@127.0.0.1:5432/${POSTGRES_DB:?POSTGRES_DB fehlt}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD fehlt}@127.0.0.1:6379
+      UPLOAD_DIR: /usr/src/app/uploads
+    volumes:
+      - backend_uploads:/usr/src/app/uploads
+      # NIE den Docker-Socket mounten
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:${BACKEND_PORT:-3011}/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    cpus: 2.0
+    logging: *logging
+
+  frontend:
+    build:
+      context: ../../..
+      dockerfile: frontend/Dockerfile
+      args:
+        # NEXT_PUBLIC_* wird beim Build eingebrannt; als `environment` zur
+        # Laufzeit wäre es wirkungslos. Origin ohne /api-Suffix: die
+        # Frontend-Endpunkte tragen /api selbst.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL fehlt (z. B. https://bp-prod.7style.net)}
+        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-bp-monolith}
+        NEXT_PUBLIC_APP_DESCRIPTION: ${APP_DESCRIPTION:-}
+    container_name: bp-prod-frontend
+    network_mode: host
+    environment:
+      NODE_ENV: production
+      PORT: ${FRONTEND_PORT:-3000}
+      HOSTNAME: 127.0.0.1
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:${FRONTEND_PORT:-3000}/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    cpus: 1.0
+    logging: *logging
+
+volumes:
+  backend_uploads:
+
+# Kein networks-Block: Host-Netz. Keine postgres/redis-Services: nativ auf dem Host.

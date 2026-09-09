@@ -1,0 +1,25 @@
+{
+  "name": "bp-monolith",
+  "private": true,
+  "version": "0.2.0",
+  "packageManager": "pnpm@11.26.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "docker compose up -d --build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r --filter=!bp-monolith-e2e run test",
+    "db:migrate": "pnpm --filter bp-monolith-backend run prisma:migrate:deploy",
+    "db:seed": "pnpm --filter bp-monolith-backend run prisma:seed",
+    "build": "pnpm -r run build",
+    "verify": "pnpm run typecheck && pnpm run lint && pnpm run test",
+    "format": "prettier --write .",
+    "prepare": "husky || true"
+  },
+  "devDependencies": {
+    "husky": "9.1.7",
+    "prettier": "catalog:"
+  }
+}
