@@ -74,3 +74,8 @@ backups/
 
 # Local History der IDE, nicht Teil des Repos
 .lh/
+
+# Lokale Compose-Abweichungen (belegte Ports, andere Volumes). Der Mechanismus
+# ist dafür da, dass sie NICHT im Repo landen: committet würde die Datei bei
+# jedem Klon greifen, auch wo die Ports aus CLAUDE.md frei sind.
+docker-compose.override.yml
