@@ -83,3 +83,172 @@ body {
   color: hsl(var(--foreground));
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
+
+/* ==========================================================================
+   Quellwerk tokens.
+
+   Names are taken verbatim from design/styles.css. That folder is the
+   reference for look and behaviour: a value that changes there changes here
+   under the same name. The shadcn block above belongs to the template pages
+   (login, dashboard, users) and leaves with them in M0; nothing below depends
+   on it, and the body rule above is deliberately left alone so those pages
+   keep working. The Quellwerk shell paints its own ground.
+
+   One rule carries the palette: the accent means provenance. It is allowed on
+   a citation chip, a highlighted passage, the bar beside an active passage and
+   the citation counter. Never on a button, a selection, a focus ring or a
+   status dot.
+   ========================================================================== */
+
+:root {
+  --paper: #f6f7f5;
+  --surface: #ffffff;
+  --surface-sunken: #eef0ed;
+  --surface-raised: #ffffff;
+
+  --ink: #1b2024;
+  --ink-muted: #5a6167;
+  --ink-faint: #8a9096;
+  --ink-inverse: #f6f7f5;
+
+  --rule: #dfe2de;
+  --rule-strong: #c7cbc6;
+
+  --accent: #3f6f63;
+  --accent-strong: #33594f;
+  --accent-ink: #2b544a;
+  --accent-wash: #e3ede9;
+  --accent-wash-strong: #c5ddd4;
+
+  --danger: #8e4033;
+  --danger-wash: #f7e8e5;
+  --notice: #7a5a22;
+  --notice-wash: #f7efdd;
+
+  --lh-tight: 1.25;
+  --lh-ui: 1.45;
+  --lh-read: 1.65;
+
+  --topbar-h: 56px;
+  --w-sources: 300px;
+  --w-studio: 360px;
+  --w-rail: 48px;
+  --measure: 68ch;
+
+  --focus: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --paper: #14171a;
+    --surface: #1a1e22;
+    --surface-sunken: #101316;
+    --surface-raised: #212629;
+    --ink: #e6e9e7;
+    --ink-muted: #a2a9ad;
+    --ink-faint: #7b8286;
+    --ink-inverse: #14171a;
+    --rule: #2a3034;
+    --rule-strong: #3b4247;
+    --accent: #7fb3a4;
+    --accent-strong: #98c6b8;
+    --accent-ink: #a8d0c3;
+    --accent-wash: #1e3a33;
+    --accent-wash-strong: #2c5449;
+    --danger: #d98b7c;
+    --danger-wash: #3a221e;
+    --notice: #d3b075;
+    --notice-wash: #362b16;
+    --shadow-pop: 0 6px 24px -8px rgb(0 0 0 / 0.6), 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-modal: 0 24px 64px -16px rgb(0 0 0 / 0.7);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #14171a;
+  --surface: #1a1e22;
+  --surface-sunken: #101316;
+  --surface-raised: #212629;
+  --ink: #e6e9e7;
+  --ink-muted: #a2a9ad;
+  --ink-faint: #7b8286;
+  --ink-inverse: #14171a;
+  --rule: #2a3034;
+  --rule-strong: #3b4247;
+  --accent: #7fb3a4;
+  --accent-strong: #98c6b8;
+  --accent-ink: #a8d0c3;
+  --accent-wash: #1e3a33;
+  --accent-wash-strong: #2c5449;
+  --danger: #d98b7c;
+  --danger-wash: #3a221e;
+  --notice: #d3b075;
+  --notice-wash: #362b16;
+  --shadow-pop: 0 6px 24px -8px rgb(0 0 0 / 0.6), 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-modal: 0 24px 64px -16px rgb(0 0 0 / 0.7);
+}
+
+/* Colours, spacing and type scale reach Tailwind as aliases, so the utility
+   keeps the var() reference and follows the theme at runtime. */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-raised: var(--surface-raised);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-wash: var(--accent-wash);
+  --color-accent-wash-strong: var(--accent-wash-strong);
+  --color-danger: var(--danger);
+  --color-danger-wash: var(--danger-wash);
+  --color-notice: var(--notice);
+  --color-notice-wash: var(--notice-wash);
+
+  --leading-tight: var(--lh-tight);
+  --leading-ui: var(--lh-ui);
+  --leading-read: var(--lh-read);
+}
+
+/* Static tokens are declared here directly: they carry no theme variant, and
+   declaring them inside @theme keeps the prototype's own names as both the
+   utility suffix and a plain CSS variable. */
+@theme {
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 24px;
+  --spacing-6: 32px;
+  --spacing-7: 48px;
+  --spacing-8: 64px;
+
+  --text-micro: 0.6875rem;
+  --text-small: 0.75rem;
+  --text-ui: 0.8125rem;
+  --text-ui-lg: 0.875rem;
+  --text-read: 1.0625rem;
+  --text-h3: 1.0625rem;
+  --text-h2: 1.3125rem;
+  --text-h1: 1.6875rem;
+  --text-display: 2.125rem;
+
+  --radius-chip: 3px;
+  --radius-control: 6px;
+  --radius-surface: 10px;
+
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-read: 'Iowan Old Style', Charter, 'Bitstream Charter', 'Source Serif Pro', Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --shadow-pop: 0 6px 24px -8px rgb(27 32 36 / 0.28), 0 1px 2px rgb(27 32 36 / 0.1);
+  --shadow-modal: 0 24px 64px -16px rgb(27 32 36 / 0.4);
+}
