@@ -1,106 +1,25 @@
 @import 'tailwindcss';
 
-/* shadcn/ui Theme Configuration */
-@theme {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
-
-/* CSS Variables for shadcn/ui */
-:root {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 3.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 3.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 3.9%;
-  --primary: 0 0% 9%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 96.1%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96.1%;
-  --muted-foreground: 0 0% 45.1%;
-  --accent: 0 0% 96.1%;
-  --accent-foreground: 0 0% 9%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 89.8%;
-  --input: 0 0% 89.8%;
-  --ring: 0 0% 3.9%;
-  --radius: 0.5rem;
-}
-
-.dark {
-  --background: 0 0% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 0 0% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 0 0% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 0 0% 9%;
-  --secondary: 0 0% 14.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 0 0% 14.9%;
-  --muted-foreground: 0 0% 63.9%;
-  --accent: 0 0% 14.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 14.9%;
-  --input: 0 0% 14.9%;
-  --ring: 0 0% 83.1%;
-}
-
-/* Base Styles */
-* {
-  border-color: hsl(var(--border));
-}
-
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
 /* ==========================================================================
    Quellwerk tokens.
 
    Names are taken verbatim from design/styles.css. That folder is the
    reference for look and behaviour: a value that changes there changes here
-   under the same name. The shadcn block above belongs to the template pages
-   (login, dashboard, users) and leaves with them in M0; nothing below depends
-   on it, and the body rule above is deliberately left alone so those pages
-   keep working. The Quellwerk shell paints its own ground.
+   under the same name.
 
    One rule carries the palette: the accent means provenance. It is allowed on
    a citation chip, a highlighted passage, the bar beside an active passage and
    the citation counter. Never on a button, a selection, a focus ring or a
-   status dot.
+   status dot. Note that shadcn uses the word "accent" for something else, a
+   muted hover tint. Both names cannot mean the same thing, so the Tailwind
+   utilities for provenance are cite-* (bg-cite-wash, text-cite-ink) while
+   accent-* belongs to shadcn and is neutral. The raw CSS variables keep the
+   prototype's names (--accent, --accent-wash) either way.
    ========================================================================== */
 
 :root {
+  color-scheme: light;
+
   --paper: #f6f7f5;
   --surface: #ffffff;
   --surface-sunken: #eef0ed;
@@ -190,8 +109,8 @@ body {
   --shadow-modal: 0 24px 64px -16px rgb(0 0 0 / 0.7);
 }
 
-/* Colours, spacing and type scale reach Tailwind as aliases, so the utility
-   keeps the var() reference and follows the theme at runtime. */
+/* Quellwerk's own semantic names, for the components written in this repo.
+   Aliases keep the var() reference, so a utility follows the theme at runtime. */
 @theme inline {
   --color-paper: var(--paper);
   --color-surface: var(--surface);
@@ -203,11 +122,11 @@ body {
   --color-ink-inverse: var(--ink-inverse);
   --color-rule: var(--rule);
   --color-rule-strong: var(--rule-strong);
-  --color-accent: var(--accent);
-  --color-accent-strong: var(--accent-strong);
-  --color-accent-ink: var(--accent-ink);
-  --color-accent-wash: var(--accent-wash);
-  --color-accent-wash-strong: var(--accent-wash-strong);
+  --color-cite: var(--accent);
+  --color-cite-strong: var(--accent-strong);
+  --color-cite-ink: var(--accent-ink);
+  --color-cite-wash: var(--accent-wash);
+  --color-cite-wash-strong: var(--accent-wash-strong);
   --color-danger: var(--danger);
   --color-danger-wash: var(--danger-wash);
   --color-notice: var(--notice);
@@ -218,10 +137,41 @@ body {
   --leading-read: var(--lh-read);
 }
 
+/* shadcn compatibility layer. The vendored primitives in components/ui expect
+   these names; pointing them at the tokens above means one palette, not two.
+   Two entries carry a decision rather than a translation:
+     --color-primary   is the neutral ink, never the provenance accent, so a
+                       filled button never looks like a citation.
+     --color-accent    is shadcn's hover tint, mapped to the sunken surface.
+   --color-ring follows the same rule: a focus ring is chrome, not provenance. */
+@theme inline {
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--ink-inverse);
+  --color-secondary: var(--surface-sunken);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--surface-sunken);
+  --color-muted-foreground: var(--ink-muted);
+  --color-accent: var(--surface-sunken);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--ink-inverse);
+  --color-border: var(--rule);
+  --color-input: var(--rule-strong);
+  --color-ring: var(--ink);
+}
+
 /* Static tokens are declared here directly: they carry no theme variant, and
    declaring them inside @theme keeps the prototype's own names as both the
-   utility suffix and a plain CSS variable. */
-@theme {
+   utility suffix and a plain CSS variable. `static` is required: without it
+   Tailwind drops theme variables no utility references yet, and a plain
+   var(--font-ui) in CSS would resolve to nothing. */
+@theme static {
   --spacing-1: 4px;
   --spacing-2: 8px;
   --spacing-3: 12px;
@@ -241,14 +191,33 @@ body {
   --text-h1: 1.6875rem;
   --text-display: 2.125rem;
 
+  /* The prototype's three steps, exposed under both naming schemes: chip,
+     control and surface for this repo, sm/md/lg/xl for the shadcn primitives. */
   --radius-chip: 3px;
   --radius-control: 6px;
   --radius-surface: 10px;
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
 
-  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-read: 'Iowan Old Style', Charter, 'Bitstream Charter', 'Source Serif Pro', Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
   --shadow-pop: 0 6px 24px -8px rgb(27 32 36 / 0.28), 0 1px 2px rgb(27 32 36 / 0.1);
   --shadow-modal: 0 24px 64px -16px rgb(27 32 36 / 0.4);
+}
+
+/* Base */
+
+* {
+  border-color: var(--rule);
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
 }
