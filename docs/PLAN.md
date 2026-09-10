@@ -53,8 +53,8 @@ numbering follows that order: M11 is only started when M10 is finished.
 ### M0-T0 SPEC, architecture and the ADRs
 Goal: The documents that every later task reads exist: scope with its numbers, the data model, and the eight decisions that are already assumed elsewhere.
 Files: docs/SPEC.md, docs/ARCHITECTURE.md, docs/adr/0001-citations-api.md, docs/adr/0002-whole-notebook-in-context.md, docs/adr/0003-normalise-once-character-offsets.md, docs/adr/0004-sdk-direkt-statt-langchain.md, docs/adr/0005-anonyme-session.md, docs/adr/0006-self-hosted.md, docs/adr/0007-ein-effort-zwei-builder.md, docs/adr/0008-evals-vor-dem-chat-code.md
-Test: `rg -c '^## ' docs/SPEC.md docs/ARCHITECTURE.md && ls docs/adr/*.md | wc -l && rg -n 'model (Notebook|Source|Message|Note|Artifact|Job|UsageLog)' docs/ARCHITECTURE.md | wc -l`
-Expected: both documents have their sections, `9` files under docs/adr (eight ADRs plus TEMPLATE.md), and `7` Prisma models found; ARCHITECTURE.md carries two mermaid blocks and every id is `String @id @default(uuid())` so the demo notebook can hold the fixed id `demo`.
+Test: `rg -c '^## ' docs/SPEC.md docs/ARCHITECTURE.md && ls docs/adr/*.md | wc -l && rg -n 'model (Notebook|Source|Message|Note|Artifact|UsageLog)' docs/ARCHITECTURE.md | wc -l`
+Expected: both documents have their sections, `13` files under docs/adr (twelve ADRs plus TEMPLATE.md), and `6` Prisma models found; ARCHITECTURE.md carries three mermaid blocks and every id is `String @id @default(uuid())` so the demo notebook can hold the fixed id `demo`.
 Box: 90
 Status: [x]
 
@@ -100,9 +100,9 @@ Status: [ ]
 
 ### M0-T5 Compose, CI, hooks, docs
 Goal: The stack starts with the worker and the prompts inside the image, CI runs the trimmed tree.
-Files: docker-compose.yml, backend/Dockerfile, .dockerignore, .github/workflows/ci.yml, .claude/hooks/*, docs/TEMPLATE.md, README.md
+Files: docker-compose.yml, backend/Dockerfile, .dockerignore, .github/workflows/ci.yml, .claude/hooks/*, docs/TEMPLATE.md, README.md; delete docs/UPGRADE-2026-09.md and docs/BACKEND-ARCHITECTURE.md
 Test: `docker compose config --quiet && docker compose up -d --build && docker compose ps --format '{{.Service}} {{.Status}}'`
-Expected: five services (db, redis, backend, worker, frontend), all `healthy`; `docker compose exec backend ls ../prompts/README.md` finds the file.
+Expected: five services (db, redis, backend, worker, frontend), all `healthy`; `docker compose exec backend ls ../prompts/README.md` finds the file; the two template documents are gone (the upgrade note names compromised secret names and other projects, which has no place in a repository I hand over).
 Box: 45
 Status: [ ]
 
@@ -156,7 +156,7 @@ Status: [ ]
 Goal: 30 questions exist as a hand-written file, 20 dev and 10 held out, with the item types the brief needs.
 Files: backend/evals/golden.jsonl, backend/evals/corpus/*, backend/evals/README.md
 Test: `pnpm --filter @quellwerk/backend exec tsx evals/validate-golden.ts`
-Expected: `30 items, 20 dev / 10 heldout` with the type counts, and every evidence quote found verbatim in its corpus file.
+Expected: `30 items, 20 dev / 10 heldout` with the type counts, and every evidence quote found verbatim in its corpus file after that file has gone through the same `normalize` from M1-T1. The quotes are checked against the NORMALISED text, because that is what a citation will point into. `backend/evals/corpus/` is at the same time the source of the demo seed in M2-T5: one tree of files, not two with the same text in them.
 Box: 60
 Status: [ ]
 
@@ -216,7 +216,7 @@ Status: [ ]
 
 ### M2-T5 Base seed and token measurement
 Goal: A demo notebook with the fixed id `demo` exists after seeding, and its real token count is recorded.
-Files: backend/prisma/seed.ts, backend/prisma/seed-data/*, backend/scripts/recount-tokens.ts, docs/ai-process/pdf-vs-text-tokens.md
+Files: backend/prisma/seed.ts, backend/scripts/recount-tokens.ts, docs/ai-process/pdf-vs-text-tokens.md (the seed reads backend/evals/corpus/, the same files the golden set is written against)
 Test: `pnpm db:seed && pnpm --filter @quellwerk/backend exec tsx scripts/recount-tokens.ts demo`
 Expected: the notebook has four ready sources and prints a token total under 150000, written into the document.
 Box: 30
@@ -555,6 +555,19 @@ Expected: the scripted path runs green in one pass; the script names the three m
 Box: 45
 Status: [ ]
 
+### M12-T2 Record, cut, hand over
+Goal: The recording exists, is cut, and the submission is sent.
+Files: docs/ai-process/LOOM.md, README.md
+Test: `pnpm --filter @quellwerk/backend exec tsx scripts/smoke-prod.ts https://<domain> && rg -n 'Loom' README.md`
+Expected: the live site answers, and README carries the recording link next to the demo link.
+Box: 90
+Status: [ ]
+
+**Freeze line.** From the start of M12-T2 on the third day nothing new is built.
+A bug that makes the demo path fail is fixed; anything else goes to
+docs/KNOWN-LIMITS.md and stays there. A feature added an hour before the
+recording is the one that breaks during it.
+
 ---
 
 ## Budget
@@ -575,7 +588,7 @@ Status: [ ]
 | **M0 to M9** | **46** | **2475 (41.3 h)** |
 | M10 | 3 | 135 |
 | M11 | 2 | 90 |
-| M12 | 1 | 45 |
+| M12 | 2 | 135 |
 
 The merges and the two dropped tasks save 165 minutes; M0-T0 adds 90, so the net
 change against the first version is minus 15 minutes. The 24 hour cap still is
