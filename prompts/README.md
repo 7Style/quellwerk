@@ -78,6 +78,15 @@ and is never returned in a citation.
 6. Verify: `usage.cache_read_input_tokens > 0` on the second turn, after a
    Configure-chat change, and on a report request right after a chat turn. The
    eval asserts all three. The Trace toggle shows the numbers.
+7. A breakpoint below the model's minimum does nothing, silently. The minimum
+   cacheable prefix is 512 tokens on Opus 5, 1,024 on Sonnet 5 and 4,096 on
+   Haiku 4.5; a shorter prompt is processed without caching and no error is
+   returned, so the only visible trace is `cache_read_input_tokens` staying at
+   zero. Consequence for us: the 5-minute breakpoint the artifact builder may set
+   on the last document block does nothing on MODEL_FAST for a small source, so
+   neither an eval assertion nor the Trace panel may treat that as a failure. The
+   1h breakpoint in the chat builder is unaffected: all documents sit in front of
+   it and the prefix is far above 512.
 
 ## Structured outputs: schema limits
 

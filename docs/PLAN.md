@@ -240,7 +240,7 @@ Status: [ ]
 Goal: One builder produces the chat request with citations on and the cache breakpoints in the documented places.
 Files: backend/app/adapters/llm/chat-request.ts, backend/app/adapters/llm/_tests_/chat-request.test.ts
 Test: `pnpm --filter @quellwerk/backend test -- chat-request`
-Expected: one 1h breakpoint on the last document block, nothing on the system block, no breakpoint on a thinking block or a citation.
+Expected: one 1h breakpoint on the last document block, nothing on the system block, no breakpoint on a thinking block or a citation; the request carries `thinking: {type: 'adaptive', display: 'summarized'}` so the thinking state has something to show before the first token.
 Box: 45
 Status: [ ]
 

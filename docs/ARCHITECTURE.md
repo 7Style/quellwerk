@@ -354,10 +354,19 @@ Verbindung nicht schließen. Die Antwort trägt `X-Accel-Buffering: no`, und die
 Compression lässt `text/event-stream` aus; beides zusammen verhindert, dass der
 Stream irgendwo gepuffert wird.
 
-Thinking läuft adaptiv mit, erzeugt aber kein eigenes Ereignis. Die Oberfläche
-zeigt bis zum ersten `text`-Ereignis einen Denkzustand; die Blöcke liegen mit
-ihrer Signatur in `rawContent`, damit der nächste Turn sie unverändert
-wiedereinspielen kann, und ihre Token stehen im Trace.
+Thinking läuft adaptiv mit und erzeugt kein eigenes Ereignis. Der Chat-Request
+setzt `thinking: {type: 'adaptive', display: 'summarized'}`. Das ist eine
+Produktentscheidung, keine Feinheit: auf Opus 5 ist `display: 'omitted'` der
+Standard, die Blöcke kommen dann mit leerem Text, und der Nutzer sitzt bis zum
+ersten Token vor einer stummen Pause. Genau das verbietet der Abschnitt
+Kern-Interaktionen in docs/SPEC.md, und in einer Aufnahme fällt die gefühlte
+Latenz als Erstes auf. Thinking wird unter jedem `display` gleich abgerechnet,
+die Zusammenfassung kostet also nichts.
+
+Die Zusammenfassung wird nie als Antworttext gerendert. Sie füllt den Denkzustand
+über dem Stream, bis das erste `text`-Ereignis kommt, und verschwindet dann. Die
+Blöcke selbst liegen mit ihrer Signatur in `rawContent`, damit der nächste Turn
+sie unverändert wiedereinspielen kann, und ihre Token stehen im Trace.
 
 ## Regeln für den Request-Aufbau
 

@@ -88,8 +88,10 @@ ADR-0004, ADR-0006).
   backend is written by hand.
 - Model IDs and the chat effort come from env (`MODEL_CHAT`, `MODEL_FAST`, `MODEL_JUDGE`,
   `EFFORT_CHAT`), resolved in `backend/app/config/models.ts`. Never hard-code a model ID
-  elsewhere. Requests on `MODEL_FAST` carry no `output_config.effort` and no thinking (Haiku 4.5
-  rejects both). Structured-output schemas carry no length or count constraints; enforce those
+  elsewhere. Requests on `MODEL_FAST` carry no `output_config.effort`, because Haiku 4.5
+  rejects that parameter, and no `thinking`, because only `{type:'enabled', budget_tokens:N}`
+  would work there (`{type:'adaptive'}` is refused with 400) and short structured outputs do not
+  need it. Structured-output schemas carry no length or count constraints; enforce those
   in code.
 
 ## House style
