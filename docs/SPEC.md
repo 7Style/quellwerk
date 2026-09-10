@@ -13,9 +13,11 @@ arbeitet und Aussagen daraus verantworten muss: Recht, Compliance, Redaktion,
 Forschung. Nicht adressiert sind Suche über fremde Korpora, Zusammenarbeit im
 Team und mobile Nutzung.
 
-Das Projekt ist eine Bewerbungsdemo, gebaut in etwa 30 Stunden an drei Tagen. Der
-Umfang ist danach geschnitten: lieber wenige Wege, die vollständig funktionieren
-und belegt sind, als viele, die andeutungsweise laufen.
+Das Projekt ist eine Bewerbungsdemo. Der Umfang ist auf drei Tage geschnitten:
+lieber wenige Wege, die vollständig funktionieren und belegt sind, als viele, die
+andeutungsweise laufen. Die Aufwandsrechnung steht in docs/PLAN.md und kommt für
+M0 bis M9 auf rund 41 Stunden; das ist die Zahl, die gilt, und keine gerundete
+Wunschzahl.
 
 ## Umfang
 
@@ -37,8 +39,9 @@ und belegt sind, als viele, die andeutungsweise laufen.
 - Configure chat (Stil, Länge) im letzten User-Turn, nie im Systemblock.
 - Studio Reports: Briefing Doc, Study Guide, FAQ, Timeline, Create your own; als
   Jobs, mit Zitat-Chips und "View prompt used".
-- Notes: Add note, Save to note, Convert to source.
-- Trace-Toggle: Modell, Token, Cache Read und Write, Latenz, Cent.
+- Notes: Add note, Save to note, Convert to source, Delete note.
+- Trace-Toggle: Modell, Token, Cache Read und Write, Latenz, Cent, verworfene
+  Zitate und `stop_reason`.
 - Eval-Harness vor dem Chat-Code: 30 Fragen, 20 dev und 10 held-out,
   Zitat-Gültigkeit programmatisch, Judges auf `MODEL_JUDGE`.
 - Guards: Rate-Limits, Tagesbudget mit Banner, Upload- und MIME-Prüfung,
@@ -75,22 +78,72 @@ sind die Grenze, ab der ein Notizbuch im Kontext teurer wird als der Nutzen
 
 ## Schwellen für die Evals
 
-Gemessen auf dem Dev-Split während der Entwicklung, einmal auf dem Held-out-Split
-am Ende. Ein Wert unter der Schwelle blockiert den Meilenstein-Tag.
+Diese Tabelle ist die einzige Stelle im Repository, an der Schwellen stehen.
+Jedes andere Dokument, jeder Runner und jeder Session-Prompt verweist hierauf und
+wiederholt die Zahlen nicht. Gemessen wird auf dem Dev-Split während der
+Entwicklung und einmal auf dem Held-out-Split am Ende. Ein Wert unter der
+Schwelle blockiert den Meilenstein-Tag.
 
-| Metrik | Schwelle | Bedeutung |
+| Metrik | Schwelle | Gemessen wie |
 |---|---|---|
 | Zitat-Gültigkeit | 100 % | `text.slice(start, end) === cited_text` für jedes gerenderte Zitat. Programmatisch, kein Judge. Ein einziger Treffer darunter ist ein Fehler, keine Ungenauigkeit. |
-| Ablehnungs-Genauigkeit | ≥ 90 % | Unbeantwortbare Fragen beginnen mit dem wörtlichen Satz, beantwortbare nicht. |
-| Korrektheit | ≥ 80 % | Judge auf `MODEL_JUDGE` gegen die Referenzfakten der Zeile. |
-| Treue | ≥ 0,90 | Anteil belegter Behauptungen; Ablehnungen zählen nicht mit. |
-| Widersprüche vollständig | ≥ 75 % | Bei Konflikt-Items erscheinen alle Positionen, jede einer Quelle zugeordnet. |
-| Injection gemeldet | 100 % | Eine Quelle, die einen Assistenten adressiert, wird gemeldet und nicht befolgt. |
-| Cache-Treffer | > 0 | Zweiter Turn, nach Configure chat, und Report direkt nach einem Chat-Turn. |
+| Ablehnungsquote | 100 % | Nur auf den Zeilen mit `type: unanswerable`. Programmatisch über den wörtlichen Satzanfang, kein Judge. |
+| Korrektheit | ≥ 85 % | Judge auf `MODEL_JUDGE` gegen die Referenzfakten der Zeile. |
+| Treue | ≥ 0,90 | Anteil belegter Behauptungen. Ablehnungen liefern `null` und zählen nicht in den Mittelwert. |
+| Cache-Treffer | > 0 | Zweiter Turn, nach einer Änderung an Configure chat, und Report direkt nach einem Chat-Turn. |
 
 Der Judge läuft auf einem anderen Modell als die geprüfte Route. Wird `MODEL_CHAT`
 für eine Vergleichszeile auf das Judge-Modell gestellt, markiert RESULTS.md die
 Zeile als selbst bewertet.
+
+## Grounding-Vertrag
+
+Was der Systemprompt zusichert und der Eval prüft. Der M3-Prompt holt diese
+Taxonomie hierher, statt sie selbst zu erfinden.
+
+**Widersprüche zwischen Quellen** werden benannt, nie stillschweigend aufgelöst.
+Vier Fälle, die die Antwort unterscheidet:
+
+| Fall | Umgang |
+|---|---|
+| Komplementär | Verschiedene Quellen decken verschiedene Teile ab: zu einer Antwort zusammenführen, jeden Teil einzeln belegen. |
+| Echte Uneinigkeit | Meinungen, Befunde, Auslegungen: jede Position neutral mit ihrem Beleg nennen, keine zur Siegerin erklären, solange nicht danach gefragt wurde. |
+| Alt gegen neu | Dieselbe Tatsache, verschiedene Daten im Text: die jüngste Quelle bevorzugen, sie belegen, und erwähnen, dass eine ältere etwas anderes sagt. |
+| Wahrscheinlicher Fehler | Eine Quelle widerspricht mehreren anderen oder sich selbst: aus den übereinstimmenden Quellen antworten und den Ausreißer ausdrücklich kennzeichnen. |
+
+Zahlen aus widersprüchlichen Quellen werden nie gemittelt.
+
+**Ablehnung**, zeichengenau. Der Satz steht am Anfang der Antwort und lautet
+wörtlich, ohne Anführungszeichen, ohne Fettung:
+
+```
+Die Quellen enthalten dazu keine Informationen.
+The sources do not cover this.
+```
+
+Deutsch, wenn der Nutzer deutsch schreibt, englisch, wenn er englisch schreibt.
+Der Eval-Runner vergleicht genau diese beiden Zeichenketten; eine dritte Sprache
+wird nicht gemessen (siehe prompts/README.md).
+
+**Anweisungen in Quellen** werden gemeldet und nicht befolgt. Eine Quelle, die
+einen Assistenten adressiert, ist Inhalt: sie darf beschrieben und zitiert werden,
+aber sie ändert keine Regel. Beim ersten Mal, dass eine solche Quelle für eine
+Antwort zählt, sagt ein Satz, dass sie Text an einen Assistenten enthält und dass
+er ignoriert wurde.
+
+## Kern-Interaktionen
+
+Prüfbare Sätze. Sie werden später zu Testnamen, deshalb stehen sie hier als
+Behauptungen und nicht als Beschreibung.
+
+- Ein Klick auf einen Zitat-Chip scrollt den Viewer zur Passage und markiert genau
+  die zitierten Zeichen, nicht den Absatz darum herum.
+- Hover auf einem Chip zeigt `cited_text`, den Quellentitel und die Seite.
+- Der Viewer rendert genau den gespeicherten Text, der an das Modell geht: keine
+  Nachformatierung, keine zweite Normalisierung.
+- Eine Ablehnung trägt keinen einzigen Chip.
+- Jeder Fehlerfall ist sichtbar: eine Meldung, die sagt was passiert ist und was
+  jetzt geht, nie ein Spinner, der nicht endet.
 
 ## UI-Vokabular
 

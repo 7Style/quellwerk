@@ -1,6 +1,7 @@
 # Quellwerk
 
-A NotebookLM clone built as a hiring take-home in about 30 hours over 3 days. I am the lead
+A NotebookLM clone built as a hiring take-home over 3 days; the effort estimate lives in
+docs/PLAN.md and comes to about 41 hours for M0 to M9. I am the lead
 engineer and I steer; you implement one task at a time. The reviewer will read this repository
 to see how I work, so the harness (this file, hooks, skills, agents, docs/) is part of the
 deliverable. Everything runs self-hosted on my own server; the only external call is model
