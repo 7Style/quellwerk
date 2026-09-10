@@ -88,7 +88,7 @@ Files: delete frontend/src/modules/{auth,users}, frontend/src/app/{login,dashboa
 Test: `pnpm --filter @quellwerk/frontend run lint && pnpm --filter @quellwerk/frontend run build && pnpm --filter @quellwerk/e2e run typecheck`
 Expected: lint back to zero errors (the four boundary violations leave with the pages), build lists `/` and no `/login`, `/dashboard`, `/users`; e2e typecheck clean.
 Box: 45
-Status: [ ]
+Status: [x]
 
 ### M0-T4 Quellwerk configuration and skeletons
 Goal: Config, adapters, services, session and admin modules and the Prisma schema exist as wired but empty skeletons.

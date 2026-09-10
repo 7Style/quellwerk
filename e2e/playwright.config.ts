@@ -14,24 +14,20 @@ if (existsSync(envFile)) {
  * Playwright configuration for the quellwerk E2E tests
  * @see https://playwright.dev/docs/test-configuration
  *
- * The suite runs on ONE worker, files and tests in order: the backend's login
- * limiter allows RATE_LIMIT_LOGIN_MAX (default 5) failed logins per 15 minutes
- * and IP, and parallel workers share that IP. Each auth spec file keeps a
- * budget of at most 4 failed logins and configures its tests as serial.
- * See e2e/.env.example for RATE_LIMIT_LOGIN_MAX / RATE_LIMIT_TRUSTED_IPS.
+ * One worker for now: the specs that arrive in M4 drive a single stack and the
+ * chat route is rate limited per session.
  */
 export default defineConfig({
   testDir: './tests',
 
-  /* One test at a time; parallel workers would share the login limiter */
+  /* One test at a time; the chat route is rate limited per session */
   fullyParallel: false,
   workers: 1,
 
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
 
-  /* One retry on CI. A retry re-runs a whole serial group, so CI raises
-     RATE_LIMIT_LOGIN_MAX for the stack under test (.github/workflows/ci.yml). */
+  /* One retry on CI. */
   retries: process.env.CI ? 1 : 0,
 
   /* Reporter to use */

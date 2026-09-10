@@ -58,12 +58,16 @@ const eslintConfig = defineConfig([
         typescript: { project: path.join(import.meta.dirname, 'tsconfig.json') },
       },
     },
-    rules: {
-      'import/no-restricted-paths': [
-        'error',
-        { basePath: import.meta.dirname, zones: moduleBoundaryZones },
-      ],
-    },
+    // An empty zones array is a schema error, not a no-op: ESLint refuses to
+    // start. Guard it, so a tree without modules still lints.
+    rules: moduleBoundaryZones.length
+      ? {
+          'import/no-restricted-paths': [
+            'error',
+            { basePath: import.meta.dirname, zones: moduleBoundaryZones },
+          ],
+        }
+      : {},
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([
