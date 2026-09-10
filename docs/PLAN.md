@@ -56,7 +56,7 @@ Files: docs/SPEC.md, docs/ARCHITECTURE.md, docs/adr/0001-citations-api.md, docs/
 Test: `rg -c '^## ' docs/SPEC.md docs/ARCHITECTURE.md && ls docs/adr/*.md | wc -l && rg -n 'model (Notebook|Source|Message|Note|Artifact|Job|UsageLog)' docs/ARCHITECTURE.md | wc -l`
 Expected: both documents have their sections, `9` files under docs/adr (eight ADRs plus TEMPLATE.md), and `7` Prisma models found; ARCHITECTURE.md carries two mermaid blocks and every id is `String @id @default(uuid())` so the demo notebook can hold the fixed id `demo`.
 Box: 90
-Status: [ ]
+Status: [x]
 
 SPEC.md is German and short: goal and audience, scope as MUSS / KANN / bewusst
 weggelassen, the numbers (20 MB per file, 50 sources, 150K tokens, 4000
