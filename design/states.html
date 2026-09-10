@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>States - Quellwerk</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-scroll">
+
+<header class="topbar">
+  <a class="wordmark" href="index.html">Quellwerk</a>
+  <span class="topbar-divider"></span>
+  <span class="topbar-meta">Loading and error states</span>
+  <span class="topbar-spacer"></span>
+  <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+    <svg class="icon"><use href="#i-moon"></use></svg>
+  </button>
+</header>
+
+<main class="catalogue">
+
+  <p class="home-sub" style="margin-bottom:var(--sp-5)">Every state a person can land in, on one page. An
+    error says what happened and what to do next; it does not apologise and it never shows a stack trace.</p>
+
+  <h2>Source ingest</h2>
+
+  <div class="specimen">
+    <span class="specimen-label">Queued</span>
+    <div class="specimen-frame" style="max-width:300px">
+      <span class="source-item" style="cursor:default">
+        <input class="source-check" type="checkbox" disabled>
+        <svg class="icon"><use href="#i-doc"></use></svg>
+        <span class="source-text">
+          <span class="source-title">Board minutes, March 2024</span>
+          <span class="source-meta"><span class="status-dot"></span>Waiting to be read</span>
+        </span>
+      </span>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Reading</span>
+    <div class="specimen-frame" style="max-width:300px">
+      <span class="source-item" style="cursor:default">
+        <input class="source-check" type="checkbox" disabled>
+        <svg class="icon"><use href="#i-doc"></use></svg>
+        <span class="source-text">
+          <span class="source-title">Board minutes, March 2024</span>
+          <span class="source-meta"><span class="status-dot" data-state="processing"></span>Reading pages 12 of 31</span>
+          <span class="progress" style="margin-top:6px"><span class="progress-bar" style="width:39%"></span></span>
+        </span>
+      </span>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Failed</span>
+    <div class="specimen-frame" style="max-width:420px">
+      <div class="banner banner-danger">
+        <svg class="icon"><use href="#i-warning"></use></svg>
+        <span>
+          <span class="banner-title">Could not read Board minutes, March 2024</span>
+          <span class="banner-text">The file is password protected. Remove the protection and add it again.</span>
+        </span>
+        <span class="spacer"></span>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-refresh"></use></svg> Retry</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">No text layer</span>
+    <div class="specimen-frame" style="max-width:420px">
+      <div class="banner banner-notice">
+        <svg class="icon"><use href="#i-warning"></use></svg>
+        <span>
+          <span class="banner-title">Almost no readable text</span>
+          <span class="banner-text">This PDF looks like a scan. Answers cannot cite pages that hold no text.
+            Run it through OCR and add it again.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Instruction-like text</span>
+    <div class="specimen-frame" style="max-width:420px">
+      <div class="banner banner-notice">
+        <svg class="icon"><use href="#i-warning"></use></svg>
+        <span>
+          <span class="banner-title">This source addresses an AI assistant</span>
+          <span class="banner-text">Part of the text is written as instructions to a model. It is treated as
+            content to quote, never as an instruction to follow.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Truncated</span>
+    <div class="specimen-frame" style="max-width:420px">
+      <div class="banner">
+        <svg class="icon"><use href="#i-warning"></use></svg>
+        <span>
+          <span class="banner-title">Only the first part is indexed</span>
+          <span class="banner-text">The document exceeds the size a single source can hold. Answers use the
+            first 60,000 tokens. Split it to cover the rest.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">List loading</span>
+    <div class="specimen-frame" style="max-width:300px">
+      <div style="display:grid;gap:14px">
+        <div><div class="skeleton skeleton-line" style="width:82%"></div><div class="skeleton skeleton-line" style="width:44%;height:8px"></div></div>
+        <div><div class="skeleton skeleton-line" style="width:64%"></div><div class="skeleton skeleton-line" style="width:38%;height:8px"></div></div>
+        <div><div class="skeleton skeleton-line" style="width:74%"></div><div class="skeleton skeleton-line" style="width:40%;height:8px"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Chat</h2>
+
+  <div class="specimen">
+    <span class="specimen-label">Thinking</span>
+    <div class="specimen-frame">
+      <span class="thinking"><span class="spinner"></span> Reading 3 sources</span>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Streaming</span>
+    <div class="specimen-frame">
+      <div class="msg-body" style="font-family:var(--font-read);font-size:var(--fs-read);line-height:var(--lh-read)">
+        <p style="margin:0">Providers have to plan for what happens after the system is in use, not only
+          before it ships<span class="caret"></span></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Stopped</span>
+    <div class="specimen-frame">
+      <div class="msg-body" style="font-family:var(--font-read);font-size:var(--fs-read);line-height:var(--lh-read);margin-bottom:10px">
+        <p style="margin:0">Providers have to plan for what happens after the system is in use</p>
+      </div>
+      <div class="msg-foot">
+        <span>Stopped. The part above is kept and can be cited.</span>
+        <span style="flex:1"></span>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-refresh"></use></svg> Ask again</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Refusal</span>
+    <div class="specimen-frame">
+      <div class="msg-body" style="font-family:var(--font-read);font-size:var(--fs-read);line-height:var(--lh-read)">
+        <div class="refusal">
+          <p class="refusal-lead" style="margin:0 0 8px">The sources do not cover this.</p>
+          <p style="margin:0">What the sources do cover: provider obligations before and after market
+            placement, and the readiness gaps recorded in your internal memo.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Citation dropped</span>
+    <div class="specimen-frame" style="max-width:520px">
+      <div class="banner">
+        <svg class="icon"><use href="#i-warning"></use></svg>
+        <span>
+          <span class="banner-title">One citation was removed</span>
+          <span class="banner-text">A quoted passage did not match the stored source text, so it was dropped
+            rather than shown. The rest of the answer is unchanged.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Model error</span>
+    <div class="specimen-frame" style="max-width:520px">
+      <div class="banner banner-danger">
+        <svg class="icon"><use href="#i-warning"></use></svg>
+        <span>
+          <span class="banner-title">The answer could not be generated</span>
+          <span class="banner-text">The model did not respond in time. Your question is still in the box.</span>
+        </span>
+        <span class="spacer"></span>
+        <button class="btn" type="button">Try again</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Quota reached</span>
+    <div class="specimen-frame" style="max-width:520px">
+      <div class="banner banner-notice">
+        <svg class="icon"><use href="#i-warning"></use></svg>
+        <span>
+          <span class="banner-title">Daily limit reached</span>
+          <span class="banner-text">This demo allows 40 questions a day. The counter resets at midnight UTC.
+            Reports and mind maps still work.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Connection lost</span>
+    <div class="specimen-frame" style="max-width:520px">
+      <div class="banner banner-danger">
+        <svg class="icon"><use href="#i-warning"></use></svg>
+        <span>
+          <span class="banner-title">Connection lost</span>
+          <span class="banner-text">Reconnecting. Nothing you typed is lost.</span>
+        </span>
+        <span class="spacer"></span>
+        <span class="spinner"></span>
+      </div>
+    </div>
+  </div>
+
+  <h2>Studio</h2>
+
+  <div class="specimen">
+    <span class="specimen-label">Report generating</span>
+    <div class="specimen-frame" style="max-width:340px">
+      <span class="studio-item" style="cursor:default">
+        <svg class="icon"><use href="#i-report"></use></svg>
+        <span>
+          <span class="studio-item-title">Briefing Doc</span>
+          <span class="studio-item-meta">Writing section 3 of 6</span>
+        </span>
+        <span class="spinner"></span>
+      </span>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Audio generating</span>
+    <div class="specimen-frame" style="max-width:340px">
+      <span class="studio-item" style="cursor:default">
+        <svg class="icon"><use href="#i-audio"></use></svg>
+        <span>
+          <span class="studio-item-title">Deep Dive conversation</span>
+          <span class="studio-item-meta">Recording the voices, about 2 minutes left</span>
+        </span>
+        <span class="spinner"></span>
+      </span>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Report failed</span>
+    <div class="specimen-frame" style="max-width:340px">
+      <span class="studio-item" style="cursor:default;border-color:var(--danger);background:var(--danger-wash)">
+        <svg class="icon" style="color:var(--danger)"><use href="#i-warning"></use></svg>
+        <span>
+          <span class="studio-item-title">Study Guide</span>
+          <span class="studio-item-meta">Could not be written. Nothing was saved.</span>
+        </span>
+        <button class="icon-btn" type="button" aria-label="Retry"><svg class="icon"><use href="#i-refresh"></use></svg></button>
+      </span>
+    </div>
+  </div>
+
+  <h2>Empty</h2>
+
+  <div class="specimen">
+    <span class="specimen-label">No notebooks</span>
+    <div class="specimen-frame">
+      <div class="empty">
+        <span class="empty-title">No notebooks yet</span>
+        <span class="empty-text">A notebook holds your sources and everything built from them.</span>
+        <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-plus"></use></svg> Create new notebook</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">No search results</span>
+    <div class="specimen-frame">
+      <div class="empty">
+        <span class="empty-title">Nothing matches "contract"</span>
+        <span class="empty-text">Search covers notebook titles only, not the text inside your sources.</span>
+        <button class="btn" type="button">Clear search</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">No reports</span>
+    <div class="specimen-frame" style="max-width:340px">
+      <div class="studio-empty">No reports yet. Pick a format above and one is written from the sources you
+        have selected.</div>
+    </div>
+  </div>
+
+  <h2>Page loading</h2>
+
+  <div class="specimen">
+    <span class="specimen-label">Notebook cards</span>
+    <div class="specimen-frame">
+      <ul class="grid-notebooks" style="grid-template-columns:repeat(3,1fr)">
+        <li><div class="notebook-card"><div class="skeleton" style="width:22px;height:22px;border-radius:6px"></div><div class="skeleton skeleton-line" style="width:78%;height:14px"></div><div class="skeleton skeleton-line" style="width:46%;height:9px;margin-top:auto"></div></div></li>
+        <li><div class="notebook-card"><div class="skeleton" style="width:22px;height:22px;border-radius:6px"></div><div class="skeleton skeleton-line" style="width:62%;height:14px"></div><div class="skeleton skeleton-line" style="width:52%;height:9px;margin-top:auto"></div></div></li>
+        <li><div class="notebook-card"><div class="skeleton" style="width:22px;height:22px;border-radius:6px"></div><div class="skeleton skeleton-line" style="width:70%;height:14px"></div><div class="skeleton skeleton-line" style="width:40%;height:9px;margin-top:auto"></div></div></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="specimen">
+    <span class="specimen-label">Report body</span>
+    <div class="specimen-frame">
+      <div class="skeleton skeleton-line" style="width:52%;height:20px;margin-bottom:16px"></div>
+      <div class="skeleton skeleton-line" style="width:100%"></div>
+      <div class="skeleton skeleton-line" style="width:96%"></div>
+      <div class="skeleton skeleton-line" style="width:88%"></div>
+      <div class="skeleton skeleton-line" style="width:34%"></div>
+    </div>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

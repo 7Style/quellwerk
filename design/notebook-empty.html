@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Untitled notebook - Quellwerk</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="wordmark" href="index.html">Quellwerk</a>
+  <span class="topbar-divider"></span>
+  <div class="notebook-id">
+    <span class="notebook-emoji">&#128196;</span>
+    <input class="notebook-name" value="Untitled notebook" aria-label="Notebook title">
+  </div>
+  <span class="topbar-spacer"></span>
+  <span class="topbar-meta">Created just now</span>
+  <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+    <svg class="icon"><use href="#i-moon"></use></svg>
+  </button>
+</header>
+
+<main class="workspace" data-sources="expanded" data-studio="expanded">
+
+  <!-- ------------------------------------------------------------ sources -->
+  <aside class="col col-sources" id="panel-sources" data-collapsed="false">
+    <div class="panel-head">
+      <h2 class="panel-title">Sources</h2>
+      <span class="panel-count">0</span>
+      <span class="spacer"></span>
+      <button class="icon-btn" type="button" data-collapse="sources" aria-expanded="true" aria-label="Collapse sources">
+        <svg class="icon"><use href="#i-chevronLeft"></use></svg>
+      </button>
+    </div>
+    <div class="rail">
+      <button class="icon-btn" type="button" data-collapse="sources" aria-label="Expand sources">
+        <svg class="icon"><use href="#i-chevronRight"></use></svg>
+      </button>
+      <span class="rail-label">Sources</span>
+      <span class="rail-count">0</span>
+    </div>
+    <div class="source-pane" data-source-list>
+      <div class="panel-body">
+        <div class="empty">
+          <svg class="icon icon-lg" style="color:var(--ink-faint)"><use href="#i-doc"></use></svg>
+          <span class="empty-title">No sources yet</span>
+          <span class="empty-text">Add a PDF, a web page or pasted text. Everything the notebook answers
+            comes from what you add here.</span>
+        </div>
+      </div>
+      <div class="panel-foot">
+        <button class="btn btn-primary btn-block" type="button" data-dialog-open="dlg-add-sources">
+          <svg class="icon"><use href="#i-plus"></use></svg>
+          Add source
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- --------------------------------------------------------------- chat -->
+  <section class="col col-chat">
+    <div class="chat-scroll">
+      <div class="thread">
+        <div class="empty" style="padding-top:18vh">
+          <span class="empty-title">Add a source to start asking</span>
+          <span class="empty-text">Quellwerk answers only from the sources in this notebook. Once a source is
+            ready, its suggested questions appear here.</span>
+          <button class="btn btn-primary" type="button" data-dialog-open="dlg-add-sources">
+            <svg class="icon"><use href="#i-plus"></use></svg>
+            Add source
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="composer-wrap">
+      <div class="composer">
+        <div class="composer-box">
+          <textarea class="composer-input" rows="1" placeholder="Add a source first" disabled></textarea>
+          <button class="send-btn" type="button" disabled aria-label="Send">
+            <svg class="icon"><use href="#i-send"></use></svg>
+          </button>
+        </div>
+        <div class="composer-meta">
+          <span>No sources selected</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- studio -->
+  <aside class="col col-studio" id="panel-studio" data-collapsed="false">
+    <div class="panel-head">
+      <button class="icon-btn" type="button" data-collapse="studio" aria-expanded="true" aria-label="Collapse studio">
+        <svg class="icon"><use href="#i-chevronRight"></use></svg>
+      </button>
+      <h2 class="panel-title">Studio</h2>
+      <span class="spacer"></span>
+    </div>
+    <div class="rail">
+      <button class="icon-btn" type="button" data-collapse="studio" aria-label="Expand studio">
+        <svg class="icon"><use href="#i-chevronLeft"></use></svg>
+      </button>
+      <span class="rail-label">Studio</span>
+    </div>
+    <div class="panel-body">
+      <div class="studio-body">
+        <div class="studio-empty">Audio Overview, mind map and reports become available once a source is
+          ready. They are built from the sources, so there is nothing to build yet.</div>
+      </div>
+    </div>
+  </aside>
+
+</main>
+
+<!-- ------------------------------------------------------------- dialogs -->
+<dialog class="dialog" id="dlg-add-sources">
+  <form method="dialog">
+    <div class="dialog-head">
+      <h2 class="dialog-title">Add sources</h2>
+      <span class="spacer"></span>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><svg class="icon"><use href="#i-close"></use></svg></button>
+    </div>
+    <div class="dialog-body">
+      <div class="tabs" role="tablist">
+        <button class="tab" type="button" role="tab" aria-selected="true" aria-controls="tab-upload">Upload</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="tab-link">Link</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="tab-paste">Paste text</button>
+      </div>
+      <div id="tab-upload" data-tabpanel>
+        <div class="dropzone">
+          <svg class="icon icon-lg" style="color:var(--ink-faint)"><use href="#i-doc"></use></svg>
+          <strong>Drop files here</strong>
+          <span class="dropzone-hint">PDF, TXT, Markdown or DOCX, up to 50 MB each</span>
+          <button class="btn" type="button">Choose files</button>
+        </div>
+      </div>
+      <div id="tab-link" data-tabpanel hidden>
+        <div class="field">
+          <label class="label" for="src-url">Web page or YouTube URL</label>
+          <input class="input" id="src-url" type="url" placeholder="https://">
+          <span class="hint">The page is fetched once and stored as text. It is not re-fetched later.</span>
+        </div>
+      </div>
+      <div id="tab-paste" data-tabpanel hidden>
+        <div class="field">
+          <label class="label" for="src-text">Text</label>
+          <textarea class="textarea" id="src-text" rows="7" placeholder="Paste the text you want to ask questions about"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <span class="hint">4 of 50 sources used</span>
+      <span class="spacer"></span>
+      <button class="btn" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">Add</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dialog" id="dlg-configure-chat">
+  <form method="dialog">
+    <div class="dialog-head">
+      <h2 class="dialog-title">Configure chat</h2>
+      <span class="spacer"></span>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><svg class="icon"><use href="#i-close"></use></svg></button>
+    </div>
+    <div class="dialog-body">
+      <div class="field">
+        <span class="label">Conversation style</span>
+        <div class="seg">
+          <label class="seg-option"><input type="radio" name="style" checked> Default</label>
+          <label class="seg-option"><input type="radio" name="style"> Learning guide</label>
+          <label class="seg-option"><input type="radio" name="style"> Custom</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="cfg-custom">Custom instructions</label>
+        <textarea class="textarea" id="cfg-custom" maxlength="500" rows="4" placeholder="Answer as a compliance officer would brief a board: short, concrete, no jargon."></textarea>
+        <span class="counter" data-counter-for="cfg-custom">0 / 500</span>
+        <span class="hint">Instructions shape tone and focus. They never loosen the rule that answers come from your sources.</span>
+      </div>
+      <div class="field">
+        <span class="label">Response length</span>
+        <div class="seg">
+          <label class="seg-option"><input type="radio" name="length"> Shorter</label>
+          <label class="seg-option"><input type="radio" name="length" checked> Default</label>
+          <label class="seg-option"><input type="radio" name="length"> Longer</label>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-quiet" type="button">Reset to default</button>
+      <span class="spacer"></span>
+      <button class="btn" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="application/json" id="qw-citations">
+{
+  "c1": { "sourceId": "s2", "sourceTitle": "Commission Q&A on high-risk AI systems", "start": 4120, "end": 4198,
+    "before": "Before a high-risk AI system is placed on the market or put into service, ",
+    "cited": "providers must establish, implement, document and maintain a risk management system",
+    "after": " and keep it current for as long as the system remains available." },
+  "c2": { "sourceId": "s1", "sourceTitle": "Regulation (EU) 2024/1689, Chapter III (excerpt)", "start": 18242, "end": 18310,
+    "before": "The risk management system shall be understood as a continuous iterative process planned and run ",
+    "cited": "throughout the entire lifecycle of the high-risk AI system",
+    "after": ", requiring regular systematic review and updating." },
+  "c3": { "sourceId": "s1", "sourceTitle": "Regulation (EU) 2024/1689, Chapter III (excerpt)", "start": 21004, "end": 21077,
+    "before": "High-risk AI systems which make use of techniques involving the training of AI models shall be developed on the basis of data sets that meet the quality criteria set out below. ",
+    "cited": "Training, validation and testing data sets shall be relevant, sufficiently representative",
+    "after": ", and to the best extent possible free of errors and complete in view of the intended purpose." },
+  "c4": { "sourceId": "s2", "sourceTitle": "Commission Q&A on high-risk AI systems", "start": 6610, "end": 6688,
+    "before": "In addition, the ",
+    "cited": "technical documentation shall be drawn up before the system is placed on the market",
+    "after": " and kept at the disposal of national competent authorities for ten years afterwards." },
+  "c5": { "sourceId": "s3", "sourceTitle": "Internal memo: readiness gaps in the triage model", "start": 880, "end": 957,
+    "before": "Documentation is partly in place: we have a model card and an evaluation report, but ",
+    "cited": "we have no documented post-market monitoring plan for the triage model",
+    "after": " and no owner assigned for incident reporting." }
+}
+</script>
+
+<script src="app.js"></script>
+</body>
+</html>

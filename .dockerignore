@@ -26,6 +26,7 @@ docs
 hack
 e2e
 deployment
+design
 
 # Dependencies (installed in the image from the lockfile)
 **/node_modules

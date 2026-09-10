@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Quellwerk</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-scroll">
+
+<header class="topbar">
+  <a class="wordmark" href="index.html">Quellwerk</a>
+  <span class="topbar-spacer"></span>
+  <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+    <svg class="icon"><use href="#i-moon"></use></svg>
+  </button>
+</header>
+
+<main class="home">
+  <div class="home-inner">
+
+    <div class="home-head">
+      <div>
+        <h1 class="home-title">Your notebooks</h1>
+        <p class="home-sub">Ask questions about documents you added yourself. Every sentence in an
+          answer carries the passage it came from, and you can open that passage in one click.</p>
+      </div>
+      <button class="btn btn-primary btn-lg" type="button">
+        <svg class="icon"><use href="#i-plus"></use></svg>
+        Create new notebook
+      </button>
+    </div>
+
+    <div class="home-toolbar">
+      <label class="visually-hidden" for="home-search">Search notebooks</label>
+      <div style="position:relative;width:260px">
+        <svg class="icon" style="position:absolute;left:10px;top:9px;color:var(--ink-faint)"><use href="#i-search"></use></svg>
+        <input class="input" id="home-search" type="search" placeholder="Search notebooks" style="padding-left:32px;height:32px">
+      </div>
+      <span class="spacer"></span>
+      <label class="visually-hidden" for="home-sort">Sort by</label>
+      <select class="select" id="home-sort" style="width:auto;height:32px;padding-right:28px">
+        <option>Most recent</option>
+        <option>Title</option>
+        <option>Most sources</option>
+      </select>
+    </div>
+
+    <ul class="grid-notebooks">
+      <li>
+        <button class="notebook-card card-create" type="button">
+          <svg class="icon icon-lg"><use href="#i-plus"></use></svg>
+          Create new notebook
+        </button>
+      </li>
+      <li>
+        <a class="notebook-card" href="notebook.html">
+          <span class="notebook-card-emoji">&#9878;</span>
+          <h2 class="notebook-card-title">EU AI Act obligations</h2>
+          <span class="notebook-card-meta">4 sources<span class="status-dot"></span>Updated 2 hours ago</span>
+        </a>
+      </li>
+      <li>
+        <a class="notebook-card" href="notebook.html">
+          <span class="notebook-card-emoji">&#127973;</span>
+          <h2 class="notebook-card-title">Clinical trial protocols, phase II</h2>
+          <span class="notebook-card-meta">11 sources<span class="status-dot"></span>Updated yesterday</span>
+        </a>
+      </li>
+      <li>
+        <a class="notebook-card" href="notebook.html">
+          <span class="notebook-card-emoji">&#128202;</span>
+          <h2 class="notebook-card-title">Q3 board reporting pack</h2>
+          <span class="notebook-card-meta">6 sources<span class="status-dot"></span>Updated 4 days ago</span>
+        </a>
+      </li>
+      <li>
+        <a class="notebook-card" href="notebook.html">
+          <span class="notebook-card-emoji">&#128220;</span>
+          <h2 class="notebook-card-title">Supplier contracts 2023-2025</h2>
+          <span class="notebook-card-meta">23 sources<span class="status-dot"></span>Updated last week</span>
+        </a>
+      </li>
+      <li>
+        <a class="notebook-card" href="notebook-empty.html">
+          <span class="notebook-card-emoji">&#128196;</span>
+          <h2 class="notebook-card-title">Untitled notebook</h2>
+          <span class="notebook-card-meta">No sources yet<span class="status-dot"></span>Created just now</span>
+        </a>
+      </li>
+    </ul>
+
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
