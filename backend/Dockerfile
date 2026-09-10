@@ -3,7 +3,7 @@
 # Backend production image (multi-stage, pnpm workspace)
 #
 # Build context is the REPOSITORY ROOT:
-#   docker build -f backend/Dockerfile -t bp-backend .
+#   docker build -f backend/Dockerfile -t quellwerk-backend .
 #
 # Only the files needed for the build are copied (never node_modules, .env,
 # dist or logs), so the image cannot pick up local secrets or artefacts.
@@ -31,7 +31,7 @@ COPY backend/package.json backend/
 COPY backend/prisma.config.ts backend/
 COPY backend/prisma backend/prisma
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter bp-monolith-backend...
+    pnpm install --frozen-lockfile --filter @quellwerk/backend...
 
 # ------------------------------------------------------------------------------
 # Build: prisma generate + tsc, then a pruned production deployment
@@ -40,9 +40,9 @@ FROM deps AS build
 COPY backend/tsconfig.json backend/
 COPY backend/app backend/app
 # Explicit generate as well: the client must match the schema in this layer
-RUN pnpm --filter bp-monolith-backend exec prisma generate \
-    && pnpm --filter bp-monolith-backend run build \
-    && pnpm --filter bp-monolith-backend deploy --prod /out
+RUN pnpm --filter @quellwerk/backend exec prisma generate \
+    && pnpm --filter @quellwerk/backend run build \
+    && pnpm --filter @quellwerk/backend deploy --prod /out
 
 # ------------------------------------------------------------------------------
 # Runtime: no build toolchain, no dev dependencies, non-root user

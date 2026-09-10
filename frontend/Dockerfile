@@ -27,7 +27,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY frontend/package.json ./frontend/
 
-RUN pnpm install --frozen-lockfile --filter bp-monolith-frontend...
+RUN pnpm install --frozen-lockfile --filter @quellwerk/frontend...
 
 COPY frontend ./frontend
 
@@ -39,7 +39,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME \
     NEXT_PUBLIC_APP_DESCRIPTION=$NEXT_PUBLIC_APP_DESCRIPTION
 
-RUN pnpm --filter bp-monolith-frontend run build
+RUN pnpm --filter @quellwerk/frontend run build
 
 # ---------------------------------------------------------------------------
 # Runner: only the standalone output, static assets and public/

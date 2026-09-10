@@ -11,7 +11,7 @@ if (existsSync(envFile)) {
 }
 
 /**
- * Playwright configuration for the bp-monolith E2E tests
+ * Playwright configuration for the quellwerk E2E tests
  * @see https://playwright.dev/docs/test-configuration
  *
  * The suite runs on ONE worker, files and tests in order: the backend's login

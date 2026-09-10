@@ -2,7 +2,7 @@
  * Database Seed Entry Point - 7Style Boilerplate Monolith
  *
  * Seeds the database with essential data for the boilerplate.
- * Run with: pnpm --filter bp-monolith-backend run prisma:seed
+ * Run with: pnpm --filter @quellwerk/backend run prisma:seed
  *
  * Seeding is refused in production. The admin password comes from
  * SEED_ADMIN_PASSWORD (see backend/example.env).

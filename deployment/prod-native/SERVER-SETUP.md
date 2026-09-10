@@ -23,8 +23,8 @@ Backend über `HOST=127.0.0.1` (beides in der Compose-Datei gesetzt). UFW (nur
 apt-get install -y postgresql-17 postgresql-client-17
 
 PG_PW=$(openssl rand -hex 24)
-sudo -u postgres psql -c "CREATE USER bp_user WITH PASSWORD '$PG_PW';"
-sudo -u postgres psql -c "CREATE DATABASE bp_monolith OWNER bp_user;"
+sudo -u postgres psql -c "CREATE USER quellwerk_user WITH PASSWORD '$PG_PW';"
+sudo -u postgres psql -c "CREATE DATABASE quellwerk OWNER quellwerk_user;"
 ```
 
 Prüfen, dass nur 127.0.0.1 gebunden ist:
@@ -64,9 +64,9 @@ Verdrängen der Schlüssel würde die Limits aufheben.
 `.env` im Repo-Root (Vorlage `example.env`):
 
 ```
-POSTGRES_USER=bp_user
+POSTGRES_USER=quellwerk_user
 POSTGRES_PASSWORD=<PG_PW>
-POSTGRES_DB=bp_monolith
+POSTGRES_DB=quellwerk
 REDIS_PASSWORD=<REDIS_PW>
 NEXT_PUBLIC_API_URL=https://bp-prod.7style.net
 BACKEND_PORT=3011
@@ -92,9 +92,9 @@ Der Entrypoint führt `prisma migrate deploy` aus. Seeds sind mit
 `NODE_ENV=production` gesperrt; den ersten Admin einmalig anlegen mit
 
 ```bash
-DATABASE_URL='postgresql://bp_user:<PG_PW>@127.0.0.1:5432/bp_monolith' \
+DATABASE_URL='postgresql://quellwerk_user:<PG_PW>@127.0.0.1:5432/quellwerk' \
 SEED_ADMIN_PASSWORD='...' NODE_ENV=development \
-pnpm --filter bp-monolith-backend run prisma:seed
+pnpm --filter @quellwerk/backend run prisma:seed
 ```
 
 ## 6. Nginx auf dem Host

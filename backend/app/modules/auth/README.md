@@ -78,8 +78,8 @@ zod-Schemas, keine Decorators.
 ## Tests
 
 ```bash
-pnpm --filter bp-monolith-backend run test          # alle Tests
-pnpm --filter bp-monolith-backend exec jest app/modules/auth
+pnpm --filter @quellwerk/backend run test          # alle Tests
+pnpm --filter @quellwerk/backend exec jest app/modules/auth
 ```
 
 Tests liegen in `_tests_/` (Jest 30, `@jest/globals`), das Setup

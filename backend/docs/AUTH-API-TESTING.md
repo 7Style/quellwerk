@@ -241,7 +241,7 @@ echo $ACCESS_TOKEN | cut -d'.' -f2 | base64 -d | jq '.'
   "iat": 1704103200,
   "exp": 1704104100,
   "iss": "auth-module",
-  "aud": "bp-monolith"
+  "aud": "quellwerk"
 }
 ```
 

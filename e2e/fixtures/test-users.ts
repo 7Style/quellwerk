@@ -5,7 +5,7 @@
  * variables (e2e/.env is loaded by playwright.config.ts, see e2e/.env.example):
  *
  *   - admin:            always seeded. E-mail from SEED_ADMIN_EMAIL (seed default
- *                       admin@bp-monolith.local), password TEST_ADMIN_PASSWORD,
+ *                       admin@quellwerk.local), password TEST_ADMIN_PASSWORD,
  *                       falling back to SEED_ADMIN_PASSWORD.
  *   - moderator / user: demo accounts, only seeded with SEED_DEMO_USERS=true.
  *                       E-mails moderator@<domain> and user@<domain>, where <domain>
@@ -27,7 +27,7 @@ export interface TestUser {
 }
 
 /** Default of SEED_ADMIN_EMAIL in backend/app/config/env.config.ts */
-const SEED_DEFAULT_ADMIN_EMAIL = 'admin@bp-monolith.local';
+const SEED_DEFAULT_ADMIN_EMAIL = 'admin@quellwerk.local';
 
 const seedAdminEmail = process.env.SEED_ADMIN_EMAIL || SEED_DEFAULT_ADMIN_EMAIL;
 /** The seed derives the demo accounts from the admin's domain (users.seed.ts) */

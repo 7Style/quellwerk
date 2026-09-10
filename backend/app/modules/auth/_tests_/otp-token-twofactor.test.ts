@@ -357,8 +357,8 @@ describe('AuthService.refreshToken & TokenService', () => {
 
     const access = await tokenService.verifyAccessToken(pair.accessToken);
     expect(access.sub).toBe('7');
-    expect(access.iss).toBe('bp-monolith');
-    expect(access.aud).toBe('bp-monolith-api');
+    expect(access.iss).toBe('quellwerk');
+    expect(access.aud).toBe('quellwerk-api');
 
     const refresh = await tokenService.verifyRefreshToken(pair.refreshToken);
     expect(refresh.sub).toBe('7');

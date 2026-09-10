@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Security Check -- bp-monolith
+# Security Check -- quellwerk
 # ==============================================================================
 # Prüft Compose-Dateien, Code, Workflows und Umgebungsdateien auf bekannte
 # Sicherheitsfehler. Exit 1 bei mindestens einem Befund (FAIL).
@@ -60,7 +60,7 @@ CODE_FILES=$(list_matching '^backend/app/.*\.ts$' | grep -v -E '\.(test|spec)\.t
 WORKFLOW_FILES=$(list_matching '^\.github/workflows/.*\.ya?ml$')
 
 echo "=============================================="
-echo " Security Check -- bp-monolith ($MODE)"
+echo " Security Check -- quellwerk ($MODE)"
 echo "=============================================="
 echo ""
 

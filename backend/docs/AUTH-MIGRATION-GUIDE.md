@@ -18,7 +18,7 @@ The new auth system implements:
 Run the migration to add new tables:
 
 ```bash
-pnpm --filter bp-monolith-backend exec prisma migrate dev --name add_secure_token_tables
+pnpm --filter @quellwerk/backend exec prisma migrate dev --name add_secure_token_tables
 ```
 
 This will create:
@@ -35,7 +35,7 @@ Add these to your `.env` file:
 JWT_SECRET=your-super-secret-key-min-32-chars
 JWT_REFRESH_SECRET=your-refresh-secret-key-min-32-chars
 JWT_ISSUER=auth-module
-JWT_AUDIENCE=bp-monolith
+JWT_AUDIENCE=quellwerk
 
 # Token Expiry
 JWT_EXPIRES_IN=15m
@@ -47,7 +47,7 @@ JWT_REFRESH_EXPIRES_IN=7d
 Ensure roles and permissions are properly seeded:
 
 ```bash
-SEED_ADMIN_PASSWORD='...' pnpm --filter bp-monolith-backend run prisma:seed
+SEED_ADMIN_PASSWORD='...' pnpm --filter @quellwerk/backend run prisma:seed
 ```
 
 ### 4. Update Auth Module Initialization
@@ -68,7 +68,7 @@ const authModule = new AuthModule({
   refreshSecret: process.env.JWT_REFRESH_SECRET,
   refreshExpiresIn: '7d',
   jwtIssuer: 'auth-module',
-  jwtAudience: 'bp-monolith',
+  jwtAudience: 'quellwerk',
   
   // Other settings...
 });
@@ -233,7 +233,7 @@ Add monitoring for:
 
 For issues during migration:
 1. Check logs: `tail -f logs/auth-module.log`
-2. Verify database state: `pnpm --filter bp-monolith-backend exec prisma studio`
+2. Verify database state: `pnpm --filter @quellwerk/backend exec prisma studio`
 3. Test with curl commands from AUTH-API-TESTING.md
 
 

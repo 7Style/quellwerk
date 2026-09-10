@@ -16,7 +16,7 @@ Seed files for the initial data of the boilerplate. Entry point: `../seed.ts`
 
 ```bash
 # On the host (reads backend/.env; NODE_ENV must not be production)
-SEED_ADMIN_PASSWORD='...' pnpm --filter bp-monolith-backend run prisma:seed
+SEED_ADMIN_PASSWORD='...' pnpm --filter @quellwerk/backend run prisma:seed
 
 # In docker compose: SEED_ON_START=true plus the SEED_* variables in the root .env
 ```
@@ -31,7 +31,7 @@ There are no built-in passwords. Every password comes from the environment
 
 | Role | E-mail | Password | Created |
 |------|--------|----------|---------|
-| SUPER_ADMIN | `SEED_ADMIN_EMAIL` (default `admin@bp-monolith.local`) | `SEED_ADMIN_PASSWORD` (required, min 12 characters) | always |
+| SUPER_ADMIN | `SEED_ADMIN_EMAIL` (default `admin@quellwerk.local`) | `SEED_ADMIN_PASSWORD` (required, min 12 characters) | always |
 | MODERATOR | `moderator@<domain>` | `SEED_DEMO_PASSWORD` | only with `SEED_DEMO_USERS=true` |
 | USER | `user@<domain>` | `SEED_DEMO_PASSWORD` | only with `SEED_DEMO_USERS=true` |
 | USER (inactive) | `inactive@<domain>` | `SEED_DEMO_PASSWORD` | only with `SEED_DEMO_USERS=true` |
@@ -73,9 +73,9 @@ export async function seedYourModule(prisma: PrismaClient): Promise<void> {
 ```bash
 # Drop, migrate and re-seed (development only, deletes all data). The reset
 # runs the seed (prisma.config.ts migrations.seed), so the admin password is required:
-SEED_ADMIN_PASSWORD='...' pnpm --filter bp-monolith-backend run db:reset
+SEED_ADMIN_PASSWORD='...' pnpm --filter @quellwerk/backend run db:reset
 
 # Or step by step
-pnpm --filter bp-monolith-backend exec prisma migrate reset --force
-SEED_ADMIN_PASSWORD='...' pnpm --filter bp-monolith-backend run prisma:seed
+pnpm --filter @quellwerk/backend exec prisma migrate reset --force
+SEED_ADMIN_PASSWORD='...' pnpm --filter @quellwerk/backend run prisma:seed
 ```

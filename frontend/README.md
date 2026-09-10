@@ -1,4 +1,4 @@
-# Frontend (`bp-monolith-frontend`)
+# Frontend (`@quellwerk/frontend`)
 
 Next.js 16 (App Router, Standalone-Output), React 19, Redux Toolkit mit
 RTK Query, Tailwind 4, TypeScript 6. Paket des pnpm-Workspace im Repo-Root;
@@ -9,8 +9,8 @@ Regeln in `docs/rules/FRONTEND-RULES.md`.
 ```bash
 pnpm install                                            # im Repo-Root
 docker compose up -d db redis                           # Backend-Abhängigkeiten
-pnpm --filter bp-monolith-backend run dev               # API auf http://localhost:3011
-pnpm --filter bp-monolith-frontend run dev -p 3010      # http://localhost:3010
+pnpm --filter @quellwerk/backend run dev               # API auf http://localhost:3011
+pnpm --filter @quellwerk/frontend run dev -p 3010      # http://localhost:3010
 ```
 
 | Skript                   | Was                                                           |
@@ -22,7 +22,7 @@ pnpm --filter bp-monolith-frontend run dev -p 3010      # http://localhost:3010
 | `lint`                   | `eslint .` (ESLint 9, siehe Kommentar in `eslint.config.mjs`) |
 | `format`, `format:check` | Prettier mit `prettier-plugin-tailwindcss`                    |
 
-Aufruf immer über `pnpm --filter bp-monolith-frontend run <skript>`.
+Aufruf immer über `pnpm --filter @quellwerk/frontend run <skript>`.
 
 ## Umgebungsvariablen
 
@@ -34,7 +34,7 @@ Laufzeit-`environment` ändert nichts mehr.
 | Variable                      | Bedeutung                                                                                                                                                                                                                 |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_API_URL`         | Backend-Origin ohne `/api`-Suffix (`src/lib/api.ts`). Development: Fallback `http://localhost:3011`. Production: kein Fallback, ein fehlender Wert bedeutet gleicher Origin und wird einmal per `console.error` gemeldet. |
-| `NEXT_PUBLIC_APP_NAME`        | Anzeigename (`src/lib/app.ts`: Metadata, Login- und Dashboard-Seite), Default `bp-monolith`                                                                                                                               |
+| `NEXT_PUBLIC_APP_NAME`        | Anzeigename (`src/lib/app.ts`: Metadata, Login- und Dashboard-Seite), Default `quellwerk`                                                                                                                               |
 | `NEXT_PUBLIC_APP_DESCRIPTION` | Beschreibung (Metadata), Default leer                                                                                                                                                                                     |
 
 Keine Secrets in `NEXT_PUBLIC_*`: alles darin ist öffentlich.
@@ -68,7 +68,7 @@ Ablauf im README des Repo-Roots, Abschnitt "e2e-Tests".
 ## Docker
 
 ```bash
-docker build -f frontend/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://localhost:3011 -t bp-frontend .
+docker build -f frontend/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://localhost:3011 -t quellwerk-frontend .
 ```
 
 Build-Kontext ist das Repo-Root (`.dockerignore` dort); der Runner startet

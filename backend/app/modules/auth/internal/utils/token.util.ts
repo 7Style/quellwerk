@@ -29,8 +29,8 @@ export interface TokenConfig {
 }
 
 /** Issuer/audience defaults shared by every token implementation of the module */
-export const DEFAULT_JWT_ISSUER = 'bp-monolith';
-export const DEFAULT_JWT_AUDIENCE = 'bp-monolith-api';
+export const DEFAULT_JWT_ISSUER = 'quellwerk';
+export const DEFAULT_JWT_AUDIENCE = 'quellwerk-api';
 /** Only HS256 is ever accepted */
 export const JWT_ALGORITHM: jwt.Algorithm = 'HS256';
 export const TEMP_2FA_TOKEN_TYPE = 'temp_2fa';

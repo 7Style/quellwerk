@@ -1,7 +1,7 @@
 name: bp-prod
 
 # ==============================================================================
-# bp-monolith - PROD-Server (Domain bp-prod.7style.net, Let's Encrypt)
+# quellwerk - PROD-Server (Domain bp-prod.7style.net, Let's Encrypt)
 # ==============================================================================
 # Nur Nginx hat Host-Ports (80/443). Postgres und Redis haben gar keine Ports.
 # Keine Default-Passwörter: fehlt eine Variable, bricht Compose ab.
@@ -103,7 +103,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3011
-      APP_NAME: ${APP_NAME:-bp-monolith}
+      APP_NAME: ${APP_NAME:-quellwerk}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       UPLOAD_DIR: /usr/src/app/uploads
@@ -139,7 +139,7 @@ services:
         # Laufzeit wäre es wirkungslos. Origin ohne /api-Suffix: die
         # Frontend-Endpunkte tragen /api selbst.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL fehlt (z. B. https://bp-prod.7style.net)}
-        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-bp-monolith}
+        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-quellwerk}
         NEXT_PUBLIC_APP_DESCRIPTION: ${APP_DESCRIPTION:-}
     container_name: bp-prod-frontend
     environment:

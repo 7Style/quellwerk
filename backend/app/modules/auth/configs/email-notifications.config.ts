@@ -39,7 +39,7 @@ export interface AuthEmailNotificationsOverrides {
   subjects?: Partial<Record<TemplateKey, string | undefined>>;
 }
 
-const DEFAULT_APP_NAME = 'bp-monolith';
+const DEFAULT_APP_NAME = 'quellwerk';
 
 /** Default subjects and expiries for a given application name */
 function defaultTemplates(appName: string): Record<TemplateKey, TemplateConfig> {
@@ -80,10 +80,10 @@ function defaultTemplates(appName: string): Record<TemplateKey, TemplateConfig> 
 
 export const authEmailNotificationsConfig: AuthEmailNotificationsConfig = {
   appName: DEFAULT_APP_NAME,
-  from: 'no-reply@bp-monolith.local',
+  from: 'no-reply@quellwerk.local',
   urls: {
     frontend: 'http://localhost:3010',
-    support: 'support@bp-monolith.local',
+    support: 'support@quellwerk.local',
   },
   templates: defaultTemplates(DEFAULT_APP_NAME),
 };

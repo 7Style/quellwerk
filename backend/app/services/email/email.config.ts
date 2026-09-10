@@ -15,7 +15,7 @@ const environment: Environment = env.NODE_ENV;
 // product name from another project.
 const appName = env.APP_NAME;
 const fromName = env.EMAIL_FROM_NAME ?? appName;
-const fromAddress = env.EMAIL_FROM_ADDRESS ?? env.EMAIL_FROM ?? 'noreply@bp-monolith.local';
+const fromAddress = env.EMAIL_FROM_ADDRESS ?? env.EMAIL_FROM ?? 'noreply@quellwerk.local';
 
 export const emailConfig = {
   // Environment
@@ -100,7 +100,7 @@ export const emailConfig = {
   // Application URLs
   urls: {
     frontend: env.FRONTEND_URL,
-    support: env.SUPPORT_EMAIL ?? 'support@bp-monolith.local',
+    support: env.SUPPORT_EMAIL ?? 'support@quellwerk.local',
   },
 
   // Development settings

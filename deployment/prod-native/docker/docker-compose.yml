@@ -1,7 +1,7 @@
 name: bp-prod-native
 
 # ==============================================================================
-# bp-monolith - PROD mit nativen Datenbanken (Option B)
+# quellwerk - PROD mit nativen Datenbanken (Option B)
 # ==============================================================================
 # Postgres und Redis laufen nativ auf dem Host (nur 127.0.0.1), Docker nur für
 # Backend und Frontend. Beide Container nutzen network_mode: host und binden
@@ -44,7 +44,7 @@ services:
       PORT: ${BACKEND_PORT:-3011}
       # Host-Netz: nur loopback binden, öffentlich ist allein der Host-Nginx
       HOST: 127.0.0.1
-      APP_NAME: ${APP_NAME:-bp-monolith}
+      APP_NAME: ${APP_NAME:-quellwerk}
       # Native Dienste auf dem Host, nicht im Docker-Netz
       DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER fehlt}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}@127.0.0.1:5432/${POSTGRES_DB:?POSTGRES_DB fehlt}
       REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD fehlt}@127.0.0.1:6379
@@ -74,7 +74,7 @@ services:
         # Laufzeit wäre es wirkungslos. Origin ohne /api-Suffix: die
         # Frontend-Endpunkte tragen /api selbst.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL fehlt (z. B. https://bp-prod.7style.net)}
-        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-bp-monolith}
+        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-quellwerk}
         NEXT_PUBLIC_APP_DESCRIPTION: ${APP_DESCRIPTION:-}
     container_name: bp-prod-frontend
     network_mode: host

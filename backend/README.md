@@ -1,4 +1,4 @@
-# Backend (`bp-monolith-backend`)
+# Backend (`@quellwerk/backend`)
 
 Node 24, ESM, TypeScript 6, Express 5, Prisma 7 auf PostgreSQL 17, Redis 8
 als Store für die Rate-Limits, Jest 30. Paket des pnpm-Workspace im Repo-Root;
@@ -6,7 +6,7 @@ Architektur in `docs/BACKEND-ARCHITECTURE.md`, Regeln in `docs/rules/BACKEND-RUL
 
 ## Befehle
 
-Aufruf über `pnpm --filter bp-monolith-backend run <skript>` (oder `exec` für
+Aufruf über `pnpm --filter @quellwerk/backend run <skript>` (oder `exec` für
 Binaries wie `prisma`, `tsc`, `eslint`).
 
 | Skript | Was |
@@ -39,7 +39,7 @@ Ein leerer Wert (`KEY=`) gilt als nicht gesetzt.
   nicht gelesen (express-session entfernt); wenn gesetzt, ebenfalls 32+ Zeichen.
 - Optional mit Default: `PORT` (3011), `HOST` (0.0.0.0; `127.0.0.1` in
   `deployment/prod-native`), `TRUST_PROXY` (1 = hinter Nginx, 0 = direkt
-  erreichbar), `NODE_ENV`, `APP_NAME` (bp-monolith), `RATE_LIMIT_*`,
+  erreichbar), `NODE_ENV`, `APP_NAME` (quellwerk), `RATE_LIMIT_*`,
   `LOG_LEVEL`, `UPLOAD_*`, `EMAIL_*`/`SMTP_*`/`BREVO_*`, `SEED_*`.
 - `CORS_ORIGIN` (kommagetrennt) ist optional ohne Default: ohne Wert sind nur
   die localhost-Ports in `development` erlaubt, in `production` also praktisch
@@ -51,10 +51,10 @@ Ein leerer Wert (`KEY=`) gilt als nicht gesetzt.
 ## Prisma-Workflow
 
 ```bash
-pnpm --filter bp-monolith-backend run prisma:migrate:dev --name <name>   # Schema geändert -> Migration + Client
-pnpm --filter bp-monolith-backend run prisma:generate                    # nur Client (auch im Pre-Commit-Hook)
-pnpm --filter bp-monolith-backend run prisma:migrate:deploy              # eingecheckte Migrationen einspielen
-SEED_ADMIN_PASSWORD='...' pnpm --filter bp-monolith-backend run prisma:seed
+pnpm --filter @quellwerk/backend run prisma:migrate:dev --name <name>   # Schema geändert -> Migration + Client
+pnpm --filter @quellwerk/backend run prisma:generate                    # nur Client (auch im Pre-Commit-Hook)
+pnpm --filter @quellwerk/backend run prisma:migrate:deploy              # eingecheckte Migrationen einspielen
+SEED_ADMIN_PASSWORD='...' pnpm --filter @quellwerk/backend run prisma:seed
 ```
 
 - `prisma/schema.prisma`: Generator `prisma-client` (ESM, `app/generated/prisma`),
@@ -72,7 +72,7 @@ SEED_ADMIN_PASSWORD='...' pnpm --filter bp-monolith-backend run prisma:seed
 ## Tests
 
 ```bash
-pnpm --filter bp-monolith-backend run test
+pnpm --filter @quellwerk/backend run test
 ```
 
 Jest 30 mit ts-jest (ESM-Preset, `tsconfig.test.json`), Tests unter
@@ -88,7 +88,7 @@ Migrationen ein.
 ## Docker
 
 ```bash
-docker build -f backend/Dockerfile -t bp-backend .     # Build-Kontext Repo-Root, .dockerignore dort
+docker build -f backend/Dockerfile -t quellwerk-backend .     # Build-Kontext Repo-Root, .dockerignore dort
 ```
 
 Multi-Stage (`pnpm deploy --prod`), Laufzeit ohne Build-Toolchain als

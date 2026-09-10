@@ -6,7 +6,7 @@ import { env } from './env.config.js';
  */
 export const redisClientOptions: RedisClientOptions = {
   url: env.REDIS_URL,
-  name: 'bp-backend',
+  name: 'quellwerk-backend',
   socket: {
     connectTimeout: 10_000,
     // Reconnect with linear backoff, capped at 3 seconds

@@ -90,13 +90,13 @@ Für PROD: den ersten Admin einmalig vom Host aus anlegen, mit `DATABASE_URL`
 auf die Produktionsdatenbank (per SSH-Tunnel oder auf dem Server selbst):
 
 ```bash
-SEED_ADMIN_PASSWORD='...' NODE_ENV=development pnpm --filter bp-monolith-backend run prisma:seed
+SEED_ADMIN_PASSWORD='...' NODE_ENV=development pnpm --filter @quellwerk/backend run prisma:seed
 ```
 
 Prisma Studio läuft nicht mehr als Container (bindet ab Prisma 7 nur localhost):
 
 ```bash
-pnpm --filter bp-monolith-backend exec prisma studio
+pnpm --filter @quellwerk/backend exec prisma studio
 ```
 
 ## Services

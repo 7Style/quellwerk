@@ -1,5 +1,5 @@
 {
-  "name": "bp-monolith-backend",
+  "name": "@quellwerk/backend",
   "private": true,
   "type": "module",
   "version": "0.2.0",

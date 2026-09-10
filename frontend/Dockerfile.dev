@@ -1,7 +1,7 @@
 # BP Monolith Frontend - Development Dockerfile (hot reload via `next dev`)
 #
 # Build context is the REPO ROOT (the frontend is a package of the pnpm workspace):
-#   docker build -f frontend/Dockerfile.dev -t bp-frontend-dev .
+#   docker build -f frontend/Dockerfile.dev -t quellwerk-frontend-dev .
 # Ignore rules live in the root .dockerignore.
 # Mount ./frontend to /app/frontend for live reload; keep /app/node_modules and
 # /app/frontend/node_modules as container volumes (they are pnpm symlink trees).
@@ -24,7 +24,7 @@ WORKDIR /app
 COPY --chown=nextjs:nodejs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY --chown=nextjs:nodejs frontend/package.json ./frontend/
 
-RUN pnpm install --frozen-lockfile --filter bp-monolith-frontend... && \
+RUN pnpm install --frozen-lockfile --filter @quellwerk/frontend... && \
     chown -R nextjs:nodejs /app
 
 COPY --chown=nextjs:nodejs frontend ./frontend

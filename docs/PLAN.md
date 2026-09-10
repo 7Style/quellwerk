@@ -72,7 +72,7 @@ Files: package.json, backend/package.json, frontend/package.json, e2e/package.js
 Test: `rg -n 'bp-monolith|bp-backend|bp-frontend|bp-db|bp-redis' --glob '!pnpm-lock.yaml' --glob '!docs/**' | wc -l`
 Expected: `0`, and `pnpm install && pnpm typecheck && pnpm test` pass.
 Box: 30
-Status: [ ]
+Status: [x]
 
 ### M0-T2 Trim the backend
 Goal: Everything account-based leaves the backend; what remains starts and is green.

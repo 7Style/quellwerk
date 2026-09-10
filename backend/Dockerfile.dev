@@ -3,7 +3,7 @@
 # Backend development image (tsx watch, source mounted by docker compose)
 #
 # Build context is the REPOSITORY ROOT:
-#   docker build -f backend/Dockerfile.dev -t bp-backend-dev .
+#   docker build -f backend/Dockerfile.dev -t quellwerk-backend-dev .
 # ==============================================================================
 FROM node:24-bookworm-slim
 
@@ -31,7 +31,7 @@ COPY backend/package.json backend/
 COPY backend/prisma backend/prisma
 COPY backend/prisma.config.ts backend/prisma.config.ts
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter bp-monolith-backend...
+    pnpm install --frozen-lockfile --filter @quellwerk/backend...
 
 COPY backend/tsconfig.json backend/tsconfig.json
 COPY backend/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

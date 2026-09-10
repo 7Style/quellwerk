@@ -46,7 +46,7 @@ describe('logger', () => {
     expect(info?.[LEVEL]).toBe('info');
     expect(info?.[MESSAGE]).toBeDefined();
     expect(info?.safe).toBe(1);
-    expect(info?.service).toBe('bp-monolith');
+    expect(info?.service).toBe('quellwerk');
 
     expect(error).toBeDefined();
     expect(error?.[LEVEL]).toBe('error');
@@ -86,7 +86,7 @@ describe('logger', () => {
     expect(entry?.[LEVEL]).toBe('info');
     expect(entry?.userId).toBe(42);
     expect(entry?.details).toEqual({ token: '[REDACTED]', ip: '203.0.113.9' });
-    expect(entry?.service).toBe('bp-monolith-audit');
+    expect(entry?.service).toBe('quellwerk-audit');
   });
 
   it('scrubSensitive returns a copy and leaves the input untouched', () => {

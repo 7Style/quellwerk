@@ -1,7 +1,7 @@
 {
-  "name": "bp-monolith-e2e",
+  "name": "@quellwerk/e2e",
   "version": "1.0.0",
-  "description": "bp-monolith end-to-end tests (Playwright)",
+  "description": "quellwerk end-to-end tests (Playwright)",
   "private": true,
   "scripts": {
     "test": "playwright test",

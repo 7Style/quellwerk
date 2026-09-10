@@ -26,7 +26,7 @@ const envSchema = z.object({
   // ---------------------------------------------------------------------------
   // APP
   // ---------------------------------------------------------------------------
-  APP_NAME: z.string().default('bp-monolith'),
+  APP_NAME: z.string().default('quellwerk'),
   APP_DESCRIPTION: z.string().default(''),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3011),
@@ -60,8 +60,8 @@ const envSchema = z.object({
   // ---------------------------------------------------------------------------
   JWT_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
-  JWT_ISSUER: z.string().default('bp-monolith'),
-  JWT_AUDIENCE: z.string().default('bp-monolith-api'),
+  JWT_ISSUER: z.string().default('quellwerk'),
+  JWT_AUDIENCE: z.string().default('quellwerk-api'),
   SESSION_MAX_AGE: z.coerce.number().int().positive().default(86_400_000),
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(16).default(12),
 
@@ -154,7 +154,7 @@ const envSchema = z.object({
   // ---------------------------------------------------------------------------
   // SEEDS (prisma db seed)
   // ---------------------------------------------------------------------------
-  SEED_ADMIN_EMAIL: z.string().default('admin@bp-monolith.local'),
+  SEED_ADMIN_EMAIL: z.string().default('admin@quellwerk.local'),
   SEED_ADMIN_PASSWORD: z.string().min(12).optional(),
   SEED_DEMO_USERS: z.stringbool().default(false),
   SEED_DEMO_PASSWORD: z.string().min(12).optional(),

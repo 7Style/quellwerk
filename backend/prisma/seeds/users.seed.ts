@@ -51,7 +51,7 @@ function buildSeedUsers(): SeedUser[] {
       throw new Error('SEED_DEMO_PASSWORD is required when SEED_DEMO_USERS=true (min 12 characters).');
     }
 
-    const domain = env.SEED_ADMIN_EMAIL.split('@')[1] ?? 'bp-monolith.local';
+    const domain = env.SEED_ADMIN_EMAIL.split('@')[1] ?? 'quellwerk.local';
     users.push(
       {
         email: `moderator@${domain}`,

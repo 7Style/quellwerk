@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "bp-monolith Nginx SSL Proxy (HARDENED)"
+echo "quellwerk Nginx SSL Proxy (HARDENED)"
 echo "========================================="
 echo ""
 echo "Environment: ${ENVIRONMENT:-local}"

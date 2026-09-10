@@ -1,5 +1,5 @@
 # ==============================================================================
-# bp-monolith - Docker Compose (Repo-Root)
+# quellwerk - Docker Compose (Repo-Root)
 # ==============================================================================
 # Kompletter Stack aus Produktions-Images: db, redis, backend, frontend.
 # Alle Host-Ports nur auf 127.0.0.1.
@@ -18,7 +18,7 @@
 # Werte dafür in backend/.env sind im Container wirkungslos.
 #
 # Prisma Studio: nicht als Service (bindet ab Prisma 7 nur localhost).
-# Auf dem Host: pnpm --filter bp-monolith-backend exec prisma studio
+# Auf dem Host: pnpm --filter @quellwerk/backend exec prisma studio
 #
 # Sicherheitsregeln:
 #   1. NIE ports: "PORT:PORT" (bindet 0.0.0.0)
@@ -31,7 +31,7 @@
 services:
   db:
     image: postgres:17-alpine
-    container_name: bp-db
+    container_name: quellwerk-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER fehlt}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
@@ -61,7 +61,7 @@ services:
 
   redis:
     image: redis:8-alpine
-    container_name: bp-redis
+    container_name: quellwerk-redis
     command:
       - redis-server
       - --requirepass
@@ -94,7 +94,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: bp-backend
+    container_name: quellwerk-backend
     ports:
       - "127.0.0.1:3011:3011"
     env_file:
@@ -102,7 +102,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3011
-      APP_NAME: ${APP_NAME:-bp-monolith}
+      APP_NAME: ${APP_NAME:-quellwerk}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       UPLOAD_DIR: /usr/src/app/uploads
@@ -142,9 +142,9 @@ services:
         # NEXT_PUBLIC_* wird beim Build eingebrannt; als `environment` zur
         # Laufzeit wäre es wirkungslos. Origin ohne /api-Suffix.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3011}
-        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-bp-monolith}
+        NEXT_PUBLIC_APP_NAME: ${APP_NAME:-quellwerk}
         NEXT_PUBLIC_APP_DESCRIPTION: ${APP_DESCRIPTION:-}
-    container_name: bp-frontend
+    container_name: quellwerk-frontend
     ports:
       - "127.0.0.1:3010:3000"
     environment:

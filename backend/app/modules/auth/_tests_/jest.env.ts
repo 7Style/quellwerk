@@ -12,7 +12,7 @@ function setDefault(name: string, value: string): void {
 }
 
 setDefault('NODE_ENV', 'test');
-setDefault('DATABASE_URL', 'postgresql://test:test@127.0.0.1:5432/bp_monolith_test');
+setDefault('DATABASE_URL', 'postgresql://test:test@127.0.0.1:5432/quellwerk_test');
 setDefault('REDIS_URL', 'redis://:test@127.0.0.1:6379');
 setDefault('JWT_SECRET', 'jest-only-jwt-secret-0123456789abcdef0123456789');
 setDefault('JWT_REFRESH_SECRET', 'jest-only-refresh-secret-0123456789abcdef01234');

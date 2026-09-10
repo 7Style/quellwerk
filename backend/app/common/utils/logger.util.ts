@@ -76,7 +76,7 @@ class LoggerService {
         format.errors({ stack: true }),
         loggerConfig.format.json ? format.json() : format.simple()
       ),
-      defaultMeta: { service: 'bp-monolith' },
+      defaultMeta: { service: 'quellwerk' },
       transports: this.createTransports(),
     });
 
@@ -88,7 +88,7 @@ class LoggerService {
         excludeSensitiveData(),
         format.json()
       ),
-      defaultMeta: { service: 'bp-monolith-audit' },
+      defaultMeta: { service: 'quellwerk-audit' },
       transports: [this.createAuditTransport()],
     });
   }

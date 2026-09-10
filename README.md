@@ -1,4 +1,4 @@
-# bp-monolith
+# quellwerk
 
 Fullstack-Boilerplate als pnpm-Workspace: Express-5-API mit Prisma 7 auf
 PostgreSQL 17, Next.js-16-Frontend, Redis 8 als Store für Rate-Limits.
@@ -38,17 +38,17 @@ pnpm install
 docker compose up -d db redis
 
 # 4. Schema und erster Admin
-pnpm --filter bp-monolith-backend exec prisma migrate deploy
-SEED_ADMIN_PASSWORD='...' pnpm --filter bp-monolith-backend run prisma:seed
+pnpm --filter @quellwerk/backend exec prisma migrate deploy
+SEED_ADMIN_PASSWORD='...' pnpm --filter @quellwerk/backend run prisma:seed
 
 # 5. Entwicklung auf dem Host (zwei Terminals)
-pnpm --filter bp-monolith-backend run dev
-pnpm --filter bp-monolith-frontend run dev -p 3010
+pnpm --filter @quellwerk/backend run dev
+pnpm --filter @quellwerk/frontend run dev -p 3010
 ```
 
 `pnpm install` erzeugt den Prisma-Client (`backend/app/generated`, gitignored)
 über das `postinstall`-Skript des Backends; nach einer Schema-Änderung
-`pnpm --filter bp-monolith-backend run prisma:generate` (läuft auch im
+`pnpm --filter @quellwerk/backend run prisma:generate` (läuft auch im
 Pre-Commit-Hook). Für die Arbeit auf dem Host müssen `DATABASE_URL` und `REDIS_URL` in
 `backend/.env` auf `localhost` zeigen und dieselben Passwörter wie `.env`
 enthalten. Der Seed legt den Admin mit dem Passwort aus `SEED_ADMIN_PASSWORD`
@@ -67,7 +67,7 @@ curl -s http://localhost:3011/health    # {"status":"healthy","database":"connec
 Prisma Studio läuft auf dem Host, nicht im Container:
 
 ```bash
-pnpm --filter bp-monolith-backend exec prisma studio
+pnpm --filter @quellwerk/backend exec prisma studio
 ```
 
 ## Skripte
@@ -85,7 +85,7 @@ Root (`pnpm <script>`, laufen über `pnpm -r` in allen Paketen):
 | `pnpm format` | Prettier |
 
 Paket-Skripte (`pnpm --filter <paket> run <script>`), Pakete
-`bp-monolith-backend`, `bp-monolith-frontend`, `bp-monolith-e2e`:
+`@quellwerk/backend`, `@quellwerk/frontend`, `@quellwerk/e2e`:
 
 | Skript | Paket | Was |
 |---|---|---|
@@ -129,9 +129,9 @@ Gegen den Compose-Stack im Root:
 # Root-.env: SEED_ON_START=true, SEED_ADMIN_PASSWORD, SEED_DEMO_USERS=true, SEED_DEMO_PASSWORD
 pnpm dev                                                        # docker compose up -d --build
 cp e2e/.env.example e2e/.env                                    # BASE_URL, SEED_* wie in .env
-pnpm --filter bp-monolith-e2e exec playwright install chromium
-pnpm --filter bp-monolith-e2e exec playwright test --project=chromium
-pnpm --filter bp-monolith-e2e run report                        # HTML-Report
+pnpm --filter @quellwerk/e2e exec playwright install chromium
+pnpm --filter @quellwerk/e2e exec playwright test --project=chromium
+pnpm --filter @quellwerk/e2e run report                        # HTML-Report
 ```
 
 Die Locators sind `data-testid`-Attribute der Seiten (`login-*`,

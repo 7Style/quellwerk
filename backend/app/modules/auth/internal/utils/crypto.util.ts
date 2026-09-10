@@ -15,8 +15,8 @@ export interface CryptoConfig {
 let cryptoConfig: CryptoConfig = {};
 
 const KEY_LENGTH = 32;
-const HKDF_INFO = 'bp-monolith:auth:aes-256-gcm';
-const SALT_INFO = 'bp-monolith:auth:salt';
+const HKDF_INFO = 'quellwerk:auth:aes-256-gcm';
+const SALT_INFO = 'quellwerk:auth:salt';
 
 /**
  * Derive the AES key from a secret with HKDF-SHA256. The salt itself is

@@ -13,7 +13,7 @@
 # ==============================================================================
 set -euo pipefail
 
-APP_LABEL="${APP_NAME:-bp-monolith}"
+APP_LABEL="${APP_NAME:-quellwerk}"
 
 # Connection URLs are only ever printed through this mask: the credential part
 # (user:password@) becomes user:***@ before anything reaches the container log.
