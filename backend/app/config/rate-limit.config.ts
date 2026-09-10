@@ -44,56 +44,36 @@ export const rateLimitConfig = {
     passOnStoreError: true,
   },
 
-  /** Strict limit for authentication endpoints (login, register, OTP) */
-  auth: {
-    ...base,
-    windowMs: env.RATE_LIMIT_WINDOW_MS,
-    limit: env.RATE_LIMIT_LOGIN_MAX,
-    message: 'Too many authentication attempts, please try again later.',
-    skipSuccessfulRequests: true,
-  },
-
-  /** Per-user API limit for authenticated modules */
-  api: {
-    ...base,
-    windowMs: 60 * 1000,
-    limit: 60,
-    message: 'API rate limit exceeded, please slow down your requests.',
-    keyGenerator: ipAndUserKeyGenerator,
-  },
-
-  /** File uploads */
-  upload: {
-    ...base,
-    windowMs: 10 * 60 * 1000,
-    limit: 10,
-    message: 'Upload limit exceeded, please try again later.',
-    keyGenerator: ipAndUserKeyGenerator,
-  },
-
-  /** Password reset requests */
-  passwordReset: {
+  /** Chat turns per session (SECURITY.md 7.3) */
+  chatPerSession: {
     ...base,
     windowMs: 60 * 60 * 1000,
-    limit: 3,
-    message: 'Too many password reset requests, please try again later.',
+    limit: env.RATE_LIMIT_CHAT_PER_SESSION,
+    message: 'Too many questions in this hour. The limit resets on the hour.',
   },
 
-  /** 2FA verification attempts */
-  twoFactor: {
-    ...base,
-    windowMs: 5 * 60 * 1000,
-    limit: env.RATE_LIMIT_2FA_MAX,
-    message:
-      'Too many 2FA verification attempts. Your account has been temporarily locked for security reasons.',
-    skipSuccessfulRequests: true,
-  },
-
-  /** Public user registration / OTP user creation */
-  registration: {
+  /** Chat turns per IP, the outer bound when many sessions share one address */
+  chatPerIp: {
     ...base,
     windowMs: 60 * 60 * 1000,
-    limit: 5,
-    message: 'Too many registration attempts, please try again later.',
+    limit: env.RATE_LIMIT_CHAT_PER_IP,
+    message: 'Too many questions from this address in this hour.',
   },
+
+  /** Reports, mind maps and audio overviews per session */
+  artifacts: {
+    ...base,
+    windowMs: 60 * 60 * 1000,
+    limit: env.RATE_LIMIT_ARTIFACTS_PER_SESSION,
+    message: 'Too many artifacts in this hour. The limit resets on the hour.',
+  },
+
+  /** Sources added per session */
+  sources: {
+    ...base,
+    windowMs: 60 * 60 * 1000,
+    limit: env.RATE_LIMIT_SOURCES_PER_SESSION,
+    message: 'Too many sources added in this hour. The limit resets on the hour.',
+  },
+
 } satisfies Record<string, Partial<Options>>;

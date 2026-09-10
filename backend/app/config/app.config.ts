@@ -3,7 +3,7 @@ import { env } from './env.config.js';
 export const appConfig = {
   name: env.APP_NAME,
   description: env.APP_DESCRIPTION,
-  version: env.npm_package_version ?? '1.0.0',
+  version: process.env.npm_package_version ?? '0.2.0',
 
   api: {
     prefix: '/api',
@@ -39,8 +39,8 @@ export const appConfig = {
       helmetCspEnabled: env.HELMET_CSP_ENABLED,
       compressionEnabled: env.COMPRESSION_ENABLED,
     },
-    audit: {
-      retentionDays: env.AUDIT_LOG_RETENTION_DAYS,
+    retention: {
+      days: env.RETENTION_DAYS,
     },
   },
 };

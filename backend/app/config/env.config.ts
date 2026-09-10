@@ -1,69 +1,87 @@
 /**
- * Centralized Environment Configuration
- * =====================================
+ * Centralized environment configuration.
  *
  * This is the ONLY module that reads `process.env`. Every other config file
  * derives its values from the validated `env` object exported here.
  *
- * Usage:
- *   import { env } from './env.config.js'
- *   const port = env.PORT // typed & validated
+ * Required without a fallback (SECURITY.md 7.1): SESSION_SECRET,
+ * ANTHROPIC_API_KEY, ADMIN_TOKEN, DATABASE_URL, REDIS_URL. Without them the
+ * backend does not start, which is the point: a demo that runs with a missing
+ * secret is a demo that runs with a wrong one.
  */
 
 import { config as loadDotenv } from 'dotenv';
 import { z } from 'zod';
 
-// Single dotenv load for the whole application (Prisma CLI loads its own copy
-// in prisma.config.ts because it runs as a separate process).
+// Single dotenv load for the whole application (the Prisma CLI loads its own
+// copy in prisma.config.ts because it runs as a separate process).
 loadDotenv({ quiet: true });
 
-const secret = (name: string) =>
+const secret = (name: string, min = 32) =>
   z
     .string({ error: `${name} is required` })
-    .min(32, { error: `${name} must be at least 32 characters. Generate: openssl rand -hex 32` });
+    .min(min, { error: `${name} must be at least ${min} characters. Generate: openssl rand -hex 32` });
 
 const envSchema = z.object({
   // ---------------------------------------------------------------------------
   // APP
   // ---------------------------------------------------------------------------
-  APP_NAME: z.string().default('quellwerk'),
+  APP_NAME: z.string().default('Quellwerk'),
   APP_DESCRIPTION: z.string().default(''),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3011),
-  // Interface the HTTP server binds to. 0.0.0.0 inside Docker networks;
-  // 127.0.0.1 with network_mode: host (deployment/prod-native), where a
-  // host Nginx is the only public entry point.
   HOST: z.string().min(1).default('0.0.0.0'),
-  npm_package_version: z.string().optional(),
   API_URL: z.string().default('http://localhost:3011'),
   FRONTEND_URL: z.string().default('http://localhost:3010'),
   BASE_URL: z.string().optional(),
+  PUBLIC_URL: z.string().optional(),
 
   // ---------------------------------------------------------------------------
-  // DATABASE / REDIS (required)
+  // DATA STORES (required)
   // ---------------------------------------------------------------------------
   DATABASE_URL: z.string({ error: 'DATABASE_URL is required' }).min(1),
   REDIS_URL: z.string({ error: 'REDIS_URL is required' }).min(1),
 
   // ---------------------------------------------------------------------------
-  // SECRETS (required, min 32 chars, no fallbacks)
+  // SECRETS (required, never a fallback in code)
   // ---------------------------------------------------------------------------
-  ENCRYPTION_KEY: secret('ENCRYPTION_KEY'),
-  JWT_SECRET: secret('JWT_SECRET'),
-  JWT_REFRESH_SECRET: secret('JWT_REFRESH_SECRET'),
-  // Not consumed since express-session was removed (auth is JWT); optional so
-  // that existing .env files keep validating, checked for length when set.
-  SESSION_SECRET: secret('SESSION_SECRET').optional(),
+  SESSION_SECRET: secret('SESSION_SECRET'),
+  ANTHROPIC_API_KEY: z.string({ error: 'ANTHROPIC_API_KEY is required' }).min(1),
+  ADMIN_TOKEN: secret('ADMIN_TOKEN', 16),
+  // Optional: only the audio overview needs it, and that milestone is optional.
+  GEMINI_API_KEY: z.string().optional(),
 
   // ---------------------------------------------------------------------------
-  // AUTH / JWT
+  // SESSION (anonymous, no accounts; ADR-0005)
   // ---------------------------------------------------------------------------
-  JWT_EXPIRES_IN: z.string().default('15m'),
-  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
-  JWT_ISSUER: z.string().default('quellwerk'),
-  JWT_AUDIENCE: z.string().default('quellwerk-api'),
-  SESSION_MAX_AGE: z.coerce.number().int().positive().default(86_400_000),
-  BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(16).default(12),
+  SESSION_COOKIE_NAME: z.string().default('qw.sid'),
+  SESSION_MAX_AGE: z.coerce.number().int().positive().default(2_592_000_000),
+
+  // ---------------------------------------------------------------------------
+  // MODELS (ADR-0011). Ids live here and nowhere else in the code.
+  // ---------------------------------------------------------------------------
+  MODEL_CHAT: z.string().default('claude-opus-5'),
+  MODEL_FAST: z.string().default('claude-haiku-4-5'),
+  MODEL_JUDGE: z.string().default('claude-sonnet-5'),
+  EFFORT_CHAT: z.enum(['low', 'medium', 'high']).default('low'),
+
+  // ---------------------------------------------------------------------------
+  // BUDGET. Cents here, micro-cents in usage_log: the comparison multiplies the
+  // cap by 1_000_000 rather than dividing the sum (docs/ARCHITECTURE.md).
+  // ---------------------------------------------------------------------------
+  DAILY_SPEND_CAP_CENTS: z.coerce.number().int().positive().default(500),
+  EVAL_SPEND_CAP_CENTS: z.coerce.number().int().positive().default(1000),
+  // Answers come from recorded fixtures instead of the API; keeps the demo alive
+  // when the key is missing or the budget is spent.
+  DEMO_OFFLINE: z.stringbool().default(false),
+
+  // ---------------------------------------------------------------------------
+  // CAPS (docs/SPEC.md, "Zahlen")
+  // ---------------------------------------------------------------------------
+  MAX_SOURCES_PER_NOTEBOOK: z.coerce.number().int().positive().default(50),
+  MAX_TOKENS_PER_NOTEBOOK: z.coerce.number().int().positive().default(150_000),
+  MAX_QUESTION_CHARS: z.coerce.number().int().positive().default(4_000),
+  RETENTION_DAYS: z.coerce.number().int().positive().default(7),
 
   // ---------------------------------------------------------------------------
   // CORS
@@ -71,12 +89,14 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().optional(),
 
   // ---------------------------------------------------------------------------
-  // RATE LIMITING
+  // RATE LIMITS (SECURITY.md 7.3)
   // ---------------------------------------------------------------------------
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(300),
-  RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().positive().default(5),
-  RATE_LIMIT_2FA_MAX: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_CHAT_PER_SESSION: z.coerce.number().int().positive().default(30),
+  RATE_LIMIT_CHAT_PER_IP: z.coerce.number().int().positive().default(60),
+  RATE_LIMIT_ARTIFACTS_PER_SESSION: z.coerce.number().int().positive().default(10),
+  RATE_LIMIT_SOURCES_PER_SESSION: z.coerce.number().int().positive().default(20),
   RATE_LIMIT_TRUSTED_IPS: z.string().optional(),
 
   // ---------------------------------------------------------------------------
@@ -87,83 +107,33 @@ const envSchema = z.object({
   LOG_FILE_MAX_FILES: z.string().default('14d'),
 
   // ---------------------------------------------------------------------------
-  // UPLOAD
+  // UPLOADS (SECURITY.md 7.4)
   // ---------------------------------------------------------------------------
   UPLOAD_DIR: z.string().default('uploads'),
-  UPLOAD_MAX_FILE_SIZE: z.coerce.number().int().positive().default(10_485_760),
-  UPLOAD_ALLOWED_TYPES: z.string().default('image/jpeg,image/png,application/pdf'),
+  UPLOAD_MAX_FILE_SIZE: z.coerce.number().int().positive().default(20_971_520),
+  UPLOAD_ALLOWED_TYPES: z
+    .string()
+    .default(
+      'application/pdf,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ),
 
   // ---------------------------------------------------------------------------
-  // SECURITY
+  // HTTP
   // ---------------------------------------------------------------------------
   HELMET_CSP_ENABLED: z.stringbool().default(true),
   COMPRESSION_ENABLED: z.stringbool().default(true),
-  // Number of proxy hops whose X-Forwarded-For is trusted (Express
-  // "trust proxy"). 1 = behind the nginx of deployment/*; 0 = the backend is
-  // reached directly, then a client cannot pick its own IP for the rate
-  // limits, RATE_LIMIT_TRUSTED_IPS and the audit log.
   TRUST_PROXY: z.coerce.number().int().min(0).default(1),
 
   // ---------------------------------------------------------------------------
-  // AUDIT
+  // SEED (prisma db seed)
   // ---------------------------------------------------------------------------
-  AUDIT_LOG_RETENTION_DAYS: z.coerce.number().int().positive().default(365),
-
-  // ---------------------------------------------------------------------------
-  // EMAIL
-  // ---------------------------------------------------------------------------
-  EMAIL_PROVIDER: z.enum(['smtp', 'brevo', 'console']).optional(),
-  EMAIL_FROM: z.string().optional(),
-  EMAIL_FROM_NAME: z.string().optional(),
-  EMAIL_FROM_ADDRESS: z.string().optional(),
-  SUPPORT_EMAIL: z.string().optional(),
-  EMAIL_LOG_TO_CONSOLE: z.stringbool().default(false),
-  EMAIL_PREVIEW: z.stringbool().default(false),
-  EMAIL_RATE_LIMIT_PER_USER: z.coerce.number().int().positive().default(10),
-  EMAIL_RATE_LIMIT_TOTAL: z.coerce.number().int().positive().default(1000),
-  EMAIL_SUBJECT_PASSWORD_RESET: z.string().optional(),
-  EMAIL_SUBJECT_EMAIL_VERIFICATION: z.string().optional(),
-  EMAIL_SUBJECT_ACCOUNT_LOCKED: z.string().optional(),
-  EMAIL_SUBJECT_2FA_CODE: z.string().optional(),
-  EMAIL_SUBJECT_OTP_CODE: z.string().optional(),
-  EMAIL_SUBJECT_WELCOME: z.string().optional(),
-  EMAIL_SUBJECT_2FA_ENABLED: z.string().optional(),
-  EMAIL_SUBJECT_2FA_DISABLED: z.string().optional(),
-  EMAIL_SUBJECT_CUSTOM: z.string().optional(),
-
-  // SMTP
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().int().positive().default(587),
-  SMTP_SECURE: z.stringbool().default(false),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
-
-  // Brevo
-  BREVO_API_KEY: z.string().optional(),
-  BREVO_API_URL: z.string().default('https://api.brevo.com/v3'),
-  BREVO_SENDER_NAME: z.string().optional(),
-  BREVO_SENDER_EMAIL: z.string().optional(),
-  BREVO_TEMPLATE_PASSWORD_RESET: z.coerce.number().int().default(1),
-  BREVO_TEMPLATE_EMAIL_VERIFY: z.coerce.number().int().default(2),
-  BREVO_TEMPLATE_ACCOUNT_LOCKED: z.coerce.number().int().default(3),
-  BREVO_TEMPLATE_2FA: z.coerce.number().int().default(4),
-  BREVO_TEMPLATE_WELCOME: z.coerce.number().int().default(5),
-  BREVO_TEMPLATE_2FA_ENABLED: z.coerce.number().int().default(6),
-  BREVO_TEMPLATE_2FA_DISABLED: z.coerce.number().int().default(7),
-
-  // ---------------------------------------------------------------------------
-  // SEEDS (prisma db seed)
-  // ---------------------------------------------------------------------------
-  SEED_ADMIN_EMAIL: z.string().default('admin@quellwerk.local'),
-  SEED_ADMIN_PASSWORD: z.string().min(12).optional(),
-  SEED_DEMO_USERS: z.stringbool().default(false),
-  SEED_DEMO_PASSWORD: z.string().min(12).optional(),
+  SEED_ON_START: z.stringbool().default(false),
 });
 
-// An empty value counts as "not set": dotenv keeps `SEED_ADMIN_PASSWORD=` from
-// example.env as '' and docker compose passes `${VAR:-}` as '' when the
-// variable is missing in .env. Without this, optional variables with a minimum
-// length would fail validation and defaults would never apply.
+// An empty value counts as "not set": dotenv keeps `VAR=` from example.env as ''
+// and docker compose passes `${VAR:-}` as '' when the variable is missing.
+// Without this, optional variables with a minimum length would fail validation
+// and defaults would never apply.
 const definedEnv = Object.fromEntries(
   Object.entries(process.env).filter(([, value]) => value !== undefined && value !== '')
 );

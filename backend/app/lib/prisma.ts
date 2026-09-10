@@ -5,19 +5,15 @@
  *   adapter (Prisma 7 has no built-in engine anymore).
  * - Re-exports everything from the generated client so application code never
  *   imports `../generated/prisma/...` directly.
- * - Applies the global `omit` for sensitive columns (prisma-omit.ts); the
- *   exported `PrismaClient` type is the omit-aware client, so reading
- *   `user.password` from a plain query is a compile error.
+ * - No global `omit`: Quellwerk stores no passwords or secrets in a column.
  */
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient as GeneratedPrismaClient, type Prisma } from '../generated/prisma/client.js';
 import { databaseConfig } from '../config/database.config.js';
 import { appConfig } from '../config/app.config.js';
 import { logger } from '../common/utils/logger.util.js';
-import { sensitiveColumns } from './prisma-omit.js';
 
 export * from '../generated/prisma/client.js';
-export { sensitiveColumns } from './prisma-omit.js';
 
 /** Application client: generated client with the global omit applied */
 export type PrismaClient = ReturnType<typeof createPrismaClient>;
@@ -51,7 +47,6 @@ export function createPrismaClient(connectionString: string = databaseConfig.url
   const client = new GeneratedPrismaClient({
     adapter,
     log: logDefinitions,
-    omit: sensitiveColumns,
   });
 
   client.$on('error', (event: Prisma.LogEvent) => {

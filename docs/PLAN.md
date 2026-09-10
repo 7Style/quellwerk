@@ -93,10 +93,10 @@ Status: [x]
 ### M0-T4 Quellwerk configuration and skeletons
 Goal: Config, adapters, services, session and admin modules and the Prisma schema exist as wired but empty skeletons.
 Files: backend/app/config/{env.config.ts,models.ts,prices.ts}, backend/app/adapters/llm/{index.ts,anthropic.adapter.ts}, backend/app/adapters/storage/local-file-storage.ts, backend/app/adapters/tts/tts.interface.ts, backend/app/services/{prompt-loader,usage-log,queue,quota}/*, backend/app/worker.ts, backend/app/modules/{session,admin}/*, backend/app/modules/index.ts, backend/prisma/schema.prisma, backend/prisma/migrations/*_init/
-Test: `pnpm --filter @quellwerk/backend run typecheck && pnpm --filter @quellwerk/backend exec prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --exit-code`
-Expected: typecheck clean, `The datamodel is in sync with the migrations`, exit code 0. The schema is copied from the data model section of docs/ARCHITECTURE.md, not invented here.
+Test: `pnpm --filter @quellwerk/backend run typecheck && pnpm --filter @quellwerk/backend exec prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`
+Expected: typecheck clean, `No difference detected.`, exit code 0. Prisma 7 removed `--to-schema-datamodel` and takes the shadow database from `prisma.config.ts`, not from a flag; the check needs a running Postgres. The schema is copied from the data model section of docs/ARCHITECTURE.md, not invented here.
 Box: 90
-Status: [ ]
+Status: [x]
 
 ### M0-T5 Compose, CI, hooks, docs
 Goal: The stack starts with the worker and the prompts inside the image, CI runs the trimmed tree.

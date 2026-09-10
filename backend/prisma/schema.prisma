@@ -10,300 +10,150 @@ datasource db {
   provider = "postgresql"
 }
 
-// ==================== USER MANAGEMENT SYSTEM ====================
+// Quellwerk data model. The authority is the "Datenmodell" section of
+// docs/ARCHITECTURE.md; this file is copied from there, not written next to it.
+// Six tables. Citations are not one of them: they live as verified `segments` on
+// the row that shows them, so Message, Note and Artifact carry the same shape.
+// Jobs are not one either: BullMQ keeps the queue in Redis, and what has to
+// survive a restart sits as status, step and heartbeatAt on Source and Artifact.
 
-enum AuthSecurityMode {
-  NONE              @map("none")
-  TWO_FACTOR        @map("two_factor")
-  ONE_TIME_PASSWORD @map("one_time_password")
+model Notebook {
+  id                     String     @id @default(uuid())
+  sessionId              String?    @map("session_id")
+  title                  String
+  emoji                  String?
+  userSetTitle           Boolean    @default(false) @map("user_set_title")
+  summary                String?
+  themes                 Json?
+  suggestedQuestions     Json?      @map("suggested_questions")
+  suggestedReportFormats Json?      @map("suggested_report_formats")
+  tokenCount             Int        @default(0) @map("token_count")
+  tokenModel             String?    @map("token_model")
+  isDemo                 Boolean    @default(false) @map("is_demo")
+  clonedFrom             String?    @map("cloned_from")
+  threadResetAt          DateTime?  @map("thread_reset_at")
+  overviewRequestedAt    DateTime?  @map("overview_requested_at")
+  createdAt              DateTime   @default(now()) @map("created_at")
+  lastUsedAt             DateTime   @default(now()) @map("last_used_at")
+
+  sources                Source[]
+  messages               Message[]
+  notes                  Note[]
+  artifacts              Artifact[]
+  usage                  UsageLog[]
+
+  @@index([sessionId])
+  @@map("notebooks")
 }
 
-model User {
-  id                       Int       @id @default(autoincrement())
-  email                    String    @unique
-  password                 String
-  firstName                String    @map("first_name")
-  lastName                 String    @map("last_name")
-  phone                    String?
-  department               String?
-  position                 String?
-  isActive                 Boolean   @default(true) @map("is_active")
-  emailVerified            Boolean   @default(false) @map("email_verified")
-  emailVerificationToken   String?   @unique @map("email_verification_token")
-  emailVerificationExpires DateTime? @map("email_verification_expires")
-  preferredLanguage        String    @default("en") @map("preferred_language")
-  failedAttempts           Int       @default(0) @map("failed_attempts")
-  lockedUntil              DateTime? @map("locked_until")
-  lastLogin                DateTime? @map("last_login")
-  lastLoginAt              DateTime? @map("last_login_at")
-  passwordChangedAt        DateTime? @map("password_changed_at")
-  resetToken               String?   @unique @map("reset_token")
-  resetTokenExpires        DateTime? @map("reset_token_expires")
-  createdAt                DateTime  @default(now()) @map("created_at")
-  updatedAt                DateTime  @updatedAt @map("updated_at")
-  createdBy                Int?      @map("created_by")
-  updatedBy                Int?      @map("updated_by")
+model Source {
+  id           String    @id @default(uuid())
+  notebookId   String    @map("notebook_id")
+  position     Int
+  title        String
+  kind         String
+  url          String?
+  originalName String?   @map("original_name")
+  mime         String?
+  text         String
+  charCount    Int       @default(0) @map("char_count")
+  tokenCount   Int       @default(0) @map("token_count")
+  pages        Json?
+  guide        Json?
+  warnings     Json?
+  status       String    @default("queued")
+  step         String?
+  heartbeatAt  DateTime? @map("heartbeat_at")
+  error        String?
+  storagePath  String?   @map("storage_path")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
-  // Two-Factor Authentication fields
-  twoFactorEnabled  Boolean          @default(false) @map("two_factor_enabled")
-  twoFactorVerified Boolean          @default(false) @map("two_factor_verified")
-  loginSecurityMode AuthSecurityMode @default(NONE) @map("login_security_mode")
+  notebook     Notebook  @relation(fields: [notebookId], references: [id], onDelete: Cascade)
 
-  userRoles             UserRole[]
-  sessions              Session[]
-  auditLogs             AuditLog[]              @relation("UserAuditLogs")
-  createdUsers          User[]                  @relation("UserCreator")
-  creatorUser           User?                   @relation("UserCreator", fields: [createdBy], references: [id])
-  notifications         Notification[]
-  twoFactorAuth         TwoFactorAuth?
-  twoFactorBackupCodes  TwoFactorBackupCode[]
-  oneTimePasswordLogins OneTimePasswordLogin[]
-  tempTokens            TempToken[]
-  fieldPermissions      FieldPermission[]
-  permissionAuditLogs   PermissionAuditLog[]
-
-  @@index([email])
-  @@index([isActive])
-  @@map("users")
+  @@index([notebookId, position])
+  @@index([status, heartbeatAt])
+  @@map("sources")
 }
 
-model OneTimePasswordLogin {
-  id             Int       @id @default(autoincrement())
-  userId         Int       @map("user_id")
-  challengeToken String    @unique @map("challenge_token")
-  codeHash       String    @map("code_hash")
-  deepLinkHash   String?   @map("deep_link_hash")
-  expiresAt      DateTime  @map("expires_at")
-  consumedAt     DateTime? @map("consumed_at")
-  attempts       Int       @default(0)
+model Message {
+  id                String   @id @default(uuid())
+  notebookId        String   @map("notebook_id")
+  role              String
+  segments          Json?
+  rawContent        Json?    @map("raw_content")
+  selectedSourceIds Json?    @map("selected_source_ids")
+  usage             Json?
+  droppedCitations  Int      @default(0) @map("dropped_citations")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  notebook          Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+
+  @@index([notebookId, createdAt])
+  @@map("messages")
+}
+
+model Note {
+  id            String   @id @default(uuid())
+  notebookId    String   @map("notebook_id")
+  title         String
+  markdown      String
+  segments      Json?
+  fromMessageId String?  @map("from_message_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  notebook      Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+
+  @@index([notebookId, createdAt])
+  @@map("notes")
+}
+
+model Artifact {
+  id             String    @id @default(uuid())
+  notebookId     String    @map("notebook_id")
+  title          String?
+  type           String
+  params         Json?
+  idempotencyKey String    @map("idempotency_key")
+  status         String    @default("queued")
+  heartbeatAt    DateTime? @map("heartbeat_at")
+  segments       Json?
+  data           Json?
+  promptUsed     String?   @map("prompt_used")
+  audioPath      String?   @map("audio_path")
+  error          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  startedAt      DateTime? @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+
+  notebook       Notebook  @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+
+  @@unique([notebookId, idempotencyKey])
+  @@index([notebookId, createdAt])
+  @@index([status, heartbeatAt])
+  @@map("artifacts")
+}
+
+model UsageLog {
+  id             String    @id @default(uuid())
+  sessionId      String?   @map("session_id")
+  notebookId     String?   @map("notebook_id")
+  route          String
+  model          String
+  effort         String?
+  inputTokens    Int       @default(0) @map("input_tokens")
+  cacheRead      Int       @default(0) @map("cache_read")
+  cacheWrite5m   Int       @default(0) @map("cache_write_5m")
+  cacheWrite1h   Int       @default(0) @map("cache_write_1h")
+  outputTokens   Int       @default(0) @map("output_tokens")
+  costMicroCents Int       @default(0) @map("cost_micro_cents")
+  requestId      String?   @map("request_id")
+  latencyMs      Int       @default(0) @map("latency_ms")
+  stopReason     String?   @map("stop_reason")
   createdAt      DateTime  @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notebook       Notebook? @relation(fields: [notebookId], references: [id], onDelete: SetNull)
 
-  @@index([userId], map: "idx_one_time_password_user_id")
-  @@index([expiresAt], map: "idx_one_time_password_expires_at")
-  @@map("one_time_password_logins")
-}
-
-model Role {
-  id           Int      @id @default(autoincrement())
-  code         String   @unique
-  name         String
-  nameGerman   String   @map("name_german")
-  description  String?
-  isSystemRole Boolean  @default(false) @map("is_system_role")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  userRoles        UserRole[]
-  rolePermissions  RolePermission[]
-  fieldPermissions FieldPermission[]
-
-  @@index([code])
-  @@map("roles")
-}
-
-model Permission {
-  id          Int      @id @default(autoincrement())
-  module      String
-  resource    String
-  action      String
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  rolePermissions RolePermission[]
-
-  @@unique([module, resource, action])
-  @@index([module])
-  @@map("permissions")
-}
-
-model UserRole {
-  id         Int       @id @default(autoincrement())
-  userId     Int       @map("user_id")
-  roleId     Int       @map("role_id")
-  assignedAt DateTime  @default(now()) @map("assigned_at")
-  assignedBy Int?      @map("assigned_by")
-  expiresAt  DateTime? @map("expires_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, roleId])
-  @@index([userId])
-  @@index([roleId])
-  @@map("user_roles")
-}
-
-model RolePermission {
-  id           Int @id @default(autoincrement())
-  roleId       Int @map("role_id")
-  permissionId Int @map("permission_id")
-
-  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-
-  @@unique([roleId, permissionId])
-  @@index([roleId])
-  @@index([permissionId])
-  @@map("role_permissions")
-}
-
-model Session {
-  id             String   @id @default(uuid())
-  userId         Int      @map("user_id")
-  token          String   @unique
-  ipAddress      String?  @map("ip_address")
-  userAgent      String?  @map("user_agent")
-  expiresAt      DateTime @map("expires_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  lastActivityAt DateTime @default(now()) @map("last_activity_at")
-  active         Boolean  @default(true)
-  metadata       Json?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([token])
-  @@index([expiresAt])
-  @@index([active])
-  @@map("sessions")
-}
-
-model AuditLog {
-  id         Int      @id @default(autoincrement())
-  userId     Int?     @map("user_id")
-  entityType String   @map("entity_type")
-  entityId   Int?     @map("entity_id")
-  action     String
-  changes    Json?
-  metadata   Json?
-  ipAddress  String?  @map("ip_address")
-  userAgent  String?  @map("user_agent")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  user User? @relation("UserAuditLogs", fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([entityType, entityId])
-  @@index([action])
-  @@index([createdAt])
-  @@map("audit_logs")
-}
-
-model Notification {
-  id        Int       @id @default(autoincrement())
-  userId    Int       @map("user_id")
-  type      String
-  title     String
-  message   String
-  metadata  Json?
-  isRead    Boolean   @default(false) @map("is_read")
-  readAt    DateTime? @map("read_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, isRead])
-  @@index([type])
-  @@index([createdAt])
-  @@map("notifications")
-}
-
-model TwoFactorAuth {
-  id                Int       @id @default(autoincrement())
-  userId            Int       @unique @map("user_id")
-  type              String    @default("totp")
-  secret            String?
-  tempSecret        String?   @map("temp_secret")
-  tempSecretExpires DateTime? @map("temp_secret_expires")
-  verifiedAt        DateTime? @map("verified_at")
-  lastUsed          DateTime? @map("last_used")
-  metadata          Json?
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([type])
-  @@map("two_factor_auth")
-}
-
-model TwoFactorBackupCode {
-  id        Int       @id @default(autoincrement())
-  userId    Int       @map("user_id")
-  code      String    @unique
-  usedAt    DateTime? @map("used_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("two_factor_backup_codes")
-}
-
-model RevokedToken {
-  id        Int      @id @default(autoincrement())
-  tokenId   String   @unique @map("token_id")
-  revokedAt DateTime @default(now()) @map("revoked_at")
-  reason    String?
-
-  @@index([tokenId])
-  @@index([revokedAt])
-  @@map("revoked_tokens")
-}
-
-model TempToken {
-  id        Int       @id @default(autoincrement())
-  tokenId   String    @unique @map("token_id")
-  userId    Int       @map("user_id")
-  purpose   String
-  expiresAt DateTime  @map("expires_at")
-  usedAt    DateTime? @map("used_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([tokenId])
-  @@index([purpose])
-  @@index([expiresAt])
-  @@map("temp_tokens")
-}
-
-model FieldPermission {
-  id        Int      @id @default(autoincrement())
-  resource  String   @db.VarChar(255)
-  action    String   @db.VarChar(50)
-  roleId    Int?     @map("role_id")
-  userId    Int?     @map("user_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  role Role? @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([resource, action, roleId, userId], name: "unique_field_permission")
-  @@index([resource], name: "idx_field_permissions_resource")
-  @@index([roleId], name: "idx_field_permissions_role")
-  @@index([userId], name: "idx_field_permissions_user")
-  @@map("field_permissions")
-}
-
-model PermissionAuditLog {
-  id             Int      @id @default(autoincrement())
-  userId         Int      @map("user_id")
-  action         String   @db.VarChar(50)
-  resource       String   @db.VarChar(255)
-  oldPermissions Json?    @map("old_permissions") @db.Json
-  newPermissions Json?    @map("new_permissions") @db.Json
-  reason         String?  @db.Text
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([resource])
-  @@index([createdAt])
-  @@map("permission_audit_log")
+  @@index([sessionId])
+  @@index([notebookId, createdAt])
+  @@map("usage_log")
 }
