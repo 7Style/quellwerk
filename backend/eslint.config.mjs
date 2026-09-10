@@ -32,9 +32,17 @@ const moduleBoundaryZones = moduleNames().map((name) => ({
   message: `Modules never import each other. ${name} gets what it needs injected in app/modules/index.ts.`,
 }));
 
-const moduleBoundaryRule = {
-  'import/no-restricted-paths': ['error', { basePath: import.meta.dirname, zones: moduleBoundaryZones }],
-};
+// An empty zones array is a schema error, not a no-op: ESLint refuses to start.
+// Between trimming the template and raising the first Quellwerk module the
+// directory is empty, so the rule is only added when there is something to guard.
+const moduleBoundaryRule = moduleBoundaryZones.length
+  ? {
+      'import/no-restricted-paths': [
+        'error',
+        { basePath: import.meta.dirname, zones: moduleBoundaryZones },
+      ],
+    }
+  : {};
 
 // The code imports ESM style with a .js specifier that points at a .ts file on
 // disk. Without the TypeScript resolver the plugin cannot resolve those paths,

@@ -15,7 +15,7 @@ export default {
   },
   testMatch: ['**/_tests_/**/*.test.ts'],
   // Required env variables get test defaults before the first import
-  setupFiles: ['<rootDir>/app/modules/auth/_tests_/jest.env.ts'],
-  setupFilesAfterEnv: ['<rootDir>/app/modules/auth/_tests_/jest.setup.ts'],
+  setupFiles: ['<rootDir>/app/_tests_/jest.env.ts'],
+  setupFilesAfterEnv: ['<rootDir>/app/_tests_/jest.setup.ts'],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
 };

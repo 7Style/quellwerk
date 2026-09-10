@@ -80,7 +80,7 @@ Files: delete backend/app/modules/{auth,users,audit,audit-logs,upload}, backend/
 Test: `pnpm --filter @quellwerk/backend run typecheck && pnpm --filter @quellwerk/backend run lint && pnpm --filter @quellwerk/backend test`
 Expected: typecheck clean, lint back to zero errors (the six module-boundary violations in audit-logs and users leave with those modules), Jest green.
 Box: 60
-Status: [ ]
+Status: [x]
 
 ### M0-T3 Trim the frontend and e2e
 Goal: The template pages and their specs are gone; `/` is free for the Quellwerk home.
