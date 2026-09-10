@@ -50,196 +50,253 @@ sequenceDiagram
   participant L as AnthropicLlmAdapter
   participant C as citations.ts
   participant D as Postgres
-  U->>R: Frage, gewählte Quellen, Präferenzen
+  U->>R: Frage, Abwahl als selected_sources, Präferenzen
   R->>Q: Rate-Limit und Tagesbudget
   Q-->>R: frei
-  R->>B: Quellen als document blocks, Präferenzen in den letzten User-Turn
+  R->>B: ALLE fertigen Quellen als Dokumente, Präferenzen und Abwahl in den letzten User-Turn
   B->>L: stream, citations on, cache_control auf dem letzten Dokument
+  R-->>U: open
   L-->>R: Textdeltas und citation deltas
+  R-->>U: text
   R->>C: document_index auf sourceId abbilden
   C->>D: source.text lesen
   C-->>R: slice gleich cited_text? behalten, sonst verwerfen und zaehlen
-  R-->>U: SSE token, citation, done
-  R->>D: Nachricht mit geprueften Zitaten, usage_log
+  R-->>U: cite
+  R->>D: Nachricht mit geprueften Segmenten, usage_log
+  R->>L: Folgefragen auf MODEL_FAST
+  L-->>R: drei Fragen
+  R-->>U: followups
+  R->>D: zweite usage_log-Zeile fuer MODEL_FAST
+  R-->>U: done mit usage und trace
 ```
 
-Drei Stellen sind heikel und deshalb getestet: `document_index` ist nullbasiert
-über alle Dokumentblöcke hinweg und wird über die geordnete `sourceId`-Liste des
-Builders aufgelöst; die Prüfung vergleicht Zeichen, nicht Text nach
-Normalisierung; ein verworfenes Zitat wird gezählt und protokolliert, aber weder
-der Zitattext noch der Ausschnitt landen im Log.
+Vier Stellen sind heikel und deshalb getestet.
+
+`document_index` ist nullbasiert über alle Dokumentblöcke hinweg und wird über die
+geordnete `sourceId`-Liste des Builders aufgelöst. Die Prüfung vergleicht Zeichen,
+nicht Text nach Normalisierung. Ein verworfenes Zitat wird gezählt und
+protokolliert, aber weder der Zitattext noch der Ausschnitt landen im Log.
+
+Es gehen **immer alle fertigen Quellen** als Dokumente mit, auch die abgewählten.
+Sonst ändert sich der gecachte Prefix bei jeder Änderung an der Auswahl und der
+Cache ist wertlos. Die Abwahl reist als `selected_sources` im letzten User-Turn
+mit; der Resolver verwirft danach Chips, die auf eine abgewählte Quelle zeigen.
+
+Der Chat-Turn schreibt zwei `usage_log`-Zeilen: eine für den Chat auf
+`MODEL_CHAT`, eine für die Folgefragen auf `MODEL_FAST`.
+
+## Ingestion als Job
+
+Die Route legt die Quelle an und stellt den Job ein; alles danach läuft im
+Worker. Jeder Schritt schreibt `step` und `heartbeatAt` auf die Zeile, damit ein
+hängengebliebener Auftrag über den Index `(status, heartbeatAt)` gefunden wird.
+
+```mermaid
+flowchart TD
+  A["Route POST sources: Zeile anlegen, status queued"] --> B["Job einstellen, dedupe ueber notebook, type, params"]
+  B --> C["fetch: Datei aus dem Volume oder URL laden"]
+  C --> D["extract: Text je nach Typ, PDF nur mit Textebene"]
+  D --> E["normalize: genau einmal, Ergebnis ist Source.text"]
+  E --> F["pages: Seitenkarte auf Zeichen-Offsets"]
+  F --> G{"Token-Gate am echten Request"}
+  G -->|"ueber 150.000"| H["status failed, Grund benannt"]
+  G -->|"passt"| I["Source Guide auf MODEL_FAST"]
+  I --> J{"erste Quelle im Notizbuch?"}
+  J -->|ja| K["Titel und Emoji auf MODEL_FAST"]
+  J -->|nein| L["uebersprungen"]
+  K --> M["Overview-Job mit Debounce ueber jobId und delay"]
+  L --> M
+  M --> N["status ready"]
+```
+
+Der Overview-Job wird verzögert eingestellt und trägt eine feste jobId je
+Notizbuch. Werden drei Quellen kurz nacheinander hinzugefügt, ersetzt jede
+Einstellung die vorherige und die Übersicht wird einmal berechnet statt dreimal.
 
 ## Datenmodell
 
-Sieben Tabellen. Zitate bekommen keine eigene: sie hängen als geprüftes JSON an
-der Nachricht, weil sie ohne ihre Nachricht keine Bedeutung haben und nie einzeln
-abgefragt werden. Alle Schlüssel sind Strings mit UUID-Vorgabe, damit das
-Demo-Notizbuch die feste id `demo` tragen kann, ohne dass der Typ dafür gebogen
-werden muss.
+Sechs Tabellen. Zwei Dinge fehlen mit Absicht. Zitate bekommen keine eigene
+Tabelle: sie hängen als geprüfte `segments` an der Zeile, die sie zeigt, weil sie
+ohne diese Zeile keine Bedeutung haben und nie einzeln abgefragt werden. Dieselbe
+Form tragen deshalb Message, Note und Artifact, damit die Chips in einer
+gespeicherten Notiz und in einem Report genauso klickbar bleiben wie im Chat.
+Und es gibt keine Job-Tabelle: BullMQ hält die Warteschlange in Redis, der
+dauerhafte Zustand gehört auf die Zeile, die er beschreibt, also `status`, `step`
+und `heartbeatAt` auf Source und Artifact. Eine Tabelle für Rate-Buckets gibt es
+ebenfalls nicht, die Limits laufen über rate-limit-redis.
+
+Alle Schlüssel sind Strings mit UUID-Vorgabe, damit das Demo-Notizbuch die feste
+id `demo` tragen kann, ohne dass der Typ dafür gebogen werden muss.
 
 ```prisma
 model Notebook {
-  id         String     @id @default(uuid())
-  sessionId  String?    @map("session_id")
-  title      String
-  emoji      String?
-  summary    String?
-  themes     Json?
-  questions  Json?
-  isDemo     Boolean    @default(false) @map("is_demo")
-  lastUsedAt DateTime   @default(now()) @map("last_used_at")
-  createdAt  DateTime   @default(now()) @map("created_at")
-  updatedAt  DateTime   @updatedAt @map("updated_at")
+  id                     String     @id @default(uuid())
+  sessionId              String?    @map("session_id")
+  title                  String
+  emoji                  String?
+  userSetTitle           Boolean    @default(false) @map("user_set_title")
+  summary                String?
+  themes                 Json?
+  suggestedQuestions     Json?      @map("suggested_questions")
+  suggestedReportFormats Json?      @map("suggested_report_formats")
+  tokenCount             Int        @default(0) @map("token_count")
+  tokenModel             String?    @map("token_model")
+  isDemo                 Boolean    @default(false) @map("is_demo")
+  clonedFrom             String?    @map("cloned_from")
+  threadResetAt          DateTime?  @map("thread_reset_at")
+  overviewRequestedAt    DateTime?  @map("overview_requested_at")
+  createdAt              DateTime   @default(now()) @map("created_at")
+  lastUsedAt             DateTime   @default(now()) @map("last_used_at")
 
-  sources    Source[]
-  messages   Message[]
-  notes      Note[]
-  artifacts  Artifact[]
-  jobs       Job[]
-  usage      UsageLog[]
+  sources                Source[]
+  messages               Message[]
+  notes                  Note[]
+  artifacts              Artifact[]
+  usage                  UsageLog[]
 
-  @@index([sessionId, lastUsedAt])
+  @@index([sessionId])
   @@map("notebooks")
 }
 
 model Source {
-  id            String    @id @default(uuid())
-  notebookId    String    @map("notebook_id")
-  position      Int
-  kind          String
-  title         String
-  fileName      String?   @map("file_name")
-  storageKey    String?   @map("storage_key")
-  sourceUrl     String?   @map("source_url")
-  text          String
-  charCount     Int       @map("char_count")
-  tokenCount    Int       @default(0) @map("token_count")
-  pageMap       Json?     @map("page_map")
-  guide         Json?
-  warnings      String[]
-  status        String    @default("queued")
-  statusStep    String?   @map("status_step")
-  failureReason String?   @map("failure_reason")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  id           String    @id @default(uuid())
+  notebookId   String    @map("notebook_id")
+  position     Int
+  title        String
+  kind         String
+  url          String?
+  originalName String?   @map("original_name")
+  mime         String?
+  text         String
+  charCount    Int       @default(0) @map("char_count")
+  tokenCount   Int       @default(0) @map("token_count")
+  pages        Json?
+  guide        Json?
+  warnings     Json?
+  status       String    @default("queued")
+  step         String?
+  heartbeatAt  DateTime? @map("heartbeat_at")
+  error        String?
+  storagePath  String?   @map("storage_path")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
-  notebook      Notebook  @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  notebook     Notebook  @relation(fields: [notebookId], references: [id], onDelete: Cascade)
 
-  @@unique([notebookId, position])
-  @@index([notebookId, status])
+  @@index([notebookId, position])
+  @@index([status, heartbeatAt])
   @@map("sources")
 }
 
 model Message {
-  id               String   @id @default(uuid())
-  notebookId       String   @map("notebook_id")
-  threadId         String   @map("thread_id")
-  role             String
-  text             String
-  blocks           Json?
-  citations        Json?
-  droppedCitations Int      @default(0) @map("dropped_citations")
-  followUps        Json?    @map("follow_ups")
-  createdAt        DateTime @default(now()) @map("created_at")
+  id                String   @id @default(uuid())
+  notebookId        String   @map("notebook_id")
+  role              String
+  segments          Json?
+  rawContent        Json?    @map("raw_content")
+  selectedSourceIds Json?    @map("selected_source_ids")
+  usage             Json?
+  droppedCitations  Int      @default(0) @map("dropped_citations")
+  createdAt         DateTime @default(now()) @map("created_at")
 
-  notebook         Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  notebook          Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
 
-  @@index([notebookId, threadId, createdAt])
+  @@index([notebookId, createdAt])
   @@map("messages")
 }
 
 model Note {
-  id         String   @id @default(uuid())
-  notebookId String   @map("notebook_id")
-  title      String
-  text       String
-  origin     String   @default("manual")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id            String   @id @default(uuid())
+  notebookId    String   @map("notebook_id")
+  title         String
+  markdown      String
+  segments      Json?
+  fromMessageId String?  @map("from_message_id")
+  createdAt     DateTime @default(now()) @map("created_at")
 
-  notebook   Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  notebook      Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
 
   @@index([notebookId, createdAt])
   @@map("notes")
 }
 
 model Artifact {
-  id             String   @id @default(uuid())
-  notebookId     String   @map("notebook_id")
-  kind           String
-  status         String   @default("queued")
+  id             String    @id @default(uuid())
+  notebookId     String    @map("notebook_id")
   title          String?
-  body           String?
+  type           String
+  params         Json?
+  idempotencyKey String    @map("idempotency_key")
+  status         String    @default("queued")
+  heartbeatAt    DateTime? @map("heartbeat_at")
+  segments       Json?
   data           Json?
-  citations      Json?
-  promptName     String?  @map("prompt_name")
-  promptRendered String?  @map("prompt_rendered")
-  failureReason  String?  @map("failure_reason")
-  createdAt      DateTime @default(now()) @map("created_at")
+  promptUsed     String?   @map("prompt_used")
+  audioPath      String?   @map("audio_path")
+  error          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  startedAt      DateTime? @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
 
-  notebook       Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  notebook       Notebook  @relation(fields: [notebookId], references: [id], onDelete: Cascade)
 
-  @@index([notebookId, kind, createdAt])
+  @@unique([notebookId, idempotencyKey])
+  @@index([notebookId, createdAt])
+  @@index([status, heartbeatAt])
   @@map("artifacts")
 }
 
-model Job {
-  id            String    @id @default(uuid())
-  notebookId    String?   @map("notebook_id")
-  queue         String
-  type          String
-  dedupeKey     String    @unique @map("dedupe_key")
-  status        String    @default("queued")
-  step          String?
-  attempts      Int       @default(0)
-  heartbeatAt   DateTime? @map("heartbeat_at")
-  failureReason String?   @map("failure_reason")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-
-  notebook      Notebook? @relation(fields: [notebookId], references: [id], onDelete: Cascade)
-
-  @@index([queue, status])
-  @@map("jobs")
-}
-
 model UsageLog {
-  id              String    @id @default(uuid())
-  notebookId      String?   @map("notebook_id")
-  route           String
-  model           String
-  effort          String?
-  inputTokens     Int       @default(0) @map("input_tokens")
-  outputTokens    Int       @default(0) @map("output_tokens")
-  cacheReadTokens Int       @default(0) @map("cache_read_tokens")
-  cacheWrite5m    Int       @default(0) @map("cache_write_5m_tokens")
-  cacheWrite1h    Int       @default(0) @map("cache_write_1h_tokens")
-  costMicroCents  Int       @default(0) @map("cost_micro_cents")
-  latencyMs       Int       @default(0) @map("latency_ms")
-  createdAt       DateTime  @default(now()) @map("created_at")
+  id             String    @id @default(uuid())
+  sessionId      String?   @map("session_id")
+  notebookId     String?   @map("notebook_id")
+  route          String
+  model          String
+  effort         String?
+  inputTokens    Int       @default(0) @map("input_tokens")
+  cacheRead      Int       @default(0) @map("cache_read")
+  cacheWrite5m   Int       @default(0) @map("cache_write_5m")
+  cacheWrite1h   Int       @default(0) @map("cache_write_1h")
+  outputTokens   Int       @default(0) @map("output_tokens")
+  costMicroCents Int       @default(0) @map("cost_micro_cents")
+  requestId      String?   @map("request_id")
+  latencyMs      Int       @default(0) @map("latency_ms")
+  stopReason     String?   @map("stop_reason")
+  createdAt      DateTime  @default(now()) @map("created_at")
 
-  notebook        Notebook? @relation(fields: [notebookId], references: [id], onDelete: SetNull)
+  notebook       Notebook? @relation(fields: [notebookId], references: [id], onDelete: SetNull)
 
-  @@index([createdAt])
+  @@index([sessionId])
+  @@index([notebookId, createdAt])
   @@map("usage_log")
 }
 ```
 
-Vier Entscheidungen in diesem Schema, die später schwer zu ändern wären:
+Fünf Entscheidungen in diesem Schema, die später schwer zu ändern wären:
 
 `Source.text` ist die einzige Wahrheit über den Quelltext. Er wird beim Ingest
 einmal normalisiert und danach nie angefasst; jedes Zeichen-Offset in einem Zitat
 zeigt in genau diese Zeichenkette (ADR-0003).
 
-`Job.dedupeKey` ist eindeutig und wird aus Notizbuch, Typ und Parametern gebildet.
-Damit ist ein Auftrag idempotent, ohne dass der Worker eine Sperre braucht. Der
-Schlüssel enthält keinen Doppelpunkt, weil BullMQ ihn intern als Trenner benutzt.
+Es gibt keine Job-Tabelle. BullMQ hält die Warteschlange in Redis; was dauerhaft
+bleiben muss, steht als `status`, `step` und `heartbeatAt` auf Source und
+Artifact, also auf der Zeile, die der Job beschreibt. Der Index
+`(status, heartbeatAt)` auf beiden Tabellen ist genau dafür da, hängengebliebene
+Arbeit zu finden (ADR-0009).
+
+`Artifact.idempotencyKey` ist je Notizbuch eindeutig und wird aus Typ und
+Parametern gebildet. Damit ist ein Auftrag idempotent, ohne dass der Worker eine
+Sperre braucht. Der Schlüssel enthält keinen Doppelpunkt, weil BullMQ ihn intern
+als Trenner benutzt.
 
 `Notebook.sessionId` ist optional. Genau ein Notizbuch hat keinen Besitzer, das
 Demo-Notizbuch; es ist für alle lesbar, und der erste Schreibzugriff kopiert es in
-die eigene Session (ADR-0005).
+die eigene Session, wobei `clonedFrom` auf das Original zeigt (ADR-0005).
 
 `UsageLog` trennt Cache-Schreibvorgänge nach Laufzeit, weil sie unterschiedlich
-bepreist sind. Kosten liegen als Mikro-Cent-Ganzzahl vor, damit keine
-Gleitkommasumme über tausend Zeilen driftet.
+bepreist sind (ADR-0011). Kosten liegen als Mikro-Cent-Ganzzahl vor, damit keine
+Gleitkommasumme über tausend Zeilen driftet. Wer sie gegen eine Obergrenze prüft,
+rechnet die Grenze hoch, nicht die Summe herunter: `DAILY_SPEND_CAP_CENTS` und
+`EVAL_SPEND_CAP_CENTS` werden vor dem Vergleich mit 1_000_000 multipliziert.
 
 ## Warteschlangen
 
@@ -251,8 +308,64 @@ und endet in einem terminalen Status; wiederkehrende Aufträge laufen über
 
 ## Grenzen der Module
 
-Ein Modul unter `backend/app/modules/` importiert nie aus einem anderen Modul.
-Was ein Modul von einem anderen braucht, wird in `modules/index.ts` injiziert.
-Erzwungen wird das von `import/no-restricted-paths`, dessen Zonen aus dem
-Verzeichnis erzeugt werden; im Frontend gilt dieselbe Regel, dort zusätzlich, dass
-ein Modul von außen nur über seine `index.ts` erreichbar ist.
+Backend-Module unter `backend/app/modules/`:
+
+| Modul | Zuständig für |
+|---|---|
+| session | Anonyme Session, Cookie, Zuordnung von Notizbüchern |
+| notebooks | Notizbücher, Home-Grid, Overview, Copy-on-first-write |
+| sources | Upload, eingefügter Text, URL, Normalisierung, Guide, Kapazitäts-Gate |
+| chat | Citations API, SSE, Zitatprüfung, Folgefragen |
+| studio | Reports als Jobs, später Audio und Mind Map |
+| notes | Add note, Save to note, Convert to source |
+| admin | Statistiken hinter ADMIN_TOKEN |
+
+Daneben stehen die Adapter (`ILlmProvider` mit `AnthropicLlmAdapter`,
+`IFileStorage` mit `LocalFileStorage`, `ITtsProvider` als Interface), die
+Services (`prompt-loader`, `usage-log`, `queue`, `quota`) und der Worker.
+
+Ein Modul importiert nie aus einem anderen Modul. Was es von einem anderen
+braucht, wird in `modules/index.ts` injiziert; das ist die einzige Datei, die
+mehr als ein Modul kennt. Erzwungen wird das von `import/no-restricted-paths`,
+dessen Zonen aus dem Verzeichnis erzeugt werden. Im Frontend gilt dieselbe Regel,
+dort zusätzlich, dass ein Modul von außen nur über seine `index.ts` erreichbar ist.
+
+## Streaming-Vertrag
+
+Die Chat-Route spricht SSE. Genau acht Ereignisse, `i` ist der Index des
+Segments, an das ein Ereignis gehört.
+
+| Ereignis | Wann |
+|---|---|
+| `{t:'open', i}` | Der Stream steht, das Modell hat noch nichts geliefert |
+| `{t:'text', i, d}` | Ein Textdelta `d` für Segment `i` |
+| `{t:'cite', i, c}` | Ein geprüftes Zitat `c` für Segment `i` |
+| `{t:'followups', q}` | Drei Folgefragen, nach dem Ende der Antwort |
+| `{t:'truncated'}` | Die Antwort brach an der Token-Grenze ab |
+| `{t:'refused', m}` | Das Modell hat die Anfrage abgelehnt |
+| `{t:'done', usage, trace}` | Abschluss mit Zahlen für den Trace |
+| `{t:'error', m, retry}` | Fehler mit lesbarer Meldung und Wiederholbarkeit |
+
+`stop_reason` wird abgebildet: `end_turn` ist der Normalfall und führt zu `done`,
+`max_tokens` erzeugt zusätzlich `truncated`, `refusal` erzeugt `refused`.
+
+Alle 15 Sekunden geht ein Kommentar-Heartbeat über die Leitung, damit Proxys die
+Verbindung nicht schließen. Die Antwort trägt `X-Accel-Buffering: no`, und die
+Compression lässt `text/event-stream` aus; beides zusammen verhindert, dass der
+Stream irgendwo gepuffert wird.
+
+Thinking läuft adaptiv mit, erzeugt aber kein eigenes Ereignis. Die Oberfläche
+zeigt bis zum ersten `text`-Ereignis einen Denkzustand; die Blöcke liegen mit
+ihrer Signatur in `rawContent`, damit der nächste Turn sie unverändert
+wiedereinspielen kann, und ihre Token stehen im Trace.
+
+## Regeln für den Request-Aufbau
+
+Die vollständigen Regeln stehen in `prompts/README.md` und werden hier nicht
+wiederholt. Vier davon bestimmen die Architektur:
+
+Der System-Block ist eingefroren und trägt kein `cache_control`. Alle fertigen
+Quellen gehen als `text/plain`-Dokumentblöcke in Positionsreihenfolge mit, auch
+abgewählte. Genau ein Breakpoint mit einer Stunde sitzt auf dem letzten Dokument.
+Alles, was sich je Turn ändert, steht im letzten User-Turn: die Frage, die
+Präferenzen aus Configure chat und die Abwahl als `selected_sources`.
