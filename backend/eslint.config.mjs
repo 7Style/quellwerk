@@ -1,7 +1,50 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
+import importPlugin from 'eslint-plugin-import';
 import tseslint from 'typescript-eslint';
+
+const MODULES_DIR = 'app/modules';
+
+function moduleNames() {
+  try {
+    return fs
+      .readdirSync(path.join(import.meta.dirname, MODULES_DIR), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+  } catch {
+    // Before M0 raises the first module the directory may not exist yet.
+    return [];
+  }
+}
+
+// One zone per module: a module reaches its own subtree and nothing else under
+// modules/. Generated from the directory, so a module added tomorrow is covered
+// the moment it exists and nobody has to remember to edit this file.
+const moduleBoundaryZones = moduleNames().map((name) => ({
+  target: `./${MODULES_DIR}/${name}`,
+  from: `./${MODULES_DIR}`,
+  except: [`./${name}`],
+  message: `Modules never import each other. ${name} gets what it needs injected in app/modules/index.ts.`,
+}));
+
+const moduleBoundaryRule = {
+  'import/no-restricted-paths': ['error', { basePath: import.meta.dirname, zones: moduleBoundaryZones }],
+};
+
+// The code imports ESM style with a .js specifier that points at a .ts file on
+// disk. Without the TypeScript resolver the plugin cannot resolve those paths,
+// and no-restricted-paths then stays silent instead of reporting: a rule that
+// cannot resolve is worse than no rule, because it looks like it passed.
+const moduleBoundarySettings = {
+  'import/resolver': {
+    typescript: { project: path.join(import.meta.dirname, 'tsconfig.json') },
+  },
+};
 
 const sharedRules = {
   '@typescript-eslint/no-unused-vars': [
@@ -61,7 +104,9 @@ export default defineConfig([
       globals: { ...globals.node },
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
-    rules: sharedRules,
+    plugins: { import: importPlugin },
+    settings: moduleBoundarySettings,
+    rules: { ...sharedRules, ...moduleBoundaryRule },
   },
   {
     files: ['**/_tests_/**/*.ts', '**/*.test.ts', '**/*.spec.ts'],
@@ -70,8 +115,11 @@ export default defineConfig([
       globals: { ...globals.node, ...globals.jest },
       parserOptions: { project: './tsconfig.test.json', tsconfigRootDir: import.meta.dirname },
     },
+    plugins: { import: importPlugin },
+    settings: moduleBoundarySettings,
     rules: {
       ...sharedRules,
+      ...moduleBoundaryRule,
       '@typescript-eslint/unbound-method': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
