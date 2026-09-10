@@ -5,55 +5,88 @@ Each task states the command that proves it. A task is done when that command
 passes and the box is ticked; one commit per task, message
 `<milestone> <area>: <what and why>`.
 
-Scope, milestones and task ids are fixed by the brief. Sizes are my estimate for
-focused work with the agent doing the typing and me reviewing; see **Budget** at
-the end, where the numbers do not add up to the 24 hour cap and what I propose
-to do about it.
-
 Package names change in M0-T1. Every test command before that task uses
 `bp-monolith-*`, every command after it uses `@quellwerk/*`.
 
+## Ids that no longer exist
+
+Four tasks were merged into the task they share files with, and two were dropped.
+Their ids are gone; a session prompt that names one of them will find nothing:
+
+| Gone | Where the work lives now |
+|---|---|
+| M2-T3 | merged into M2-T2 (the ingest worker writes usage_log in the same pass) |
+| M3-T4 | merged into M3-T5 (the first eval run is the first hillclimb row) |
+| M4-T5 | merged into M4-T4 (the smoke spec is written with the chat spec) |
+| M6-T3 | merged into M6-T1 (the cache assertion belongs to the job that reads it) |
+| M7-T6 | dropped: admin stats |
+| M9-T0 | dropped: batch mode |
+
+**M8-T2 and M8-T3 are pulled forward** and run directly after M0, before M1. A
+deploy first attempted on the last evening is the largest risk in this plan; one
+that has been running since day one is none. Their ids stay M8-T2 and M8-T3.
+
 ## Gates and tags
 
-- **Day 1 gate (M0 to M2)**: a source can be added and is readable in the app,
-  ingestion runs as jobs, the eval harness runs green against a stub. Tag `m1-evals`.
+- **Day 1 gate (M0, deploy, M1, M2)**: the empty shell is live on the server, a
+  source can be added and is readable, ingestion runs as jobs, the eval harness is
+  green against a stub. Tag `m1-evals`.
 - **Day 2 gate (M3 to M6)**: chat answers with verified citations, reports are
   written as jobs, the numbers from `/eval` are recorded. Tags `m3-chat`, `m6-reports`.
-- **Day 3 gate (M7 to M9, optional M10 and M11)**: hardening, privacy page, deploy
-  to the server, final eval and documentation. Tag `m8-live`.
+- **Day 3 gate (M7 to M9, optional M10 and M11)**: hardening, privacy page, seed
+  and cold start, final eval and documentation. Tag `m8-live`.
 
 From M3 on, every milestone ends with `run /eval and record numbers` before the tag.
+After every milestone the current state is deployed again, so the live site never
+drifts more than one milestone from the branch.
 
-If M6 slips, the optional features fall in this order: **Mind Map first, Audio
-Overview second.** The mind map is the smaller loss because the report formats
-already show structured output on the same documents; the audio overview is the
-only artefact a reviewer can experience without reading.
+If M6 slips, the optional features fall in this order: **Mind Map (M11) first,
+Audio Overview (M10) second.** The mind map is the smaller loss because the
+report formats already show structured output over the same documents; the audio
+overview is the only artefact a reviewer can experience without reading. The
+numbering follows that order: M11 is only started when M10 is finished.
 
 ---
 
-## M0 Trim the template, raise the Quellwerk skeleton
+## M0 Documents, trim the template, raise the Quellwerk skeleton
+
+### M0-T0 SPEC, architecture and the ADRs
+Goal: The documents that every later task reads exist: scope with its numbers, the data model, and the eight decisions that are already assumed elsewhere.
+Files: docs/SPEC.md, docs/ARCHITECTURE.md, docs/adr/0001-citations-api.md, docs/adr/0002-whole-notebook-in-context.md, docs/adr/0003-normalise-once-character-offsets.md, docs/adr/0004-sdk-direkt-statt-langchain.md, docs/adr/0005-anonyme-session.md, docs/adr/0006-self-hosted.md, docs/adr/0007-ein-effort-zwei-builder.md, docs/adr/0008-evals-vor-dem-chat-code.md
+Test: `rg -c '^## ' docs/SPEC.md docs/ARCHITECTURE.md && ls docs/adr/*.md | wc -l && rg -n 'model (Notebook|Source|Message|Note|Artifact|Job|UsageLog)' docs/ARCHITECTURE.md | wc -l`
+Expected: both documents have their sections, `9` files under docs/adr (eight ADRs plus TEMPLATE.md), and `7` Prisma models found; ARCHITECTURE.md carries two mermaid blocks and every id is `String @id @default(uuid())` so the demo notebook can hold the fixed id `demo`.
+Box: 90
+Status: [ ]
+
+SPEC.md is German and short: goal and audience, scope as MUSS / KANN / bewusst
+weggelassen, the numbers (20 MB per file, 50 sources, 150K tokens, 4000
+characters per question, 7 days retention), the eval thresholds, and the table of
+English UI words. ARCHITECTURE.md is German with two mermaid diagrams (deployment;
+one chat turn from the route to the resolved citation) and a data model section
+holding the Prisma schema as a code block with notebooks, sources, messages,
+notes, artifacts, jobs and usage_log.
 
 ### M0-T1 Rename to @quellwerk/*
 Goal: Every package, container and filter name says Quellwerk instead of bp-monolith.
 Files: package.json, backend/package.json, frontend/package.json, e2e/package.json, pnpm-workspace.yaml, docker-compose.yml, backend/Dockerfile, backend/Dockerfile.dev, frontend/Dockerfile.dev, backend/app/config/redis.config.ts, README.md, backend/README.md, frontend/README.md, .github/workflows/ci.yml
 Test: `rg -n 'bp-monolith|bp-backend|bp-frontend|bp-db|bp-redis' --glob '!pnpm-lock.yaml' --glob '!docs/**' | wc -l`
-Expected: `0`, and `pnpm install && pnpm verify` still passes.
+Expected: `0`, and `pnpm install && pnpm typecheck && pnpm test` pass.
 Box: 30
 Status: [ ]
 
 ### M0-T2 Trim the backend
 Goal: Everything account-based leaves the backend; what remains starts and is green.
 Files: delete backend/app/modules/{auth,users,audit,audit-logs,upload}, backend/app/adapters/{auth-email,user-email}.adapter.ts, backend/app/common/middleware/{auth,authenticate,authorize,permission}.middleware.ts, backend/app/common/utils/{password,random-password}.util.ts, backend/app/services/email; touch backend/app/modules/index.ts, backend/app/app.ts
-Test: `pnpm --filter @quellwerk/backend run typecheck && pnpm --filter @quellwerk/backend test`
-Expected: typecheck clean, Jest reports only the suites of the surviving code, no failures.
+Test: `pnpm --filter @quellwerk/backend run typecheck && pnpm --filter @quellwerk/backend run lint && pnpm --filter @quellwerk/backend test`
+Expected: typecheck clean, lint back to zero errors (the six module-boundary violations in audit-logs and users leave with those modules), Jest green.
 Box: 60
 Status: [ ]
 
 ### M0-T3 Trim the frontend and e2e
 Goal: The template pages and their specs are gone; `/` is free for the Quellwerk home.
 Files: delete frontend/src/modules/{auth,users}, frontend/src/app/{login,dashboard,users}, e2e/tests/auth, e2e/pages/*.page.ts, e2e/fixtures; touch frontend/src/app/page.tsx, frontend/src/store/store.ts, frontend/src/lib/api.ts
-Test: `pnpm --filter @quellwerk/frontend run build && pnpm --filter @quellwerk/e2e run typecheck`
-Expected: build lists `/` and no `/login`, `/dashboard`, `/users`; e2e typecheck clean.
+Test: `pnpm --filter @quellwerk/frontend run lint && pnpm --filter @quellwerk/frontend run build && pnpm --filter @quellwerk/e2e run typecheck`
+Expected: lint back to zero errors (the four boundary violations leave with the pages), build lists `/` and no `/login`, `/dashboard`, `/users`; e2e typecheck clean.
 Box: 45
 Status: [ ]
 
@@ -61,7 +94,7 @@ Status: [ ]
 Goal: Config, adapters, services, session and admin modules and the Prisma schema exist as wired but empty skeletons.
 Files: backend/app/config/{env.config.ts,models.ts,prices.ts}, backend/app/adapters/llm/{index.ts,anthropic.adapter.ts}, backend/app/adapters/storage/local-file-storage.ts, backend/app/adapters/tts/tts.interface.ts, backend/app/services/{prompt-loader,usage-log,queue,quota}/*, backend/app/worker.ts, backend/app/modules/{session,admin}/*, backend/app/modules/index.ts, backend/prisma/schema.prisma, backend/prisma/migrations/*_init/
 Test: `pnpm --filter @quellwerk/backend run typecheck && pnpm --filter @quellwerk/backend exec prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --exit-code`
-Expected: typecheck clean, `The datamodel is in sync with the migrations`, exit code 0.
+Expected: typecheck clean, `The datamodel is in sync with the migrations`, exit code 0. The schema is copied from the data model section of docs/ARCHITECTURE.md, not invented here.
 Box: 90
 Status: [ ]
 
@@ -74,11 +107,34 @@ Box: 45
 Status: [ ]
 
 ### M0-T6 Clean-clone gate
-Goal: A fresh clone installs, builds and starts without a manual step beyond writing the two configuration files by hand.
+Goal: A fresh clone installs, builds and starts after copying the two configuration files from their examples.
 Files: docs/DEPLOY.md, README.md, scripts/security-check.sh
-Test: `git clone . /tmp/qw-clean && cd /tmp/qw-clean && pnpm install --frozen-lockfile && pnpm verify`
-Expected: install without missing-peer warnings, `pnpm verify` green; README names the two files to copy from their examples first.
+Test: `git clone . /tmp/qw-clean && cd /tmp/qw-clean && cp example.env .env && cp backend/example.env backend/.env && pnpm install --frozen-lockfile && pnpm verify`
+Expected: install without missing-peer warnings, `pnpm verify` green; the two copy steps and the values that still have to be filled in by hand are named in README.
 Box: 30
+Status: [ ]
+
+---
+
+## Deploy first (M8-T2 and M8-T3, pulled forward)
+
+Runs directly after M0 and before M1, on the empty shell. Every later milestone
+ends with another deploy, so the pipeline is exercised a dozen times instead of once.
+
+### M8-T2 Production compose, nginx vhost, deploy workflow
+Goal: Images are built to GHCR and deployed over SSH from GitHub Actions.
+Files: deployment/prod/docker/docker-compose.yml, deployment/prod/nginx/*, deployment/prod/deploy.sh, .github/workflows/deploy.yml
+Test: `docker compose -f deployment/prod/docker/docker-compose.yml config --quiet && ! rg -q 'echo .*secrets\.' .github/workflows/deploy.yml`
+Expected: exit code 0 — the production compose file validates and no workflow step echoes a secret.
+Box: 60
+Status: [ ]
+
+### M8-T3 DEPLOY.md and the first deploy
+Goal: The empty shell is live on the server behind nginx with a certificate.
+Files: docs/DEPLOY.md, deployment/prod/*
+Test: `curl -sS -o /dev/null -w '%{http_code} %{ssl_verify_result}\n' https://<domain>/api/health`
+Expected: `200 0`, and the same request over http redirects to https.
+Box: 45
 Status: [ ]
 
 ---
@@ -120,7 +176,7 @@ Expected: the deliberately broken fixture is reported as an invalid citation and
 Box: 45
 Status: [ ]
 
-Milestone end: tag `m1-evals`.
+Milestone end: tag `m1-evals`, then deploy.
 
 ---
 
@@ -142,20 +198,12 @@ Expected: 201 for a valid source, 413 with a readable message at the 51st source
 Box: 60
 Status: [ ]
 
-### M2-T2 Ingest worker: guide, title, overview with debounce
-Goal: Adding a source runs an idempotent job chain that always ends in a terminal status.
-Files: backend/app/worker.ts, backend/app/modules/sources/internal/ingest.job.ts, backend/app/modules/notebooks/internal/overview.job.ts, prompts/{source-guide.md,notebook-title.md,notebook-overview.md}
-Test: `pnpm --filter @quellwerk/backend test -- ingest.job overview.job`
-Expected: the same job id twice produces one result, every step writes a heartbeat, the overview is debounced to one run for three sources added together.
-Box: 75
-Status: [ ]
-
-### M2-T3 artifact-request.ts and usage_log
-Goal: Structured outputs go through one builder and every model call is priced into usage_log.
-Files: backend/app/adapters/llm/artifact-request.ts, backend/app/services/usage-log/*, backend/app/config/prices.ts
-Test: `pnpm --filter @quellwerk/backend test -- artifact-request usage-log`
-Expected: the built request carries no citations and no length constraints in the schema; a call with 5 minute and 1 hour cache writes is priced on separate lines.
-Box: 45
+### M2-T2 Ingest worker, artifact-request.ts and usage_log
+Goal: Adding a source runs an idempotent job chain that ends in a terminal status, and every model call it makes is priced into usage_log.
+Files: backend/app/worker.ts, backend/app/modules/sources/internal/ingest.job.ts, backend/app/modules/notebooks/internal/overview.job.ts, backend/app/adapters/llm/artifact-request.ts, backend/app/services/usage-log/*, backend/app/config/prices.ts, prompts/{source-guide.md,notebook-title.md,notebook-overview.md}
+Test: `pnpm --filter @quellwerk/backend test -- ingest.job overview.job artifact-request usage-log`
+Expected: the same job id twice produces one result, every step writes a heartbeat, the overview is debounced to one run for three sources added together; the artifact request carries no citations and no schema constraints, and a call with 5 minute and 1 hour cache writes is priced on separate lines.
+Box: 105
 Status: [ ]
 
 ### M2-T4 Tests for the ingestion path
@@ -167,12 +215,14 @@ Box: 45
 Status: [ ]
 
 ### M2-T5 Base seed and token measurement
-Goal: A demo notebook named `demo` exists after seeding, and its real token count is recorded.
+Goal: A demo notebook with the fixed id `demo` exists after seeding, and its real token count is recorded.
 Files: backend/prisma/seed.ts, backend/prisma/seed-data/*, backend/scripts/recount-tokens.ts, docs/ai-process/pdf-vs-text-tokens.md
 Test: `pnpm db:seed && pnpm --filter @quellwerk/backend exec tsx scripts/recount-tokens.ts demo`
 Expected: the notebook has four ready sources and prints a token total under 150000, written into the document.
 Box: 30
 Status: [ ]
+
+Milestone end: deploy.
 
 ---
 
@@ -210,23 +260,15 @@ Expected: events arrive in order, an aborted request stops the upstream call, an
 Box: 75
 Status: [ ]
 
-### M3-T4 LiveAnswerer and the first eval run
-Goal: The runner can grade the real route, and the first numbers exist.
-Files: backend/evals/answerers/live.answerer.ts, backend/evals/RESULTS.md
+### M3-T5 LiveAnswerer, first eval run and hillclimb
+Goal: The runner grades the real route, and the first numbers and the changes that improved them are recorded.
+Files: backend/evals/answerers/live.answerer.ts, backend/evals/RESULTS.md, backend/evals/HILLCLIMB.md, prompts/notebook-chat-system.md
 Test: `pnpm eval --dev`
-Expected: a table with citation validity, abstention accuracy, correctness and faithfulness on the dev split, written into RESULTS.md.
-Box: 45
+Expected: citation validity, abstention accuracy, correctness and faithfulness on the dev split; one row per revision in HILLCLIMB.md with before and after; the held-out split is untouched.
+Box: 90
 Status: [ ]
 
-### M3-T5 Hillclimb on the dev split
-Goal: The weakest three cases are diagnosed and the prompt changes that fix them are recorded.
-Files: prompts/notebook-chat-system.md, backend/evals/HILLCLIMB.md
-Test: `pnpm eval --dev`
-Expected: one row per revision in HILLCLIMB.md with before and after numbers; the held-out split is untouched.
-Box: 45
-Status: [ ]
-
-Milestone end: run `/eval` and record numbers, then tag `m3-chat`.
+Milestone end: run `/eval` and record numbers, tag `m3-chat`, then deploy.
 
 ---
 
@@ -268,20 +310,12 @@ Expected: the marked text equals the fixture's `cited` string, the passage is sc
 Box: 60
 Status: [ ]
 
-### M4-T4 Chat rendering and chips (parallelisable)
-Goal: Answers render with citation chips and hover cards, a refusal renders without any chip.
-Files: frontend/src/modules/chat/{components,fixtures,types}/*
-Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/chat.spec.ts`
-Expected: five chips on the answer fixture, hovering shows the passage with source title and offsets, the refusal fixture has zero chips and no accent colour.
-Box: 60
-Status: [ ]
-
-### M4-T5 Playwright smoke
-Goal: One spec walks the demo path so a regression in the shell is caught.
-Files: e2e/tests/ui/smoke.spec.ts, e2e/pages/notebook.page.ts, e2e/playwright.config.ts
+### M4-T4 Chat rendering, chips and the smoke spec (parallelisable)
+Goal: Answers render with citation chips and hover cards, a refusal renders without any chip, and one spec walks the demo path.
+Files: frontend/src/modules/chat/{components,fixtures,types}/*, e2e/tests/ui/smoke.spec.ts, e2e/pages/notebook.page.ts, e2e/playwright.config.ts
 Test: `pnpm --filter @quellwerk/e2e exec playwright test`
-Expected: the run is green at 1440 and at 1280, in light and in dark.
-Box: 45
+Expected: five chips on the answer fixture, hovering shows the passage with source title and offsets, the refusal fixture has zero chips and no accent colour; the whole run is green at 1440 and 1280, light and dark.
+Box: 90
 Status: [ ]
 
 ### M4-T6 Wire the UI to the backend
@@ -291,6 +325,8 @@ Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/e2e/notebook.spec
 Expected: against the running stack a question produces a streamed answer whose chips open the real source.
 Box: 60
 Status: [ ]
+
+Milestone end: deploy.
 
 ---
 
@@ -336,6 +372,8 @@ Expected: the second turn shows a cache read above zero; deleting the history em
 Box: 45
 Status: [ ]
 
+Milestone end: deploy.
+
 ---
 
 ## M6 Studio reports
@@ -348,12 +386,12 @@ Expected: the structure block renders raw through `{{{structure}}}`, the focus v
 Box: 30
 Status: [ ]
 
-### M6-T1 Artifact queue and the reports job
-Goal: A report is written by a job that always ends in a terminal status and stores its chips.
-Files: backend/app/modules/studio/*, backend/app/worker.ts
-Test: `pnpm --filter @quellwerk/backend test -- studio.reports`
-Expected: the same request twice produces one report; a failing model call ends as `failed` with a reason and nothing half-written.
-Box: 60
+### M6-T1 Artifact queue, reports job and the cache assertion
+Goal: A report is written by a job that always ends in a terminal status, stores its chips, and demonstrably reads the cache.
+Files: backend/app/modules/studio/*, backend/app/worker.ts, backend/evals/run.ts, backend/evals/RESULTS.md
+Test: `pnpm --filter @quellwerk/backend test -- studio.reports && pnpm eval --cache-check`
+Expected: the same request twice produces one report, a failing model call ends as `failed` with a reason and nothing half-written; `cache_read_input_tokens > 0` on the second turn, after a Configure chat change and on a report request.
+Box: 75
 Status: [ ]
 
 ### M6-T2 Studio panel
@@ -364,15 +402,7 @@ Expected: a generating report shows its step, a finished report renders chips th
 Box: 60
 Status: [ ]
 
-### M6-T3 Measurement and cache assertion
-Goal: A report right after a chat turn reads the cache, and the cost per report is recorded.
-Files: backend/evals/run.ts, backend/evals/RESULTS.md
-Test: `pnpm eval --cache-check`
-Expected: `cache_read_input_tokens > 0` on the second turn, after a Configure chat change and on a report request; all three assertions pass.
-Box: 30
-Status: [ ]
-
-Milestone end: run `/eval` and record numbers, then tag `m6-reports`.
+Milestone end: run `/eval` and record numbers, tag `m6-reports`, then deploy.
 
 ---
 
@@ -418,39 +448,20 @@ Expected: a notebook untouched for eight days is deleted with its files; one tou
 Box: 45
 Status: [ ]
 
-### M7-T6 Admin stats
-Goal: `/api/admin/stats` answers behind ADMIN_TOKEN and nowhere else.
-Files: backend/app/modules/admin/*
-Test: `pnpm --filter @quellwerk/backend test -- admin.stats`
-Expected: 401 without the token, 200 with it, and the payload contains no source text.
-Box: 30
-Status: [ ]
+Milestone end: deploy.
 
 ---
 
-## M8 Deploy, seed, cold start
+## M8 Seed, smoke, cold start
+
+M8-T2 and M8-T3 ran after M0. What remains is the demo content and the
+measurement on the live site.
 
 ### M8-T1 Seed, demo reset, DEMO_OFFLINE
 Goal: The demo notebook is reproducible and the app survives a missing API key.
 Files: backend/prisma/seed.ts, backend/scripts/demo-reset.ts, backend/app/config/env.config.ts
 Test: `pnpm db:seed && pnpm --filter @quellwerk/backend exec tsx scripts/demo-reset.ts --check`
 Expected: the demo notebook is restored to its seeded state; with `DEMO_OFFLINE=true` the chat answers from recorded fixtures instead of failing.
-Box: 45
-Status: [ ]
-
-### M8-T2 Production compose, nginx vhost, deploy workflow
-Goal: Images are built to GHCR and deployed over SSH from GitHub Actions.
-Files: deployment/prod/docker/docker-compose.yml, deployment/prod/nginx/*, deployment/prod/deploy.sh, .github/workflows/deploy.yml
-Test: `docker compose -f deployment/prod/docker/docker-compose.yml config --quiet && act -n -W .github/workflows/deploy.yml`
-Expected: the compose file validates, the workflow plan shows build, push and the SSH step, and no secret is echoed.
-Box: 60
-Status: [ ]
-
-### M8-T3 DEPLOY.md and the first deploy
-Goal: The app is live on the server behind nginx with a certificate.
-Files: docs/DEPLOY.md, deployment/prod/*
-Test: `curl -sS -o /dev/null -w '%{http_code} %{ssl_verify_result}\n' https://<domain>/api/health`
-Expected: `200 0`, and the same request over http redirects to https.
 Box: 45
 Status: [ ]
 
@@ -467,14 +478,6 @@ Milestone end: run `/eval` and record numbers, then tag `m8-live`.
 ---
 
 ## M9 Final eval and documentation
-
-### M9-T0 Batch mode and recount-tokens
-Goal: The full eval runs in batches so the final numbers are affordable.
-Files: backend/evals/run.ts, backend/scripts/recount-tokens.ts
-Test: `pnpm eval --batch --sanity`
-Expected: the batch path returns the same verdicts as the single path on the sanity subset.
-Box: 30
-Status: [ ]
 
 ### M9-T1 Final evals
 Goal: The held-out split is run once, and both model rows are in RESULTS.md.
@@ -494,37 +497,9 @@ Status: [ ]
 
 ---
 
-## M10 Mind map (optional, only if M8 is live)
+## M10 Audio Overview (optional, only if the live site is stable)
 
-### M10-T1 Mind map prompt and job
-Goal: A flat node list is generated and validated.
-Files: prompts/mind-map.md, backend/app/modules/studio/internal/mind-map.job.ts
-Test: `pnpm --filter @quellwerk/backend test -- mind-map`
-Expected: parent ids resolve, depth is at most four, labels are unique, an invalid map is retried once and then fails cleanly.
-Box: 45
-Status: [ ]
-
-### M10-T2 Mind map rendering
-Goal: The map is drawn and a node opens the notebook with that question.
-Files: frontend/src/modules/studio/components/MindMap*.tsx
-Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/mindmap.spec.ts`
-Expected: the root and its branches render, a node click fills the composer.
-Box: 45
-Status: [ ]
-
-### M10-T3 Measurement
-Goal: Cost and latency of a mind map are recorded.
-Files: backend/evals/RESULTS.md
-Test: `pnpm eval --sanity`
-Expected: one line with tokens, cents and latency for the mind map route.
-Box: 30
-Status: [ ]
-
----
-
-## M11 Audio overview (optional, only if M10 is done)
-
-### M11-T1 Script and TTS
+### M10-T1 Script and TTS
 Goal: A dialogue script is generated and spoken through the TTS adapter.
 Files: prompts/audio-overview-script.md, backend/app/adapters/tts/gemini.adapter.ts, backend/app/modules/studio/internal/audio.job.ts
 Test: `pnpm --filter @quellwerk/backend test -- audio.job`
@@ -532,11 +507,39 @@ Expected: speakers alternate, every turn is at most 280 characters, the job ends
 Box: 60
 Status: [ ]
 
-### M11-T2 Player
+### M10-T2 Player
 Goal: The finished audio plays in the studio panel.
 Files: frontend/src/modules/studio/components/AudioPlayer.tsx
 Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/audio.spec.ts`
 Expected: the player appears when the job is done and shows the title and summary.
+Box: 45
+Status: [ ]
+
+### M10-T3 Measurement
+Goal: Cost and latency of an audio overview are recorded.
+Files: backend/evals/RESULTS.md
+Test: `pnpm eval --sanity`
+Expected: one line with tokens, cents and latency for the audio route.
+Box: 30
+Status: [ ]
+
+---
+
+## M11 Mind map (optional, only if M10 is finished)
+
+### M11-T1 Mind map prompt and job
+Goal: A flat node list is generated and validated.
+Files: prompts/mind-map.md, backend/app/modules/studio/internal/mind-map.job.ts
+Test: `pnpm --filter @quellwerk/backend test -- mind-map`
+Expected: parent ids resolve, depth is at most four, labels are unique, an invalid map is retried once and then fails cleanly.
+Box: 45
+Status: [ ]
+
+### M11-T2 Mind map rendering
+Goal: The map is drawn and a node opens the notebook with that question.
+Files: frontend/src/modules/studio/components/MindMap*.tsx
+Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/mindmap.spec.ts`
+Expected: the root and its branches render, a node click fills the composer.
 Box: 45
 Status: [ ]
 
@@ -558,36 +561,25 @@ Status: [ ]
 
 | Milestone | Tasks | Minutes |
 |---|---|---|
-| M0 | 6 | 300 |
+| M0 | 7 | 390 |
+| Deploy first (M8-T2, M8-T3) | 2 | 105 |
 | M1 | 4 | 225 |
-| M2 | 6 | 300 |
-| M3 | 6 | 315 |
-| M4 | 7 (1 done) | 390 |
+| M2 | 5 | 285 |
+| M3 | 5 | 315 |
+| M4 | 6 (1 done) | 375 |
 | M5 | 5 | 210 |
-| M6 | 4 | 180 |
-| M7 | 6 | 255 |
-| M8 | 4 | 180 |
-| M9 | 3 | 135 |
-| **M0 to M9** | **51** | **2490 (41.5 h)** |
-| M10 | 3 | 120 |
-| M11 | 2 | 105 |
+| M6 | 3 | 165 |
+| M7 | 5 | 225 |
+| M8 (rest) | 2 | 75 |
+| M9 | 2 | 105 |
+| **M0 to M9** | **46** | **2475 (41.3 h)** |
+| M10 | 3 | 135 |
+| M11 | 2 | 90 |
 | M12 | 1 | 45 |
 
-**The 24 hour cap for M0 to M9 is not reachable with these task ids, and not by
-a small margin.** The 51 ids, at the 30 minute floor, already sum to 1530 minutes
-(25.5 h) before a single estimate is made. My honest estimates come to 2490
-minutes (41.5 h).
-
-Three ways to close the gap, in the order I would pick them:
-
-1. **Cut scope, not minutes.** Dropping M5-T4 (notes), M7-T6 (admin stats),
-   M8-T4 (cold start measurement) and M9-T0 (batch mode) removes 150 minutes and
-   four tasks. That is the smallest loss a reviewer would notice.
-2. **Merge tasks that share a file.** M2-T3 into M2-T2, M3-T4 into M3-T5,
-   M6-T3 into M6-T1, M4-T5 into M4-T4: four tasks fewer and about 150 minutes of
-   context switching saved, at the price of larger commits.
-3. **Accept the number and cut M7 to M9 on the day.** The day 3 gate has the most
-   slack: hardening can ship partially, the privacy page cannot.
-
-No box was padded or shaved to make the total fit. Tell me which of the three you
-want and I will rewrite the affected tasks before we start M0.
+The merges and the two dropped tasks save 165 minutes; M0-T0 adds 90, so the net
+change against the first version is minus 15 minutes. The 24 hour cap still is
+not met and cannot be met with this scope: the honest number is 41 hours. Nothing
+was padded or shaved to make it look otherwise. The order is what protects the
+outcome now, not the total: the site is live after M0, and every milestone
+deploys again, so the last evening holds no first attempt at anything.
