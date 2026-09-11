@@ -69,8 +69,8 @@ notes, artifacts, jobs and usage_log.
 ### M0-T1 Rename to @quellwerk/*
 Goal: Every package, container and filter name says Quellwerk instead of bp-monolith.
 Files: package.json, backend/package.json, frontend/package.json, e2e/package.json, pnpm-workspace.yaml, docker-compose.yml, backend/Dockerfile, backend/Dockerfile.dev, frontend/Dockerfile.dev, backend/app/config/redis.config.ts, README.md, backend/README.md, frontend/README.md, .github/workflows/ci.yml
-Test: `rg -n 'bp-monolith|bp-backend|bp-frontend|bp-db|bp-redis' --glob '!pnpm-lock.yaml' --glob '!docs/**' | wc -l`
-Expected: `0`, and `pnpm install && pnpm typecheck && pnpm test` pass.
+Test: `rg -n 'bp-monolith|bp_monolith|bp-backend|bp-frontend|bp-db|bp-redis|bp_user' --glob '!pnpm-lock.yaml' --glob '!docs/**' | wc -l && rg --hidden -n 'bp-monolith|bp_monolith|bp-backend|bp-frontend|bp-db|bp-redis|bp_user' .github .husky .claude | wc -l`
+Expected: `0` twice. The second command is needed because ripgrep skips hidden directories by default, so .github, .husky and .claude are invisible to the first one. Then `pnpm install && pnpm typecheck && pnpm test` pass.
 Box: 30
 Status: [x]
 
@@ -104,7 +104,7 @@ Files: docker-compose.yml, backend/Dockerfile, .dockerignore, .github/workflows/
 Test: `docker compose config --quiet && docker compose up -d --build && docker compose ps --format '{{.Service}} {{.Status}}'`
 Expected: five services (db, redis, backend, worker, frontend), all `healthy`; `docker compose exec backend ls ../prompts/README.md` finds the file; the two template documents are gone (the upgrade note names compromised secret names and other projects, which has no place in a repository I hand over).
 Box: 45
-Status: [ ]
+Status: [x]
 
 ### M0-T6 Clean-clone gate
 Goal: A fresh clone installs, builds and starts after copying the two configuration files from their examples.
@@ -216,7 +216,7 @@ Status: [ ]
 
 ### M2-T5 Base seed and token measurement
 Goal: A demo notebook with the fixed id `demo` exists after seeding, and its real token count is recorded.
-Files: backend/prisma/seed.ts, backend/scripts/recount-tokens.ts, docs/ai-process/pdf-vs-text-tokens.md (the seed reads backend/evals/corpus/, the same files the golden set is written against)
+Files: backend/prisma/seed.ts, backend/scripts/recount-tokens.ts, backend/Dockerfile (this task copies backend/evals/corpus into the image; M0-T5 deliberately left it out because the directory did not exist yet), docs/ai-process/pdf-vs-text-tokens.md (the seed reads backend/evals/corpus/, the same files the golden set is written against)
 Test: `pnpm db:seed && pnpm --filter @quellwerk/backend exec tsx scripts/recount-tokens.ts demo`
 Expected: the notebook has four ready sources and prints a token total under 150000, written into the document.
 Box: 30

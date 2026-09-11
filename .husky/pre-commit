@@ -31,14 +31,14 @@ STAGED_FRONTEND=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^f
 if [ -n "$STAGED_BACKEND" ]; then
     printf '%s\n' "${YELLOW}Backend changes staged - running checks...${NC}"
     # Prisma Client first, so tsc never sees stale @prisma/client types.
-    run "Prisma generate"     pnpm --filter bp-monolith-backend exec prisma generate
-    run "Backend TypeScript"  pnpm --filter bp-monolith-backend exec tsc --noEmit
-    run "Prisma validate"     pnpm --filter bp-monolith-backend exec prisma validate
+    run "Prisma generate"     pnpm --filter @quellwerk/backend exec prisma generate
+    run "Backend TypeScript"  pnpm --filter @quellwerk/backend exec tsc --noEmit
+    run "Prisma validate"     pnpm --filter @quellwerk/backend exec prisma validate
 fi
 
 if [ -n "$STAGED_FRONTEND" ]; then
     printf '%s\n' "${YELLOW}Frontend changes staged - running checks...${NC}"
-    run "Frontend TypeScript" pnpm --filter bp-monolith-frontend exec tsc --noEmit
+    run "Frontend TypeScript" pnpm --filter @quellwerk/frontend exec tsc --noEmit
 fi
 
 # --------------------------------------------------------------------------

@@ -97,10 +97,6 @@ services:
       # behandelt "" wie fehlend); SEED_*-Werte in backend/.env sind im
       # Container wirkungslos, weil `environment` gegen `env_file` gewinnt.
       SEED_ON_START: ${SEED_ON_START:-false}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
-      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-false}
-      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
     volumes:
       - backend_uploads:/usr/src/app/uploads
       # NIE den Docker-Socket mounten

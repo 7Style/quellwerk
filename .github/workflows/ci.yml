@@ -63,11 +63,10 @@ jobs:
       - name: Generate throwaway application secrets
         run: |
           {
-            echo "JWT_SECRET=$(openssl rand -hex 32)"
-            echo "JWT_REFRESH_SECRET=$(openssl rand -hex 32)"
             echo "SESSION_SECRET=$(openssl rand -hex 32)"
-            echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
-            echo "SEED_ADMIN_PASSWORD=$(openssl rand -base64 18)"
+            echo "ADMIN_TOKEN=$(openssl rand -hex 16)"
+            # No model is called in CI; the key only has to satisfy the schema.
+            echo "ANTHROPIC_API_KEY=ci-not-a-real-key"
           } >> "$GITHUB_ENV"
 
       - name: Set up Node from .nvmrc
@@ -93,7 +92,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Prisma generate
-        run: pnpm --filter bp-monolith-backend run prisma:generate
+        run: pnpm --filter @quellwerk/backend run prisma:generate
 
       - name: Typecheck
         run: pnpm typecheck
@@ -102,7 +101,7 @@ jobs:
         run: pnpm lint
 
       - name: Prisma migrate deploy (service database)
-        run: pnpm --filter bp-monolith-backend run prisma:migrate:deploy
+        run: pnpm --filter @quellwerk/backend run prisma:migrate:deploy
 
       # Root `pnpm test` = backend Jest (--ci, no watch); the e2e package is
       # excluded there because Playwright needs browsers and a running stack.
@@ -154,8 +153,6 @@ jobs:
     timeout-minutes: 40
     env:
       BASE_URL: http://127.0.0.1:3010
-      SEED_ADMIN_EMAIL: admin@bp-monolith.local
-      SEED_DEMO_USERS: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -183,51 +180,39 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Throwaway values for this run only (hex, so neither compose nor dotenv
-      # interpolates anything). The seed passwords are needed again by the
-      # Playwright step and go to GITHUB_ENV, masked in the log.
-      - name: Generate stack configuration (.env, backend/.env)
+      # interpolates anything). No model is called, so the API key only has to
+      # satisfy the schema.
+      - name: Generate stack configuration
         run: |
           set -euo pipefail
           POSTGRES_PASSWORD=$(openssl rand -hex 24)
           REDIS_PASSWORD=$(openssl rand -hex 24)
-          SEED_ADMIN_PASSWORD=$(openssl rand -hex 16)
-          SEED_DEMO_PASSWORD=$(openssl rand -hex 16)
-          for value in "$POSTGRES_PASSWORD" "$REDIS_PASSWORD" "$SEED_ADMIN_PASSWORD" "$SEED_DEMO_PASSWORD"; do
+          SESSION_SECRET=$(openssl rand -hex 32)
+          ADMIN_TOKEN=$(openssl rand -hex 16)
+          for value in "$POSTGRES_PASSWORD" "$REDIS_PASSWORD" "$SESSION_SECRET" "$ADMIN_TOKEN"; do
             echo "::add-mask::${value}"
           done
           cat > .env <<EOF
-          POSTGRES_USER=bp_e2e
+          POSTGRES_USER=quellwerk_e2e
           POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-          POSTGRES_DB=bp_e2e
+          POSTGRES_DB=quellwerk_e2e
           REDIS_PASSWORD=${REDIS_PASSWORD}
-          APP_NAME=bp-monolith
+          APP_NAME=Quellwerk
           APP_DESCRIPTION=
           NEXT_PUBLIC_API_URL=http://127.0.0.1:3011
-          SEED_ON_START=true
-          SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL}
-          SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
-          SEED_DEMO_USERS=true
-          SEED_DEMO_PASSWORD=${SEED_DEMO_PASSWORD}
+          SEED_ON_START=false
           EOF
           cat > backend/.env <<EOF
-          JWT_SECRET=$(openssl rand -hex 32)
-          JWT_REFRESH_SECRET=$(openssl rand -hex 32)
-          SESSION_SECRET=$(openssl rand -hex 32)
-          ENCRYPTION_KEY=$(openssl rand -hex 32)
+          SESSION_SECRET=${SESSION_SECRET}
+          ADMIN_TOKEN=${ADMIN_TOKEN}
+          ANTHROPIC_API_KEY=ci-not-a-real-key
           CORS_ORIGIN=http://127.0.0.1:3010
           FRONTEND_URL=http://127.0.0.1:3010
           API_URL=http://127.0.0.1:3011
-          EMAIL_PROVIDER=console
           LOG_LEVEL=info
-          # A Playwright retry re-runs a whole serial spec group; the default
-          # login limit (5 failed attempts per 15 min and IP) would then block
-          # the run. The limiter itself is covered by the backend tests.
-          RATE_LIMIT_LOGIN_MAX=100
+          # No model is reachable from CI, so every answer comes from fixtures.
+          DEMO_OFFLINE=true
           EOF
-          {
-            echo "SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}"
-            echo "SEED_DEMO_PASSWORD=${SEED_DEMO_PASSWORD}"
-          } >> "$GITHUB_ENV"
 
       - name: Build and start the stack
         run: docker compose up -d --build
@@ -261,15 +246,30 @@ jobs:
             fi
             sleep 5
           done
+          # The worker serves nothing, so it is checked through its state, not
+          # through a port.
+          state=$(docker compose ps --format '{{.Service}} {{.State}}' | awk '$1=="worker"{print $2}')
+          if [ "${state}" != "running" ]; then
+            echo "worker is not running (state: ${state:-missing})"
+            docker compose ps
+            docker compose logs --no-color --tail 200 worker
+            exit 1
+          fi
+          echo "worker running"
 
       - name: Install Chromium
-        run: pnpm --filter bp-monolith-e2e exec playwright install --with-deps chromium
+        run: pnpm --filter @quellwerk/e2e exec playwright install --with-deps chromium
 
-      # SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_DEMO_USERS and
-      # SEED_DEMO_PASSWORD come from the job env / GITHUB_ENV above; the
-      # fixtures (e2e/fixtures/test-users.ts) derive the accounts from them.
+      # The specs arrive in M4; until then there is nothing to run and Playwright
+      # would fail with "no tests found", which would say nothing about the code.
       - name: Playwright (chromium)
-        run: pnpm --filter bp-monolith-e2e exec playwright test --project=chromium
+        run: |
+          set -euo pipefail
+          if ! ls e2e/tests/**/*.spec.ts >/dev/null 2>&1 && ! ls e2e/tests/*.spec.ts >/dev/null 2>&1; then
+            echo "no specs yet, skipping (they arrive in M4-T4)"
+            exit 0
+          fi
+          pnpm --filter @quellwerk/e2e exec playwright test --project=chromium
 
       - name: Upload Playwright report
         if: failure()

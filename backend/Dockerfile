@@ -70,6 +70,10 @@ COPY --from=build --chown=nodejs:nodejs /out/node_modules ./node_modules
 COPY --from=build --chown=nodejs:nodejs /out/dist ./dist
 COPY --from=build --chown=nodejs:nodejs /out/prisma ./prisma
 COPY --from=build --chown=nodejs:nodejs /out/prisma.config.ts ./prisma.config.ts
+# Prompts are application data, not documentation: the loader reads them at
+# runtime. They sit one level above the package root, so `../prompts` resolves
+# the same way in the image as it does from backend/ in a checkout.
+COPY --chown=nodejs:nodejs prompts /usr/src/prompts
 COPY --chown=nodejs:nodejs backend/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 # logs/ and uploads/ (= UPLOAD_DIR) must be writable by the non-root user; a
 # named volume mounted on uploads/ inherits this ownership on first creation.

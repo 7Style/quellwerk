@@ -1,17 +1,16 @@
 # ==============================================================================
 # quellwerk - Docker Compose (Repo-Root)
 # ==============================================================================
-# Kompletter Stack aus Produktions-Images: db, redis, backend, frontend.
+# Kompletter Stack aus Produktions-Images: db, redis, backend, worker, frontend.
 # Alle Host-Ports nur auf 127.0.0.1.
 #
 # Variablen:
 #   - .env im Repo-Root (cp example.env .env): POSTGRES_*, REDIS_PASSWORD,
-#     APP_NAME, APP_DESCRIPTION, NEXT_PUBLIC_API_URL, SEED_ON_START,
-#     SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_DEMO_USERS, SEED_DEMO_PASSWORD.
+#     APP_NAME, APP_DESCRIPTION, NEXT_PUBLIC_API_URL, SEED_ON_START.
 #     Ohne Passwort bricht Compose ab (${VAR:?}-Syntax), es gibt keine Defaults.
-#   - backend/.env (env_file): Anwendungs-Einstellungen des Backends
-#     (JWT_*, ENCRYPTION_KEY, CORS_ORIGIN, SMTP_*, UPLOAD_*,
-#     RATE_LIMIT_*, LOG_LEVEL).
+#   - Die Konfigurationsdatei des Backends (env_file): SESSION_SECRET,
+#     ANTHROPIC_API_KEY, ADMIN_TOKEN, MODEL_*, EFFORT_CHAT, CORS_ORIGIN,
+#     UPLOAD_*, RATE_LIMIT_*, LOG_LEVEL.
 #
 # Vorrang: `environment` gewinnt gegen `env_file`. DATABASE_URL, REDIS_URL,
 # PORT, NODE_ENV, APP_NAME, UPLOAD_DIR und alle SEED_* werden hier gesetzt;
@@ -102,18 +101,14 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3011
-      APP_NAME: ${APP_NAME:-quellwerk}
+      APP_NAME: ${APP_NAME:-Quellwerk}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       UPLOAD_DIR: /usr/src/app/uploads
-      # Seed: alle Werte aus der Root-.env. Leer = nicht gesetzt (das Backend
-      # behandelt "" wie fehlend); SEED_*-Werte in backend/.env sind im
-      # Container wirkungslos, weil `environment` gegen `env_file` gewinnt.
+      # Seed kommt aus der Root-Konfiguration; die Werte des Kontosystems sind
+      # mit ihm entfallen. Das Demo-Notizbuch entsteht in M2-T5 aus
+      # backend/evals/corpus/.
       SEED_ON_START: ${SEED_ON_START:-false}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
-      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-false}
-      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
     volumes:
       - backend_uploads:/usr/src/app/uploads
       # NIE den Docker-Socket mounten: wer den Socket hat, ist root auf dem Host
@@ -127,6 +122,49 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+
+  # Alles, was länger dauert als ein Chat-Turn (ADR-0009). Gleiches Image wie das
+  # Backend, anderer Einstiegspunkt: kein Port, kein HTTP, und der Healthcheck
+  # prüft nur, dass der Prozess lebt, weil er nichts bedient.
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: quellwerk-worker
+    command: ["node", "dist/app/worker.js"]
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      APP_NAME: ${APP_NAME:-Quellwerk}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      UPLOAD_DIR: /usr/src/app/uploads
+      # Migrationen und Seed laufen im Backend-Container, nie zweimal.
+      SEED_ON_START: "false"
+    volumes:
+      - backend_uploads:/usr/src/app/uploads
+    # Der Healthcheck aus dem Dockerfile ruft /health und gilt für jeden
+    # Container aus diesem Image; der Worker bedient aber nichts und wäre damit
+    # dauerhaft unhealthy. Ein Ersatz wie `node -e process.exit(0)` wäre eine
+    # Lüge: er startet einen zweiten Prozess und sagt nichts über den Worker.
+    # Also abgeschaltet. Eine echte Lebendprüfung kommt mit dem ersten Prozessor
+    # in M2-T2 über einen Heartbeat-Schlüssel in Redis; bis dahin zählt der
+    # Zustand des Containers, und den prüft CI.
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
         condition: service_healthy
     restart: unless-stopped
     networks:

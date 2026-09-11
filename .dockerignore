@@ -59,5 +59,8 @@ frontend/.env*
 
 # Documentation and editor files
 **/*.md
+# ... but the prompts are application data, not documentation: every text that
+# goes to a model lives there and is loaded at runtime (CLAUDE.md).
+!prompts/**
 **/.DS_Store
 **/.editorconfig

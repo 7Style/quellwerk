@@ -26,13 +26,13 @@ run() {
 printf 'Running pre-push checks (full build validation)...\n'
 
 printf '%s\n' "${YELLOW}Backend checks...${NC}"
-run "[1/4] Prisma validate"    pnpm --filter bp-monolith-backend exec prisma validate
-run "[2/4] Prisma generate"    pnpm --filter bp-monolith-backend exec prisma generate
-run "[3/4] Backend TypeScript" pnpm --filter bp-monolith-backend exec tsc --noEmit
-run "[4/4] Backend build"      pnpm --filter bp-monolith-backend run build
+run "[1/4] Prisma validate"    pnpm --filter @quellwerk/backend exec prisma validate
+run "[2/4] Prisma generate"    pnpm --filter @quellwerk/backend exec prisma generate
+run "[3/4] Backend TypeScript" pnpm --filter @quellwerk/backend exec tsc --noEmit
+run "[4/4] Backend build"      pnpm --filter @quellwerk/backend run build
 
 printf '%s\n' "${YELLOW}Frontend checks...${NC}"
-run "[1/2] Frontend TypeScript" pnpm --filter bp-monolith-frontend exec tsc --noEmit
-run "[2/2] Frontend build"      pnpm --filter bp-monolith-frontend run build
+run "[1/2] Frontend TypeScript" pnpm --filter @quellwerk/frontend exec tsc --noEmit
+run "[2/2] Frontend build"      pnpm --filter @quellwerk/frontend run build
 
 printf '%s\n' "${GREEN}All pre-push checks passed. Safe to push.${NC}"
