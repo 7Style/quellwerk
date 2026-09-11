@@ -44,7 +44,13 @@ minimumReleaseAgeExclude:
 #   mysql2        GHSA-3f6p-5ww8-9rcr; the CLI loads it lazily for MySQL
 #                 (Studio) only, Postgres is the only datasource here, so the
 #                 package is removed from prisma's dependencies
+#
+# @napi-rs/canvas is an optional dependency of pdfjs-dist and a prebuilt native
+# binary per platform. It is only used to rasterise a page; text extraction
+# never touches it. Removed so the backend image stays free of a binary nothing
+# calls.
 overrides:
   lodash: 4.18.1
   deepmerge-ts: 8.0.2
   'prisma>mysql2': '-'
+  'pdfjs-dist>@napi-rs/canvas': '-'

@@ -172,7 +172,7 @@ The PDF in the corpus uses subset fonts with their own encoding: raw content-str
 
 "Text was extracted" is not the assertion; "this sentence is in the extracted text" is. Expect about 99,800 characters from that file, roughly 30K tokens; the real count is measured in M2-T5 with countTokens, not with a character counter. Which library does the decoding is verified against its documentation with the `researcher` agent before it is added, not guessed.
 Box: 45
-Status: [ ]
+Status: [x]
 
 ### M1-T2 Draft the golden set
 Goal: 30 questions exist as a hand-written file, 20 dev and 10 held out, with the item types the brief needs.
