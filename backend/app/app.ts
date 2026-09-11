@@ -57,9 +57,28 @@ export async function createApp(): Promise<Express> {
     })
   );
 
-  // Compression
+  // Compression, with one exemption that the chat depends on.
+  //
+  // gzip buffers: it collects bytes until it has enough to compress, and an SSE
+  // stream that trickles one token at a time arrives in lumps or, worse, not
+  // until the answer is finished. The user watches a spinner while the answer
+  // is already written.
+  //
+  // `compression` has its own `shouldCompress` default; this filter says no to
+  // event streams first and defers to that default for everything else, so a
+  // JSON response is still compressed.
   if (config.security.compressionEnabled) {
-    app.use(compression());
+    app.use(
+      compression({
+        filter: (req, res) => {
+          const contentType = res.getHeader('Content-Type');
+          if (typeof contentType === 'string' && contentType.includes('text/event-stream')) {
+            return false;
+          }
+          return compression.filter(req, res);
+        },
+      })
+    );
   }
 
   // CORS -- allowlist only, never a wildcard origin; credentials only with a listed Origin

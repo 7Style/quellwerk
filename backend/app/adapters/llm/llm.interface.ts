@@ -18,9 +18,28 @@ export interface LlmUsage {
   latencyMs: number;
 }
 
+/**
+ * What a streamed turn looks like to the application.
+ *
+ * Deliberately not the SDK's events. A module that read `content_block_delta`
+ * would carry Anthropic's vocabulary into the business rules and would have to
+ * be touched whenever the SDK's shape changes (ADR-0004).
+ *
+ * `segment` is the ordinal of the text block, counted past thinking blocks, so
+ * it is the same number the client uses to attach a citation to a paragraph.
+ */
+export type LlmStreamEvent =
+  | { type: 'segment'; segment: number }
+  | { type: 'text'; segment: number; text: string }
+  | { type: 'citation'; segment: number; citation: Anthropic.TextCitation }
+  | { type: 'done'; message: Anthropic.Message };
+
 export interface ILlmProvider {
-  /** Chat and reports: citations on, text out. */
-  streamChat(request: Anthropic.MessageCreateParams): AsyncIterable<unknown>;
+  /** Chat and reports: citations on, text out. `signal` aborts the upstream call. */
+  streamChat(
+    request: Anthropic.MessageCreateParamsStreaming,
+    signal?: AbortSignal
+  ): AsyncIterable<LlmStreamEvent>;
   /**
    * Structured outputs: citations off, JSON out. The request comes from
    * `buildArtifactRequest`, whose type is derived from what the SDK's `parse`

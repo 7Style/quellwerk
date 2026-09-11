@@ -23,6 +23,8 @@ import { assertBudgetLeft } from '../services/quota/index.js';
 import { initSessionModule, sessionIdOf } from './session/index.js';
 import { initNotebooksModule } from './notebooks/index.js';
 import { initSourcesModule } from './sources/index.js';
+import { initChatModule } from './chat/index.js';
+import { budgetMiddleware, chatDeps } from '../wiring/chat.js';
 import { initAdminModule } from './admin/index.js';
 
 // Cross-module communication without imports between modules.
@@ -124,7 +126,21 @@ export async function registerModules(app: Express): Promise<void> {
     throw error;
   }
 
-  // chat arrives in M3-T3, notes in M5-T4, studio in M6-T1.
+  try {
+    initChatModule(app, {
+      sessionIdOf,
+      limitPerSession: createRateLimiter('chat-session', config.rateLimit.chatPerSession),
+      limitPerIp: createRateLimiter('chat-ip', config.rateLimit.chatPerIp),
+      budget: budgetMiddleware(),
+      ...chatDeps(llm),
+    });
+    startupStatus.moduleOk('Chat');
+  } catch (error) {
+    startupStatus.moduleFail('Chat', error);
+    throw error;
+  }
+
+  // notes arrive in M5-T4, studio in M6-T1.
 
   logger.info('[Modules] All modules registered successfully');
   startupStatus.logSummary();

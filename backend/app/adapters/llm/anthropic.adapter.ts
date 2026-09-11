@@ -12,7 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { env } from '../../config/env.config.js';
 import type { ArtifactRequest } from './artifact-request.js';
-import type { ILlmProvider, LlmUsage } from './llm.interface.js';
+import type { ILlmProvider, LlmStreamEvent, LlmUsage } from './llm.interface.js';
 import { usageFrom } from './usage.js';
 
 export class AnthropicLlmAdapter implements ILlmProvider {
@@ -26,8 +26,49 @@ export class AnthropicLlmAdapter implements ILlmProvider {
     this.client = new Anthropic({ apiKey, maxRetries: 4 });
   }
 
-  streamChat(_request: Anthropic.MessageCreateParams): AsyncIterable<unknown> {
-    throw new Error('AnthropicLlmAdapter.streamChat arrives in M3-T3');
+  /**
+   * Streams a chat turn and hands out events in our own shape.
+   *
+   * The caller never sees an SDK event. That is the whole point of the adapter:
+   * `content_block_delta` with a `citations_delta` is Anthropic's vocabulary,
+   * and a module that knew it would have to be changed when the SDK changes.
+   *
+   * `signal` aborts the upstream call. Without it a browser that closes the tab
+   * leaves the request running to the end and the tokens are billed for an
+   * answer nobody will read.
+   */
+  async *streamChat(
+    request: Anthropic.MessageCreateParamsStreaming,
+    signal?: AbortSignal
+  ): AsyncIterable<LlmStreamEvent> {
+    const stream = this.client.messages.stream(request, signal ? { signal } : undefined);
+
+    // Segment index: the ordinal of the text block, not the content block. A
+    // thinking block sits among them and must not shift the numbering the
+    // client uses to attach a citation to a paragraph.
+    const segmentOf = new Map<number, number>();
+    let segments = 0;
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_start' && event.content_block.type === 'text') {
+        segmentOf.set(event.index, segments);
+        yield { type: 'segment', segment: segments };
+        segments += 1;
+        continue;
+      }
+
+      if (event.type !== 'content_block_delta') continue;
+      const segment = segmentOf.get(event.index);
+      if (segment === undefined) continue;
+
+      if (event.delta.type === 'text_delta') {
+        yield { type: 'text', segment, text: event.delta.text };
+      } else if (event.delta.type === 'citations_delta') {
+        yield { type: 'citation', segment, citation: event.delta.citation };
+      }
+    }
+
+    yield { type: 'done', message: await stream.finalMessage() };
   }
 
   /**

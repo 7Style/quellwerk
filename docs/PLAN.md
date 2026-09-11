@@ -292,7 +292,7 @@ Files: backend/app/modules/chat/{controllers,routes,services}/*, backend/app/mod
 Test: `pnpm --filter @quellwerk/backend test -- chat.route stream`
 Expected: events arrive in order, an aborted request stops the upstream call, an upstream error emits one `error` event and closes; compression leaves `text/event-stream` alone.
 Box: 75
-Status: [ ]
+Status: [x]
 
 ### M3-T5 LiveAnswerer, first eval run and hillclimb
 Goal: The runner grades the real route, and the first numbers and the changes that improved them are recorded.

@@ -7,3 +7,6 @@ export type { CountTokensInput, TokenCounter } from './count-tokens.js';
 export { buildArtifactRequest } from './artifact-request.js';
 export type { ArtifactRequest, ArtifactRequestInput, EffortLevel } from './artifact-request.js';
 export { usageFrom } from './usage.js';
+export { buildChatRequest } from './chat-request.js';
+export type { BuiltChatRequest, ChatHistoryTurn, ChatRequestInput } from './chat-request.js';
+export type { LlmStreamEvent } from './llm.interface.js';
