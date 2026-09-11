@@ -7,7 +7,7 @@ Nothing is inlined in TypeScript. The "View prompt used" menu in the app
 shows the rendered file, so a reviewer reads the real prompt, not a copy.
 
 The files are written in the milestone that needs them (M1 judges, M2 ingest, M3
-chat, M6 reports, M10 and M11 optional) and change only through the eval loop
+chat, M6 reports) and change only through the eval loop
 (backend/evals/HILLCLIMB.md). Until then this README is the only file here; it is
 the contract every prompt follows.
 
@@ -59,8 +59,9 @@ and is never returned in a citation.
    5-minute breakpoint (`{type:'ephemeral'}`) may sit on the LAST TEXT block of
    the last assistant turn (never on a thinking block or a citation; those cannot
    carry `cache_control`) so long conversations read their history from cache too.
-3. Everything that changes per turn (Configure chat, selected sources, the
-   question) goes into the LAST user turn via `chat-preferences-tail.md`.
+3. Everything that changes per turn (Configure chat, the question) goes into the
+   LAST user turn via `chat-preferences-tail.md`. There is no source selection:
+   every ready source is always sent (docs/KNOWN-LIMITS.md).
 4. ONE effort level per cache namespace. Changing `output_config.effort` (or the
    model) invalidates the messages cache, and the documents live in messages.
    Chat and reports therefore both use `EFFORT_CHAT`. The artifact builder is a
@@ -102,7 +103,7 @@ last use.
 
 | Env | Default | Used for |
 |---|---|---|
-| MODEL_CHAT | claude-opus-5 | chat and reports (EFFORT_CHAT, default low; one value for both), overview (low), mind map (low), audio script (high) |
+| MODEL_CHAT | claude-opus-5 | chat and reports (EFFORT_CHAT, default low; one value for both), overview (low) |
 | MODEL_FAST | claude-haiku-4-5 | source guide, notebook title, follow-up questions. No `output_config.effort` and no thinking: Haiku 4.5 rejects effort, and the loader must not default it when the front-matter key is absent |
 | MODEL_JUDGE | claude-sonnet-5 | eval judges only. Differs from the default chat model; when MODEL_CHAT is switched to claude-sonnet-5 for the comparison row, the judge stays claude-sonnet-5 so both rows are graded by the same judge, and RESULTS.md marks that row as self-judged |
 
@@ -131,7 +132,5 @@ system prompt.
 | notebook-overview.md | ingest (debounced) | MODEL_CHAT effort low, json, no citations |
 | follow-up-questions.md | chat (after stream) | MODEL_FAST, json |
 | report-common.md + report-*.md | studio reports | user turn on the chat builder, same EFFORT_CHAT, citations on |
-| mind-map.md | studio | MODEL_CHAT effort low, json, no citations |
-| audio-overview-script.md | studio | MODEL_CHAT effort high, json, no citations |
 | eval-judge-faithfulness.md | evals | MODEL_JUDGE effort low, json; score null for refusals, excluded from the mean |
 | eval-judge-correctness.md | evals | MODEL_JUDGE effort low, json; behaviours incl. hijacked, reported_injection |

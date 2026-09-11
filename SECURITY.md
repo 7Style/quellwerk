@@ -519,9 +519,10 @@ Ingestion in M2, Zitatprüfung in M3, Härtung und Datenschutz in M7. Die Zahlen
   nicht nur am Content-Type; Dateinamen per `randomUUID()`, Ablage im Volume
   `UPLOAD_DIR` mit `safePath`-Prüfung, Zugriff nur über die eigene Session.
 - Multer-Limits für `fileSize`, `files`, `fields`, `parts`, `fieldNameSize`.
-- URL-Quellen: nur `http` und `https`; private und Link-Local-Bereiche gesperrt
-  (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.169.254), auch nach
-  Redirects; Timeout und Größenlimit.
+- Keine URL-Quellen. Ein Dienst, der eine vom Nutzer gewählte Adresse abruft, ist auf
+  einem Server mit weiteren Seiten eine Anfrageschleuse nach innen (SSRF). Die Abwehr
+  wäre machbar, aber ein Fehler darin trifft die Nachbarn und nicht Quellwerk; die
+  Funktion ist deshalb gestrichen, Begründung in docs/KNOWN-LIMITS.md.
 - Quelltext wird einmal normalisiert und danach nie verändert. Jedes Zitat wird vor dem
   Rendern gegen den gespeicherten Text geprüft (`slice === cited_text`); ein Treffer ohne
   Übereinstimmung wird verworfen und gezählt, nie angezeigt.

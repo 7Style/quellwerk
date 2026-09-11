@@ -50,10 +50,10 @@ sequenceDiagram
   participant L as AnthropicLlmAdapter
   participant C as citations.ts
   participant D as Postgres
-  U->>R: Frage, Abwahl als selected_sources, Präferenzen
+  U->>R: Frage und Präferenzen
   R->>Q: Rate-Limit und Tagesbudget
   Q-->>R: frei
-  R->>B: ALLE fertigen Quellen als Dokumente, Präferenzen und Abwahl in den letzten User-Turn
+  R->>B: ALLE fertigen Quellen als Dokumente, Präferenzen in den letzten User-Turn
   B->>L: stream, citations on, cache_control auf dem letzten Dokument
   R-->>U: open
   L-->>R: Textdeltas und citation deltas
@@ -77,10 +77,11 @@ geordnete `sourceId`-Liste des Builders aufgelöst. Die Prüfung vergleicht Zeic
 nicht Text nach Normalisierung. Ein verworfenes Zitat wird gezählt und
 protokolliert, aber weder der Zitattext noch der Ausschnitt landen im Log.
 
-Es gehen **immer alle fertigen Quellen** als Dokumente mit, auch die abgewählten.
-Sonst ändert sich der gecachte Prefix bei jeder Änderung an der Auswahl und der
-Cache ist wertlos. Die Abwahl reist als `selected_sources` im letzten User-Turn
-mit; der Resolver verwirft danach Chips, die auf eine abgewählte Quelle zeigen.
+Es gehen **immer alle fertigen Quellen** als Dokumente mit. Eine Auswahl
+einzelner Quellen gibt es nicht: sie würde den gecachten Prefix bei jeder
+Änderung verwerfen, und der Ausweg, die Abwahl nur im letzten User-Turn
+mitzuführen, verlagert die Auswahl in die Zuverlässigkeit des Modells. Die
+Begründung steht in docs/KNOWN-LIMITS.md.
 
 Der Chat-Turn schreibt zwei `usage_log`-Zeilen: eine für den Chat auf
 `MODEL_CHAT`, eine für die Folgefragen auf `MODEL_FAST`.
@@ -94,7 +95,7 @@ hängengebliebener Auftrag über den Index `(status, heartbeatAt)` gefunden wird
 ```mermaid
 flowchart TD
   A["Route POST sources: Zeile anlegen, status queued"] --> B["Job einstellen, dedupe ueber notebook, type, params"]
-  B --> C["fetch: Datei aus dem Volume oder URL laden"]
+  B --> C["fetch: Datei aus dem Volume laden"]
   C --> D["extract: Text je nach Typ, PDF nur mit Textebene"]
   D --> E["normalize: genau einmal, Ergebnis ist Source.text"]
   E --> F["pages: Seitenkarte auf Zeichen-Offsets"]
@@ -300,9 +301,9 @@ rechnet die Grenze hoch, nicht die Summe herunter: `DAILY_SPEND_CAP_CENTS` und
 
 ## Warteschlangen
 
-Vier Queues im Worker: `ingest` (Extraktion, Normalisierung, Source Guide, Titel),
-`artifact` (Overview, Reports, später Mind Map), `audio` (Skript und TTS),
-`maintenance` (Aufräumjob, Cache-Wärmung). Jeder Auftrag schreibt einen Heartbeat
+Drei Queues im Worker: `ingest` (Extraktion, Normalisierung, Source Guide, Titel),
+`artifact` (Overview, Reports) und `maintenance` (Aufräumjob, Cache-Wärmung). Die
+vierte, `audio`, entfällt mit der Audio Overview (docs/KNOWN-LIMITS.md). Jeder Auftrag schreibt einen Heartbeat
 und endet in einem terminalen Status; wiederkehrende Aufträge laufen über
 `upsertJobScheduler`, der ioredis-Client benutzt `maxRetriesPerRequest: null`.
 
@@ -314,9 +315,9 @@ Backend-Module unter `backend/app/modules/`:
 |---|---|
 | session | Anonyme Session, Cookie, Zuordnung von Notizbüchern |
 | notebooks | Notizbücher, Home-Grid, Overview, Copy-on-first-write |
-| sources | Upload, eingefügter Text, URL, Normalisierung, Guide, Kapazitäts-Gate |
+| sources | Upload, eingefügter Text, Normalisierung, Guide, Kapazitäts-Gate |
 | chat | Citations API, SSE, Zitatprüfung, Folgefragen |
-| studio | Reports als Jobs, später Audio und Mind Map |
+| studio | Reports als Jobs |
 | notes | Add note, Save to note, Convert to source |
 | admin | Statistiken hinter ADMIN_TOKEN |
 
@@ -376,5 +377,5 @@ wiederholt. Vier davon bestimmen die Architektur:
 Der System-Block ist eingefroren und trägt kein `cache_control`. Alle fertigen
 Quellen gehen als `text/plain`-Dokumentblöcke in Positionsreihenfolge mit, auch
 abgewählte. Genau ein Breakpoint mit einer Stunde sitzt auf dem letzten Dokument.
-Alles, was sich je Turn ändert, steht im letzten User-Turn: die Frage, die
-Präferenzen aus Configure chat und die Abwahl als `selected_sources`.
+Alles, was sich je Turn ändert, steht im letzten User-Turn: die Frage und die
+Präferenzen aus Configure chat.

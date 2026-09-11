@@ -27,7 +27,7 @@ Wunschzahl.
 - Anonyme Session ohne Login; jedes Notizbuch gehört genau einer Session.
 - Ein geseedetes Demo-Notizbuch mit fester id `demo`, für alle lesbar, beim ersten
   Schreibzugriff in die eigene Session kopiert.
-- Quellen: PDF mit Textebene, `.txt`, `.md`, `.docx`, eingefügter Text, Website-URL.
+- Quellen: PDF mit Textebene, `.txt`, `.md`, `.docx`, eingefügter Text.
 - Ingestion als BullMQ-Jobs mit sichtbarem Schritt-Status und terminalem Ausgang.
 - Source Guide je Quelle: Titel, Typ, Sprache, Zusammenfassung, Themen, drei
   Fragen mit Belegzitat, Warnungen.
@@ -36,7 +36,9 @@ Wunschzahl.
 - Chat über die Citations API mit serverseitiger Zitatprüfung, SSE-Streaming,
   Overview mit vier Fragen, drei Folgefragen je Antwort, wörtlichem
   Ablehnungssatz, benannten Widersprüchen; Quellen sind Daten, keine Anweisungen.
-- Configure chat (Stil, Länge) im letzten User-Turn, nie im Systemblock.
+- Configure chat (Stil, Länge) im letzten User-Turn, nie im Systemblock. Jede
+  Antwort arbeitet auf allen fertigen Quellen; eine Auswahl einzelner Quellen
+  gibt es nicht (docs/KNOWN-LIMITS.md).
 - Studio Reports: Briefing Doc, Study Guide, FAQ, Timeline, Create your own; als
   Jobs, mit Zitat-Chips und "View prompt used".
 - Notes: Add note, Save to note, Convert to source, Delete note.
@@ -44,21 +46,20 @@ Wunschzahl.
   Zitate und `stop_reason`.
 - Eval-Harness vor dem Chat-Code: 30 Fragen, 20 dev und 10 held-out,
   Zitat-Gültigkeit programmatisch, Judges auf `MODEL_JUDGE`.
-- Guards: Rate-Limits, Tagesbudget mit Banner, Upload- und MIME-Prüfung,
-  SSRF-Schutz, CSRF, Löschung nach 7 Tagen, Seite `/datenschutz`, `noindex`.
+- Guards: Rate-Limits, Tagesbudget mit Banner, Upload- und MIME-Prüfung, CSRF,
+  Löschung nach 7 Tagen, Seite `/datenschutz`, `noindex`.
 - Deploy auf den eigenen Server: Compose, Host-Nginx, Let's Encrypt, GHCR,
   Deploy per SSH aus GitHub Actions.
-
-### KANN, nur wenn der Deploy steht
-
-- Audio Overview (etwa 3 Stunden).
-- Mind Map (etwa 2 Stunden). Fällt vor der Audio Overview, wenn die Zeit knapp wird.
 
 ### Bewusst weggelassen
 
 Video, Infographic, Slides, Data Table, Flashcards, Discover, YouTube- und
 Audio-Quellen, OCR für Scans, Google Drive, Teilen, mobile Ansichten, eigenes
-Vektor-RAG. Die Begründung für den letzten Punkt steht in ADR-0002.
+Vektor-RAG, Audio Overview, Mind Map, Website-Quellen und die Auswahl einzelner
+Quellen. Die Begründung für das Vektor-RAG steht in ADR-0002 und ADR-0012, die
+für die übrigen in docs/KNOWN-LIMITS.md; Website-Quellen fallen, weil ein
+URL-Abruf auf einem geteilten Server ein SSRF-Risiko für die anderen Seiten
+darauf ist.
 
 ## Zahlen
 
@@ -156,13 +157,9 @@ die Datenschutzseite und der Loom.
 | Create new notebook | Neues Notizbuch anlegen |
 | Sources | Quellenspalte |
 | Add source | Quelle hinzufügen (Upload, Link, eingefügter Text) |
-| Select all sources | Alle Quellen für die Antwort auswählen |
 | Ask a question about your sources | Platzhalter im Eingabefeld |
 | Configure chat | Stil und Länge der Antworten |
 | Studio | Rechte Spalte mit den Artefakten |
-| Audio Overview | Gesprochene Zusammenfassung |
-| Deep Dive conversation | Format der Audio Overview mit zwei Stimmen |
-| Mind map | Themenkarte |
 | Reports | Sammelbegriff für die Textartefakte |
 | Briefing Doc | Kurzdossier |
 | Study Guide | Lernleitfaden |

@@ -21,6 +21,10 @@ Their ids are gone; a session prompt that names one of them will find nothing:
 | M6-T3 | merged into M6-T1 (the cache assertion belongs to the job that reads it) |
 | M7-T6 | dropped: admin stats |
 | M9-T0 | dropped: batch mode |
+| M5-T3 | dropped: source selection, every ready source always goes to the model |
+| M7-T4 | merged into M4-T4: states belong to the component that shows them |
+| M10-T1..T3 | dropped: audio overview |
+| M11-T1, M11-T2 | dropped: mind map |
 
 **M8-T2 and M8-T3 are pulled forward** and run directly after M0, before M1. A
 deploy first attempted on the last evening is the largest risk in this plan; one
@@ -35,18 +39,17 @@ new and turns that hand path into a workflow once the repository exists.
   green against a stub. Tag `m1-evals`.
 - **Day 2 gate (M3 to M6)**: chat answers with verified citations, reports are
   written as jobs, the numbers from `/eval` are recorded. Tags `m3-chat`, `m6-reports`.
-- **Day 3 gate (M7 to M9, optional M10 and M11)**: hardening, privacy page, seed
+- **Day 3 gate (M7 to M9)**: hardening, privacy page, seed
   and cold start, final eval and documentation. Tag `m8-live`.
 
 From M3 on, every milestone ends with `run /eval and record numbers` before the tag.
 After every milestone the current state is deployed again, so the live site never
 drifts more than one milestone from the branch.
 
-If M6 slips, the optional features fall in this order: **Mind Map (M11) first,
-Audio Overview (M10) second.** The mind map is the smaller loss because the
-report formats already show structured output over the same documents; the audio
-overview is the only artefact a reviewer can experience without reading. The
-numbering follows that order: M11 is only started when M10 is finished.
+**There are no optional milestones any more.** Audio overview and mind map are
+cut, not deferred: three days do not hold them next to a chat path that has to be
+right, and a half-built artefact costs more credibility than a missing one. What
+is in the plan is what ships.
 
 ---
 
@@ -289,6 +292,10 @@ M4-T1 to M4-T4 are **parallelisable**: they run on fixtures under
 `frontend/src/modules/<domain>/fixtures/` and may be built before M2 exists.
 M4-T6 is the only task here that needs the backend.
 
+Every task here handles loading, error, empty and success for its own panel; no
+spinner runs forever. That used to be M7-T4, which is gone: states belong to the
+component that shows them, not to a cleanup pass three milestones later.
+
 ### M4-T0 Tokens, theme, shadcn primitives
 Goal: The prototype's tokens, the theme switch and the shadcn primitives are in the frontend.
 Files: frontend/src/styles/global.css, frontend/src/modules/shell/hooks/useTheme.ts, frontend/src/components/ui/*
@@ -321,12 +328,12 @@ Expected: the marked text equals the fixture's `cited` string, the passage is sc
 Box: 60
 Status: [ ]
 
-### M4-T4 Chat rendering, chips and the smoke spec (parallelisable)
-Goal: Answers render with citation chips and hover cards, a refusal renders without any chip, and one spec walks the demo path.
-Files: frontend/src/modules/chat/{components,fixtures,types}/*, e2e/tests/ui/smoke.spec.ts, e2e/pages/notebook.page.ts, e2e/playwright.config.ts
+### M4-T4 Chat rendering, chips, states and the smoke spec (parallelisable)
+Goal: Answers render with citation chips and hover cards, a refusal renders without any chip, every state from the prototype is reachable, and one spec walks the demo path.
+Files: frontend/src/modules/chat/{components,fixtures,types}/*, frontend/src/app/dev/states/page.tsx, e2e/tests/ui/smoke.spec.ts, e2e/pages/notebook.page.ts, e2e/playwright.config.ts
 Test: `pnpm --filter @quellwerk/e2e exec playwright test`
-Expected: five chips on the answer fixture, hovering shows the passage with source title and offsets, the refusal fixture has zero chips and no accent colour; the whole run is green at 1440 and 1280, light and dark.
-Box: 90
+Expected: five chips on the answer fixture, hovering shows the passage with source title and offsets, the refusal fixture has zero chips and no accent colour; every state from design/states.html is reachable on `/dev/states`, which is 404 in a production build; the whole run is green at 1440 and 1280, light and dark.
+Box: 105
 Status: [ ]
 
 ### M4-T6 Wire the UI to the backend
@@ -357,14 +364,6 @@ Files: frontend/src/modules/chat/components/ConfigureChatDialog.tsx, backend/app
 Test: `pnpm --filter @quellwerk/backend test -- chat-request.preferences`
 Expected: the built request carries the preferences block in the last user message and a byte-identical system block.
 Box: 45
-Status: [ ]
-
-### M5-T3 Source selection
-Goal: Deselecting a source removes it from the request and the answer says so when it would have been needed.
-Files: frontend/src/modules/sources/hooks/useSourceSelection.ts, backend/app/modules/chat/services/*
-Test: `pnpm --filter @quellwerk/backend test -- selected-sources`
-Expected: only selected sources are emitted as document blocks, and the document index mapping still resolves.
-Box: 30
 Status: [ ]
 
 ### M5-T4 Notes
@@ -443,14 +442,6 @@ Expected: a renamed executable is refused on content, 169.254.169.254 is refused
 Box: 45
 Status: [ ]
 
-### M7-T4 Empty and error states
-Goal: Every view handles loading, error, empty and success; no spinner runs forever.
-Files: frontend/src/modules/*/components/*, frontend/src/app/dev/states/page.tsx
-Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/states.spec.ts`
-Expected: every state from design/states.html is reachable, and `/dev/states` is 404 in a production build.
-Box: 45
-Status: [ ]
-
 ### M7-T5 Privacy page and cleanup job
 Goal: `/datenschutz` exists and notebooks are deleted after seven days.
 Files: frontend/src/app/datenschutz/page.tsx, backend/app/modules/notebooks/internal/cleanup.job.ts, frontend/public/robots.txt
@@ -496,7 +487,7 @@ Status: [ ]
 Goal: The manual path from M8-T2 and M8-T3 runs as a workflow instead of by hand.
 Files: .github/workflows/deploy.yml, deployment/prod/deploy.sh, docs/DEPLOY.md
 Test: `! rg -q 'echo .*secrets\.' .github/workflows/deploy.yml && rg -c 'ghcr.io' .github/workflows/deploy.yml`
-Expected: no step echoes a secret, the images are pushed to GHCR, and a run deploys the same thing the hand path deployed. Blocked until the repository is pushed; not part of the day 1 gate.
+Expected: no step echoes a secret, the images are pushed to GHCR, and a run deploys the same thing the hand path deployed. **This task only happens if the repository exists at the end.** If it does not, the hand path from M8-T2 and M8-T3 is the shipped path and DEPLOY.md says so; nothing in the demo depends on it.
 Box: 60
 Status: [ ]
 
@@ -520,54 +511,6 @@ Files: README.md, docs/ai-process/{AI-DECLARATION.md,TRANSCRIPTS.md,DECISION-LOG
 Test: `rg -n 'TODO|TBD|FIXME' README.md docs/ | wc -l`
 Expected: `0`, and the cost table in README matches the numbers in RESULTS.md.
 Box: 60
-Status: [ ]
-
----
-
-## M10 Audio Overview (optional, only if the live site is stable)
-
-### M10-T1 Script and TTS
-Goal: A dialogue script is generated and spoken through the TTS adapter.
-Files: prompts/audio-overview-script.md, backend/app/adapters/tts/gemini.adapter.ts, backend/app/modules/studio/internal/audio.job.ts
-Test: `pnpm --filter @quellwerk/backend test -- audio.job`
-Expected: speakers alternate, every turn is at most 280 characters, the job ends terminal even when TTS fails.
-Box: 60
-Status: [ ]
-
-### M10-T2 Player
-Goal: The finished audio plays in the studio panel.
-Files: frontend/src/modules/studio/components/AudioPlayer.tsx
-Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/audio.spec.ts`
-Expected: the player appears when the job is done and shows the title and summary.
-Box: 45
-Status: [ ]
-
-### M10-T3 Measurement
-Goal: Cost and latency of an audio overview are recorded.
-Files: backend/evals/RESULTS.md
-Test: `pnpm eval --sanity`
-Expected: one line with tokens, cents and latency for the audio route.
-Box: 30
-Status: [ ]
-
----
-
-## M11 Mind map (optional, only if M10 is finished)
-
-### M11-T1 Mind map prompt and job
-Goal: A flat node list is generated and validated.
-Files: prompts/mind-map.md, backend/app/modules/studio/internal/mind-map.job.ts
-Test: `pnpm --filter @quellwerk/backend test -- mind-map`
-Expected: parent ids resolve, depth is at most four, labels are unique, an invalid map is retried once and then fails cleanly.
-Box: 45
-Status: [ ]
-
-### M11-T2 Mind map rendering
-Goal: The map is drawn and a node opens the notebook with that question.
-Files: frontend/src/modules/studio/components/MindMap*.tsx
-Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/mindmap.spec.ts`
-Expected: the root and its branches render, a node click fills the composer.
-Box: 45
 Status: [ ]
 
 ---
@@ -606,15 +549,13 @@ recording is the one that breaks during it.
 | M1 | 4 | 225 |
 | M2 | 5 | 285 |
 | M3 | 5 | 315 |
-| M4 | 6 (1 done) | 375 |
-| M5 | 5 | 210 |
+| M4 | 6 (1 done) | 390 |
+| M5 | 4 | 180 |
 | M6 | 3 | 165 |
-| M7 | 5 | 225 |
+| M7 | 4 | 180 |
 | M8 (rest) | 4 | 180 |
 | M9 | 2 | 105 |
-| **M0 to M9** | **46** | **2475 (41.3 h)** |
-| M10 | 3 | 135 |
-| M11 | 2 | 90 |
+| **M0 to M9** | **42** | **2535 (42.2 h)** |
 | M12 | 2 | 135 |
 
 The merges and the two dropped tasks save 165 minutes; M0-T0 adds 90, so the net
