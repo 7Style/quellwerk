@@ -15,7 +15,12 @@ import { buildArtifactRequest } from '../adapters/llm/artifact-request.js';
 import { effortChat, models } from '../config/models.js';
 import { logger } from '../common/utils/logger.util.js';
 import { prisma, type Prisma } from '../lib/prisma.js';
-import type { ChatServiceDeps, StreamEvent, TurnSources } from '../modules/chat/index.js';
+import {
+  answerText,
+  type ChatServiceDeps,
+  type StreamEvent,
+  type TurnSources,
+} from '../modules/chat/index.js';
 import { pageAt, type PageSpan } from '../modules/sources/internal/pages.js';
 import { loadPrompt, renderPrompt } from '../services/prompt-loader/index.js';
 import { assertBudgetLeft } from '../services/quota/index.js';
@@ -233,9 +238,7 @@ async function loadHistory(
       // Stored as verified segments; replayed as plain text. The citations are
       // not replayed: their document indexes belong to the source set of the
       // turn they came from, and a source added since would shift them.
-      content: ((row.segments as Array<{ text: string }> | null) ?? [])
-        .map((segment) => segment.text)
-        .join('\n\n'),
+      content: answerText((row.segments as Array<{ text: string }> | null) ?? []),
     }))
     .filter((turn) => turn.content.length > 0);
 }

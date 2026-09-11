@@ -13,7 +13,12 @@
  */
 import type Anthropic from '@anthropic-ai/sdk';
 
-import { resolveCitations, type CitableSource, type DroppedCitation } from '../internal/citations.js';
+import {
+  answerText,
+  resolveCitations,
+  type CitableSource,
+  type DroppedCitation,
+} from '../internal/citations.js';
 import {
   errorEvent,
   eventsForStopReason,
@@ -160,7 +165,7 @@ export class ChatService {
       );
       trace.droppedCitations = dropped.length;
 
-      const answer = segments.map((segment) => segment.text).join('\n\n');
+      const answer = answerText(segments);
 
       // After the answer, not during it. The follow-ups are a second model call
       // on MODEL_FAST and must never delay the first token of the answer.

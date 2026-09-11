@@ -3,9 +3,9 @@
  *
  *   pnpm eval --smoke        recorded fixtures, no API key, runs in CI
  *   pnpm eval --sanity       stub answerer over the whole golden set, no key
- *   pnpm eval --dev          the live route on the dev split (M3-T5)
- *   pnpm eval --full         dev and held-out, once, at the end (M3-T5)
- *   pnpm eval --record       records fixtures from the live route (M3-T5)
+ *   pnpm eval --dev          the real model on the dev split, judges on
+ *   pnpm eval --full         dev and held-out, once, at the end
+ *   pnpm eval --record       records fixtures from the live answerer (open)
  *   pnpm eval --cache-check  asserts the cache is actually read (M6-T1)
  *   pnpm eval --batch        the same over the Batch API (M6)
  *
@@ -23,7 +23,10 @@ import { access } from 'node:fs/promises';
 import path from 'node:path';
 
 import { byFile, loadCorpus } from './corpus.js';
-import { GOLDEN_FILE, loadGolden, type GoldenItem } from './golden.js';
+import { devSplit, GOLDEN_FILE, loadGolden, type GoldenItem } from './golden.js';
+import { createJudge, isSelfJudged, type Judge } from './judges.js';
+import { LiveAnswerer } from './answerers/live.answerer.js';
+import { env } from '../app/config/env.config.js';
 import { formatReport, writeResults, type RunReport } from './report.js';
 import { computeMetrics, countBroken, runItems } from './score.js';
 import { FixtureAnswerer, recordedIds } from './answerers/fixture.answerer.js';
@@ -33,11 +36,9 @@ import type { Answerer } from './answerers/types.js';
 const MODES = ['smoke', 'sanity', 'dev', 'full', 'record', 'cache-check', 'batch'] as const;
 type Mode = (typeof MODES)[number];
 
-/** Modes that need the chat route and the LLM adapter. */
-const NEEDS_LIVE_ROUTE: Record<string, string> = {
-  dev: 'M3-T5, once the chat route exists',
-  full: 'M3-T5',
-  record: 'M3-T5, it records what the live route answers',
+/** Modes that still need something that does not exist yet. */
+const NOT_YET: Record<string, string> = {
+  record: 'M3-T5 records fixtures from the live answerer; it is not written yet',
   'cache-check': 'M6-T1, it asserts cache_read_input_tokens on a second turn',
   batch: 'M6',
 };
@@ -73,9 +74,34 @@ interface Selection {
   answerer: Answerer;
   items: GoldenItem[];
   notes: string[];
+  /** Absent for the offline modes: the graded metrics stay null there. */
+  judge?: Judge;
 }
 
 async function select(mode: Mode, items: GoldenItem[]): Promise<Selection> {
+  if (mode === 'dev' || mode === 'full') {
+    if (!env.ANTHROPIC_API_KEY) {
+      console.error(`--${mode} calls the real model and needs ANTHROPIC_API_KEY.`);
+      process.exit(2);
+    }
+
+    const corpus = await loadCorpus();
+    // dev is the twenty items that may be looked at; full adds the ten that may
+    // not, and is run once at the end. A held-out split that is measured every
+    // day is a dev split with extra steps (docs/SPEC.md).
+    const selected = mode === 'dev' ? devSplit(items) : items;
+
+    return {
+      answerer: new LiveAnswerer(corpus),
+      items: selected,
+      judge: createJudge(corpus, env.ANTHROPIC_API_KEY),
+      notes:
+        mode === 'full'
+          ? ['full: the held-out split was measured. Do not tune against these numbers.']
+          : ['dev: the held-out split was not touched.'],
+    };
+  }
+
   if (mode === 'sanity') {
     // The stub answers every item, so this mode says whether the harness itself
     // is sound: does every golden item have findable evidence, does every
@@ -107,10 +133,10 @@ async function main(): Promise<void> {
   const mode = parseMode(process.argv.slice(2));
   const notes: string[] = [];
 
-  const blocked = NEEDS_LIVE_ROUTE[mode];
+  const blocked = NOT_YET[mode];
   if (blocked) {
-    console.error(`--${mode} needs the live chat route and an API key. It arrives with ${blocked}.`);
-    console.error('Available today: --smoke (recorded fixtures) and --sanity (stub). Neither needs a key.');
+    console.error(`--${mode} is not available: ${blocked}.`);
+    console.error('Available today: --smoke, --sanity, --dev, --full.');
     process.exit(2);
   }
 
@@ -125,7 +151,7 @@ async function main(): Promise<void> {
       process.exit(2);
     }
     goldenFile = draft;
-    notes.push('golden.jsonl does not exist yet; this run used golden.draft.jsonl. Numbers from a draft do not belong in RESULTS.md.');
+    notes.push('golden.jsonl does not exist yet; this run used golden.draft.jsonl. A RESULTS.md block built from these numbers has to say so in its first line.');
   }
 
   const { items, problems } = await loadGolden(goldenFile);
@@ -139,9 +165,17 @@ async function main(): Promise<void> {
   const selection = await select(mode, items);
   notes.push(...selection.notes);
 
+  if (selection.judge?.available && isSelfJudged()) {
+    // docs/SPEC.md: a row graded by the model under test is marked as such.
+    notes.push('self-judged: MODEL_JUDGE is the same model as MODEL_CHAT.');
+  }
+  if (selection.judge && !selection.judge.available) {
+    notes.push(`judge unavailable: ${selection.judge.unavailableBecause ?? 'unknown reason'}`);
+  }
+
   const startedAt = new Date().toISOString();
   const started = Date.now();
-  const outcomes = await runItems(selection.items, selection.answerer, corpus);
+  const outcomes = await runItems(selection.items, selection.answerer, corpus, selection.judge);
   const metrics = computeMetrics(outcomes);
 
   const report: RunReport = {

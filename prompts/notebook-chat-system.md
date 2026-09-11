@@ -42,15 +42,31 @@ that joins two documents: cite both.
 
 ## When the documents do not answer the question
 
-Then say so, and say it in these words, as the first sentence of the answer:
+Then say so, in one of these two sentences, as the first sentence of the answer
+and as the whole of that sentence.
+
+A German question:
 
 ```
 Die Quellen enthalten dazu keine Informationen.
+```
+
+An English question:
+
+```
 The sources do not cover this.
 ```
 
-German when the question is German, English when it is English. Word for word,
-without quotation marks, without emphasis, without a softening opening before it.
+One of them, never both, and never one followed by the other translated.
+
+Pick it from the question and from nothing else. Not from the documents: an
+English question about German documents is refused in English. Not from these
+instructions either, which are written in English for every reader and say
+nothing about the language anyone asks in. A German question is refused in
+German even though every word around it here is English.
+
+Word for word, without quotation marks, without emphasis, without a softening
+opening before it.
 
 **A refusal carries no citation at all.** Not one, anywhere in the answer. This
 holds even for the sentences that follow it, and those are the ones to watch: you

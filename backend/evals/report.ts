@@ -41,6 +41,13 @@ export interface ItemOutcome {
   citedWhileRefusing: boolean;
   scores: JudgeScores;
   latencyMs: number;
+  /**
+   * The answer, verbatim. Kept because every diagnosis starts here: a missed
+   * refusal is either a made-up fact or the right thought in the wrong sentence,
+   * and the metrics cannot tell those apart. `results/*.json` is gitignored, so
+   * this stays on the machine that ran it.
+   */
+  answer?: string;
   error?: string;
 }
 
@@ -113,6 +120,32 @@ export function formatReport(report: RunReport): string {
             `cited ${invalid.citedLength} chars, slice ${invalid.sliceLength} chars`
         );
       }
+    }
+  }
+
+  // The misses, named. A run that only prints means gives the next revision
+  // nothing to work on: "80 percent" is not a lead, "g18 answered without the
+  // refusal sentence" is.
+  const missed = report.items.filter(
+    (item) =>
+      item.abstention === false ||
+      (item.type !== 'unanswerable' && item.refused) ||
+      item.scores.correctness === 0 ||
+      (item.scores.faithfulness !== null && item.scores.faithfulness < 1)
+  );
+  if (missed.length > 0) {
+    lines.push('');
+    lines.push(`  ${missed.length} item(s) to look at:`);
+    for (const item of missed) {
+      const why: string[] = [];
+      if (item.abstention === false) why.push('did not refuse');
+      if (item.type !== 'unanswerable' && item.refused) why.push('refused an answerable question');
+      if (item.scores.correctness === 0) why.push('correctness 0');
+      if (item.scores.faithfulness !== null && item.scores.faithfulness < 1) {
+        why.push(`faithfulness ${item.scores.faithfulness.toFixed(2)}`);
+      }
+      lines.push(`    ${item.id} [${item.type}]: ${why.join(', ')}`);
+      for (const gap of item.scores.missing ?? []) lines.push(`      missing: ${gap}`);
     }
   }
 

@@ -8,7 +8,7 @@
  */
 import type { CorpusFile } from './corpus.js';
 import type { GoldenItem } from './golden.js';
-import { createJudge, isJudgeable, meanOfScored, type JudgeScores } from './judges.js';
+import { meanOfScored, type Judge, type JudgeScores } from './judges.js';
 import type { InvalidCitation, ItemOutcome, RunMetrics } from './report.js';
 import type { Answerer, EvalCitation } from './answerers/types.js';
 
@@ -109,9 +109,15 @@ export function countBroken(items: ItemOutcome[], metrics: RunMetrics): number {
 export async function runItems(
   items: GoldenItem[],
   answerer: Answerer,
-  corpus: Map<string, CorpusFile>
+  corpus: Map<string, CorpusFile>,
+  /**
+   * Injected rather than built here: whether a judge can run depends on a key
+   * and on which mode is running, and score.ts has no business knowing either.
+   * Absent means the two graded metrics stay null, which the report prints as a
+   * reason rather than as a number.
+   */
+  judge?: Judge
 ): Promise<ItemOutcome[]> {
-  const judge = createJudge();
   const outcomes: ItemOutcome[] = [];
 
   for (const item of items) {
@@ -141,8 +147,12 @@ export async function runItems(
       .filter((result): result is InvalidCitation => result !== null);
 
     const refused = isRefusal(answer.text, item.lang);
-    const scores =
-      judge.available && isJudgeable(item) ? await judge.judge(item, answer) : emptyScores();
+    // Correctness is graded for every item, including a refusal: getting a
+    // refusal right is the thing the abstention metric measures, and a judge
+    // that skipped it would leave the correctness mean over answerable items
+    // only. Faithfulness is the one that drops out, and the judge does that
+    // itself.
+    const scores = judge?.available ? await judge.judge(item, answer) : emptyScores();
 
     outcomes.push({
       ...base,
@@ -156,6 +166,7 @@ export async function runItems(
       citedWhileRefusing: refused && answer.citations.length > 0,
       scores,
       latencyMs: answer.latencyMs ?? 0,
+      answer: answer.text,
     });
   }
 

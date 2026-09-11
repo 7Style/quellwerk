@@ -300,7 +300,7 @@ Files: backend/evals/answerers/live.answerer.ts, backend/evals/RESULTS.md, backe
 Test: `pnpm eval --dev`
 Expected: citation validity, abstention accuracy, correctness and faithfulness on the dev split; one row per revision in HILLCLIMB.md with before and after; the held-out split is untouched.
 Box: 90
-Status: [ ]
+Status: [x]
 
 Milestone end: run `/eval` and record numbers, tag `m3-chat`, then deploy.
 

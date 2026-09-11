@@ -72,6 +72,18 @@ export class AnthropicLlmAdapter implements ILlmProvider {
   }
 
   /**
+   * Runs a chat request to the end and returns the finished message.
+   *
+   * The same request, the same model, the same everything as `streamChat`; what
+   * it does not do is hand out deltas. The eval wants the finished answer with
+   * its citations, and a harness that reassembled deltas itself would be a
+   * second implementation of the part that must not differ.
+   */
+  async streamToMessage(request: Anthropic.MessageCreateParamsStreaming): Promise<Anthropic.Message> {
+    return this.client.messages.stream(request).finalMessage();
+  }
+
+  /**
    * Structured output. Constrained decoding means the answer matches the schema
    * by construction, so there is no validation retry here: Anthropic states
    * that schema violations do not occur, and a retry loop around a guarantee is

@@ -7,6 +7,126 @@ as a zero.
 
 The thresholds live in `docs/SPEC.md` and are not repeated here.
 
+## 2026-09-11, M3-T5: the first graded runs, and three things they found
+
+Four `pnpm eval --dev` runs over the same twenty dev items of
+`golden.draft.jsonl`, one per revision. r0 is the baseline: the live answerer and
+both judges as M3-T5 first wrote them.
+
+| | r0 | r1 | r2 | r3 |
+|---|---|---|---|---|
+| citation validity | 97/97 | 99/99 | 93/93 | 91/91 |
+| abstention | 4/5 | 4/5 | 4/5 | **5/5** |
+| false refusals | 0 | 0 | 0 | 0 |
+| citations on a refusal | 0 | 0 | 0 | 0 |
+| correctness | 0.950 | **1.000** | 1.000 | 1.000 |
+| faithfulness | 0.9958 | 0.9833 | **1.0000** | 1.0000 |
+
+Citation validity was never the problem and never moved: 380 citations over four
+runs, every one of them pointing at the characters it claimed. The count differs
+per run because the model cites as much as it needs to.
+
+### r1: the answer was being torn apart at every chip
+
+Not a prompt change. `resolveAnswer` returns one segment per text block, and
+three places joined those segments with a blank line to get the answer as a
+string. The Citations API opens a new text block wherever a citation begins and
+ends, so a single sentence arrives as three blocks and came back out as three
+paragraphs:
+
+```
+The most recent source gives postponed dates:
+
+the rules for high-risk AI systems will apply starting 2 December 2027
+
+. The reason given is
+```
+
+The three places were the eval answerer (so the judge graded a text nobody would
+ship), the follow-up question call, and - the one that matters - the replayed
+history in `wiring/chat.ts`, which fed every earlier assistant turn back to the
+model in that state. Now one function, `answerText`, with three tests.
+
+Also in r1: **g14 of the golden draft was wrong.** It asked the answer to name
+both dates for the high-risk rules and to "mark the regulation text as the
+binding one". The system prompt's rule for an outdated document says the
+opposite - prefer the more recent source and name the older - and the corpus
+agrees with the prompt: the FAQ is a snapshot of 2026-09-11 and records the
+Digital Omnibus, in force since 27 July 2026, as the reason for the later date.
+The model applied the documented rule and the item scored it as a failure.
+
+This is the change to look at hardest, because fixing a golden item until the
+model passes it is how an eval stops measuring anything. What made it a defect
+and not a convenience: the item contradicted a rule that was written down before
+the run, in `notebook-chat-system.md`, and nothing in the corpus says which text
+is in force. Either the item or the prompt had to change, and the prompt had the
+older claim on the answer. The draft is transferred to `golden.jsonl` by hand, so
+this change needs a second pair of eyes before it counts.
+
+Correctness 0.950 to 1.000 is that one item.
+
+### r2: the judge was arguing itself out of its own verdicts
+
+Faithfulness fell to 0.9833 in r1, on three items. Their `unsupported` entries:
+
+```
+... - actually this was not asserted as unsupported
+... (minor phrasing) - treated as supported overall
+... so this is borderline but counted as supported
+```
+
+Three claims the judge had decided were supported, in the list of unsupported
+claims, dragging the mean down. The schema asked for `claims` and `supported` as
+two numbers and `unsupported` as free text, so the array was the only place the
+judge could think, and the arithmetic read it as data.
+
+The fix is the rule CLAUDE.md already states for structured outputs: counts
+belong in code. `claims` is now a list of `{claim, supported, note}`, the note is
+where the judge reasons, and the share is computed in `judges.ts`. The prompt
+says so plainly, including the case that produced this: an entry whose note lands
+on "supported after all" is a supported claim.
+
+**This changes the instrument, not the product.** Faithfulness across r1 and r2
+is not a product delta and must not be read as one. What can be said is that the
+r1 number was wrong in a direction the judge itself documented.
+
+### r3: a refusal in two languages, then in the wrong one
+
+`g18` failed in r0 and r1. With the answer text now kept in the results file, the
+reason was one line:
+
+```
+Die Quellen enthalten dazu keine Informationen.
+The sources do not cover this.
+```
+
+Both refusal sentences, for an English question. The prompt had them in one code
+block, one per line, with the sentence that picks between them underneath. The
+model read the block as "the refusal" and produced it whole. Split into two
+labelled blocks: fixed, and `g18` has passed every run since.
+
+r2 then missed `g16` instead - a German question refused with the English
+sentence. The rule said the language follows the question, not the documents, and
+left out the third candidate: these instructions are themselves English. Spelled
+out ("A German question is refused in German even though every word around it
+here is English"), and r3 is 5 of 5.
+
+Five items is five coin flips, and the missing item had moved between runs, so
+the five `unanswerable` dev items were run three more times on their own:
+**15 of 15, right language, no citations.** Twenty consecutive correct refusals
+against three misses in the fifteen attempts before. Evidence, not proof, and
+this is the number to watch when the held-out split is measured.
+
+### Open
+
+- All four runs used `golden.draft.jsonl`. Nothing here is a measurement of a set
+  I did not write myself.
+- No cost figure. The eval calls the adapter directly and writes no `usage_log`
+  row, so a dev run's cost is not accounted anywhere.
+- Correctness 1.000 over twenty items I wrote is a ceiling effect, not a result.
+  A set that everything passes has stopped discriminating; the held-out ten and
+  the items M6 adds are where that gets tested.
+
 ## 2026-09-11, M3-T0 r2: a refusal must not cite, and the prompt said both
 
 **Change:** the refusal section of `notebook-chat-system.md`.

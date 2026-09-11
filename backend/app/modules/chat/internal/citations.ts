@@ -225,6 +225,21 @@ export function resolveAnswer(
   return { segments, droppedCitations };
 }
 
+/**
+ * The answer as one string.
+ *
+ * The text blocks of a cited answer are contiguous pieces of one prose text,
+ * not paragraphs. The API opens a new block wherever a citation begins and ends,
+ * so "The rules apply from" and " 2 August 2027" arrive as two blocks that were
+ * never meant to be apart. Joining them with a blank line tears every sentence
+ * open at its chip, and everything that reads the answer as text afterwards -
+ * the follow-up call, the replayed history, the eval judge - reads something no
+ * reader ever saw.
+ */
+export function answerText(segments: readonly { text: string }[]): string {
+  return segments.map((segment) => segment.text).join('');
+}
+
 /** True when the answer carries no citation at all, which a refusal must not. */
 export function hasNoCitations(answer: ResolvedAnswer): boolean {
   return answer.segments.every((segment) => segment.citations.length === 0);

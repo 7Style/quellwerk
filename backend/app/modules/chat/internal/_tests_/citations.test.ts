@@ -10,6 +10,7 @@ import { describe, expect, it } from '@jest/globals';
 import type Anthropic from '@anthropic-ai/sdk';
 
 import {
+  answerText,
   hasNoCitations,
   resolveAnswer,
   resolveCitations,
@@ -267,5 +268,31 @@ describe('the mapping from document_index to a source', () => {
 
     expect(kept).toEqual([]);
     expect(dropped[0].reason).toBe('out-of-range');
+  });
+});
+
+describe('answerText', () => {
+  it('joins the blocks of a cited sentence back into that sentence', () => {
+    // What the API actually returns for one sentence with one citation in it:
+    // the cited span is its own block, so the sentence arrives in three pieces.
+    const segments = [
+      { text: 'The rules apply from' },
+      { text: ' 2 August 2027' },
+      { text: ', according to Article 113.' },
+    ];
+
+    expect(answerText(segments)).toBe('The rules apply from 2 August 2027, according to Article 113.');
+  });
+
+  it('keeps the paragraph breaks the model itself wrote', () => {
+    // The blank line belongs to the model's text, not to the block boundary.
+    // Joining must not add one and must not swallow one.
+    const segments = [{ text: 'First paragraph.\n\nSecond' }, { text: ' paragraph.' }];
+
+    expect(answerText(segments)).toBe('First paragraph.\n\nSecond paragraph.');
+  });
+
+  it('is empty for an answer without blocks', () => {
+    expect(answerText([])).toBe('');
   });
 });

@@ -1,0 +1,68 @@
+# Eval results
+
+One block per measured run, newest first. A block records what ran, against
+which golden set, and what came out. The thresholds live in `docs/SPEC.md` and
+are not repeated here: a row says whether it cleared the threshold, never what
+the threshold is.
+
+Every block names the answerer. A citation validity of 100 percent from recorded
+fixtures and one from the live route are not the same number, and a table that
+leaves the word out will be quoted as if it were the better of the two.
+
+Why a revision moved a number belongs in `HILLCLIMB.md`, not here.
+
+## 2026-09-11, M3-T5: the first live run on the dev split
+
+**These numbers come from `golden.draft.jsonl`.** The golden set is written by
+hand and does not exist yet (ADR-0008, and a hook keeps it that way). The draft
+is 30 items written by me, so a number from it says what the route does on
+questions I chose. It is not a held-out measurement of anything, and it is
+replaced the moment `golden.jsonl` lands.
+
+| | |
+|---|---|
+| Mode | `pnpm eval --dev`, 20 dev items |
+| Answerer | live, through `buildChatRequest` and the frozen system prompt |
+| Model under test | `claude-opus-5`, effort low |
+| Judge | `claude-sonnet-5`, a different model (ADR-0011), so not self-judged |
+| Duration | 283.4s |
+| Results file | `evals/results/2026-09-11T21-44-09-992Z-dev.json` |
+
+| Metric | Value | Basis | Threshold |
+|---|---|---|---|
+| Citation validity | 100.0% | 91 of 91 citations, `slice(start, end) === cited_text`, no judge | met |
+| Abstention accuracy | 100.0% | 5 of 5 `unanswerable` items refused with the exact sentence, no judge | met |
+| False refusals | 0 | of 15 answerable items | met |
+| Citations on a refusal | 0 | must be 0, or the run fails | met |
+| Correctness | 100.0% | judge, against the reference facts of each item | met |
+| Faithfulness | 1.00 | judge, share of supported claims, refusals excluded | met |
+
+The held-out split was not touched. It is measured once, with `--full`, at the
+end of M9.
+
+### The abstention number, checked a second time
+
+100 percent over five items is five coin flips coming up heads. The three runs
+before this one each missed exactly one of the five, and not always the same
+one, so a single clean run is weak evidence for a fix. The five `unanswerable`
+dev items were therefore run three more times on their own:
+
+```
+15/15 refused in the right language with no citation
+```
+
+Twenty consecutive correct refusals against three misses in the fifteen attempts
+before the change. That is evidence; it is still not proof, and the metric to
+watch on the held-out split is this one.
+
+### What these numbers do not cover
+
+- **Cost.** The eval calls the API directly and does not write `usage_log`, so a
+  run's cost is not accounted anywhere. The per-turn economics measured in
+  `HILLCLIMB.md` (M3-T0) are the only figures available today.
+- **The stream.** Everything above is measured on the assembled message. The SSE
+  path, its heartbeat and its abort behaviour are covered by the route tests and
+  by the manual run through nginx, not by an eval item.
+- **Anything outside the four corpus documents.** Twenty items over four
+  documents on one subject. A regression this set cannot see is a regression
+  that ships.
