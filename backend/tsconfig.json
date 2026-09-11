@@ -26,6 +26,6 @@
     "removeComments": false,
     "noEmitOnError": false
   },
-  "include": ["app/**/*", "prisma/**/*", "prisma.config.ts"],
+  "include": ["app/**/*", "prisma/**/*", "prisma.config.ts", "evals/**/*"],
   "exclude": ["node_modules", "dist", "**/_tests_/**", "**/*.test.ts", "**/*.spec.ts"]
 }

@@ -1,0 +1,9 @@
+{
+  // Was in das Produktions-Image geht. Die Basis-Konfiguration nimmt evals/ mit
+  // auf, damit eslint und `tsc --noEmit` das Eval-Harness pruefen; gebaut wird
+  // es nicht: der Backend-Container kopiert dist/ als Ganzes, und ein Harness,
+  // das Fragen an ein Modell stellt, hat in einem Produktions-Image nichts zu
+  // suchen.
+  "extends": "./tsconfig.json",
+  "include": ["app/**/*", "prisma/**/*", "prisma.config.ts"]
+}
