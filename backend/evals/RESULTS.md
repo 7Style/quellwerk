@@ -25,17 +25,22 @@ replaced the moment `golden.jsonl` lands.
 | Answerer | live, through `buildChatRequest` and the frozen system prompt |
 | Model under test | `claude-opus-5`, effort low |
 | Judge | `claude-sonnet-5`, a different model (ADR-0011), so not self-judged |
-| Duration | 283.4s |
-| Results file | `evals/results/2026-09-11T21-44-09-992Z-dev.json` |
+| Duration | 287.2s |
+| Results file | `evals/results/2026-09-11T22-20-26-268Z-dev.json` |
 
 | Metric | Value | Basis | Threshold |
 |---|---|---|---|
-| Citation validity | 100.0% | 91 of 91 citations, `slice(start, end) === cited_text`, no judge | met |
+| Citation validity | 100.0% | 94 of 94 citations, `slice(start, end) === cited_text`, no judge | met |
 | Abstention accuracy | 100.0% | 5 of 5 `unanswerable` items refused with the exact sentence, no judge | met |
 | False refusals | 0 | of 15 answerable items | met |
 | Citations on a refusal | 0 | must be 0, or the run fails | met |
 | Correctness | 100.0% | judge, against the reference facts of each item | met |
 | Faithfulness | 1.00 | judge, share of supported claims, refusals excluded | met |
+
+This is the second run at these numbers. The first reached them at the end of
+M3-T5 (91 of 91 citations, everything else identical); this one was run again
+after the security review's fixes landed, because a milestone tag is a claim
+about the tree it points at and not about the tree four commits ago.
 
 The held-out split was not touched. It is measured once, with `--full`, at the
 end of M9.
