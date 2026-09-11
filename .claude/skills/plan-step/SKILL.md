@@ -28,10 +28,22 @@ every line that applies has passed with evidence on screen; if one cannot be
 answered, say which and stop instead of calling the milestone finished.
 
 1. **Verify, every milestone.** Run `/verify` and paste its summary.
-2. **Security review, from M2 on.** Run `/security-review` over what this
-   milestone added: new routes, uploads, URL ingestion, SSE. Print every finding.
-   Each one becomes a task in THIS milestone and is fixed before the tag; nothing
-   rated high or critical stays open. Print what happened to each finding.
+2. **Security review, from M2 on.** Hand the `reviewer` agent the diff of this
+   milestone (`git log --oneline <first>~1..HEAD`) and what it added: new routes,
+   uploads, SSE, new prompts, new tables. Name the areas to check rather than
+   asking for "a review": access control, prompt injection, uploads, what reaches
+   a log or an error response, resource limits, secrets.
+
+   The agent is in the repository (`.claude/agents/reviewer.md`), so anyone can
+   read what it was told to do. There is no `/security-review` skill; a routine
+   that points at one is a routine that gets skipped.
+
+   Print every finding. Verify the serious ones yourself before acting: an agent
+   can be wrong, and the first M2 finding worth fixing was one I only believed
+   after measuring it against the running stack. Each finding becomes a task in
+   THIS milestone and is fixed before the tag; nothing rated high or critical
+   stays open. Print what happened to each one, including the ones left open and
+   which milestone they moved to.
 3. **Eval, from M3 on.** Run `/eval` and record the numbers in
    backend/evals/RESULTS.md. Print the delta lines. If a metric got worse, say so
    in the first line and do not tag until it is explained or fixed.
