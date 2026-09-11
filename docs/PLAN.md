@@ -268,7 +268,7 @@ Files: prompts/notebook-chat-system.md, prompts/chat-preferences-tail.md, prompt
 Test: `pnpm --filter @quellwerk/backend test -- prompt-loader`
 Expected: the loader renders every placeholder, throws on a missing value, escapes angle brackets, and the system prompt contains no `{{`.
 Box: 30
-Status: [ ]
+Status: [x]
 
 ### M3-T1 chat-request.ts
 Goal: One builder produces the chat request with citations on and the cache breakpoints in the documented places.
