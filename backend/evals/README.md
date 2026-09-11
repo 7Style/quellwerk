@@ -107,9 +107,48 @@ mitzuführen: der extrahierte Text bricht die Zeilen hart, so wie sie im Satz
 stehen. Schlägt eine Prüfung fehl, sagt die Meldung, nach wie vielen Zeichen das
 Zitat abweicht und was an dieser Stelle wirklich im Text steht.
 
+## Laufen lassen
+
+```bash
+pnpm eval --smoke     # zehn aufgezeichnete Fixtures, kein Schluessel, laeuft in CI
+pnpm eval --sanity    # der Stub ueber alle 30 Fragen, prueft das Harness selbst
+```
+
+Beide brauchen kein Modell. `--dev`, `--full`, `--record`, `--cache-check` und
+`--batch` brauchen die Chat-Route; sie nennen den Meilenstein, in dem sie
+kommen, und beenden mit 2, statt so zu tun als ob.
+
+Der Exit-Code haengt an Invarianten, nicht an Schwellen: ein Zitat, das nicht
+auf seinen Text zeigt, eine Ablehnung mit einem Chip, eine Frage ohne Antwort.
+Eine Korrektheit von 0,82 ist dagegen eine Zahl, die gegen `docs/SPEC.md`
+gehalten wird, und kein Grund, den Lauf rot zu faerben.
+
+### Answerer
+
+| Answerer | Woher die Antwort kommt | Wofuer |
+|---|---|---|
+| `fixture` | `fixtures/<id>.json`, von Hand geschrieben | `--smoke`, CI, Regressionen an den Offsets |
+| `stub` | aus dem Golden Set selbst abgeleitet | `--sanity` und die Tests; kann auf Kommando falsch zitieren |
+| `live` | die Chat-Route (M3-T5) | die einzigen Zahlen, die etwas ueber das Produkt sagen |
+
+Die Fixtures tragen absolute Offsets. Das ist Absicht: aendert sich `normalize`
+oder der Korpus, brechen sie alle auf einmal und laut. Genau davon will man
+erfahren, statt es drei Meilensteine spaeter an einer verschobenen Markierung zu
+merken.
+
+Der Stub kann luegen, und er muss es koennen (ADR-0008). `citation-validity.test.ts`
+laesst ihn ein Zitat um ein Zeichen verschieben, es aus dem Text hinaus zeigen
+und den zitierten Text veraendern, und verlangt, dass jeder Fall als ungueltig
+gemeldet wird. Eine Testsuite, die einen Pruefer nur mit richtigen Eingaben
+fuettert, beweist, dass richtige Eingaben durchgehen.
+
 ## Was noch kommt
 
-`run.ts` mit seinen Modi und die Judges (M1-T3), der Stub-Answerer und der
-CI-Lauf (M1-T4), der Live-Answerer und die ersten Zahlen (M3-T5). Ergebnisse
-gehen nach `RESULTS.md`, jede Prompt-Revision mit Vorher und Nachher nach
-`HILLCLIMB.md`.
+Der Live-Answerer und die ersten echten Zahlen (M3-T5), die Judge-Prompts fuer
+Korrektheit und Treue, und die Cache-Pruefung (M6-T1). Bis dahin liefert
+`judges.ts` `null` mit Begruendung statt einer Zahl: ein Judge, der 1,0
+zurueckgibt, weil er nicht laufen kann, waere der eine Fehler, den ein
+Eval-Harness nicht haben darf.
+
+Ergebnisse gehen nach `RESULTS.md`, jede Prompt-Revision mit Vorher und Nachher
+nach `HILLCLIMB.md`.

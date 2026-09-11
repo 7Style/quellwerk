@@ -2,63 +2,38 @@
  * The eval runner.
  *
  *   pnpm eval --smoke        recorded fixtures, no API key, runs in CI
- *   pnpm eval --sanity       stub answerer over the whole dev split (M1-T4)
+ *   pnpm eval --sanity       stub answerer over the whole golden set, no key
  *   pnpm eval --dev          the live route on the dev split (M3-T5)
  *   pnpm eval --full         dev and held-out, once, at the end (M3-T5)
  *   pnpm eval --record       records fixtures from the live route (M3-T5)
  *   pnpm eval --cache-check  asserts the cache is actually read (M6-T1)
  *   pnpm eval --batch        the same over the Batch API (M6)
  *
- * Two metrics are computed here and not by a model: whether a citation points
- * at the text it claims, and whether an unanswerable question was refused with
- * the exact sentence. Both are decidable, so deciding them with a judge would
- * be slower, dearer and less certain.
+ * Two metrics are computed without a model, because both are decidable: whether
+ * a citation points at the text it claims, and whether an unanswerable question
+ * was refused with the exact sentence. Deciding either with a judge would be
+ * slower, dearer and less certain. The deciding lives in score.ts.
  *
  * Exit code: non-zero when an invariant broke, not when a quality number is
  * low. A citation that does not match its source is a defect; a correctness of
  * 0.82 is a number to compare against docs/SPEC.md. The thresholds live there
  * and are deliberately not repeated in this file.
  */
-import { byFile, loadCorpus, type CorpusFile } from './corpus.js';
-import { GOLDEN_FILE, loadGolden, type GoldenItem } from './golden.js';
-import { createJudge, isJudgeable, meanOfScored, type JudgeScores } from './judges.js';
-import {
-  formatReport,
-  writeResults,
-  type InvalidCitation,
-  type ItemOutcome,
-  type RunMetrics,
-  type RunReport,
-} from './report.js';
-import { FixtureAnswerer, recordedIds } from './answerers/fixture.answerer.js';
-import type { Answerer, EvalCitation } from './answerers/types.js';
-import path from 'node:path';
 import { access } from 'node:fs/promises';
+import path from 'node:path';
 
-/**
- * The two refusal sentences, character for character, as the frozen system
- * prompt fixes them (docs/SPEC.md). The comparison is exact on purpose: a
- * refusal that a regular expression has to be lenient about is a refusal the
- * user cannot recognise either. Adding a language means adding its sentence
- * here, never loosening the comparison (prompts/README.md).
- */
-const REFUSALS: Record<string, string> = {
-  de: 'Die Quellen enthalten dazu keine Informationen.',
-  en: 'The sources do not cover this.',
-};
+import { byFile, loadCorpus } from './corpus.js';
+import { GOLDEN_FILE, loadGolden, type GoldenItem } from './golden.js';
+import { formatReport, writeResults, type RunReport } from './report.js';
+import { computeMetrics, countBroken, runItems } from './score.js';
+import { FixtureAnswerer, recordedIds } from './answerers/fixture.answerer.js';
+import { StubAnswerer } from './answerers/stub.answerer.js';
+import type { Answerer } from './answerers/types.js';
 
-const MODES = [
-  'smoke',
-  'sanity',
-  'dev',
-  'full',
-  'record',
-  'cache-check',
-  'batch',
-] as const;
+const MODES = ['smoke', 'sanity', 'dev', 'full', 'record', 'cache-check', 'batch'] as const;
 type Mode = (typeof MODES)[number];
 
-/** Modes that need the chat route and the LLM adapter; they arrive with M3-T5. */
+/** Modes that need the chat route and the LLM adapter. */
 const NEEDS_LIVE_ROUTE: Record<string, string> = {
   dev: 'M3-T5, once the chat route exists',
   full: 'M3-T5',
@@ -94,137 +69,38 @@ async function exists(file: string): Promise<boolean> {
   }
 }
 
-/**
- * The one check the whole product rests on, run exactly as the chat route will
- * run it: slice the stored text and compare (CLAUDE.md, ADR-0003).
- *
- * What is recorded about a failure is offsets and lengths, never the cited text
- * or the slice. That is the rule for the production log, and a harness that
- * held itself to a lower standard would be the place where the habit breaks.
- */
-function checkCitation(citation: EvalCitation, corpus: Map<string, CorpusFile>): InvalidCitation | null {
-  const file = corpus.get(citation.file);
-  if (!file) {
+interface Selection {
+  answerer: Answerer;
+  items: GoldenItem[];
+  notes: string[];
+}
+
+async function select(mode: Mode, items: GoldenItem[]): Promise<Selection> {
+  if (mode === 'sanity') {
+    // The stub answers every item, so this mode says whether the harness itself
+    // is sound: does every golden item have findable evidence, does every
+    // refusal come out as a refusal. It grades the set, not the product.
     return {
-      file: citation.file,
-      start: citation.start,
-      end: citation.end,
-      citedLength: citation.citedText.length,
-      sliceLength: 0,
-      kind: 'unknown-file',
+      answerer: new StubAnswerer(byFile(await loadCorpus())),
+      items,
+      notes: ['sanity: the stub derives its answers from the golden set, so it measures the set and the harness, never answer quality'],
     };
   }
 
-  const inRange =
-    citation.start >= 0 && citation.end <= file.text.length && citation.start < citation.end;
-  const slice = inRange ? file.text.slice(citation.start, citation.end) : '';
-
-  if (slice === citation.citedText) return null;
-
-  return {
-    file: citation.file,
-    start: citation.start,
-    end: citation.end,
-    citedLength: citation.citedText.length,
-    sliceLength: slice.length,
-    kind: inRange ? 'mismatch' : 'out-of-range',
-  };
-}
-
-function isRefusal(text: string, lang: string): boolean {
-  const sentence = REFUSALS[lang];
-  if (!sentence) return false;
-  return text.trimStart().startsWith(sentence);
-}
-
-function emptyScores(): JudgeScores {
-  return { correctness: null, faithfulness: null };
-}
-
-function computeMetrics(items: ItemOutcome[]): RunMetrics {
-  const citationsTotal = items.reduce((sum, item) => sum + item.citationsTotal, 0);
-  const citationsValid = items.reduce((sum, item) => sum + item.citationsValid, 0);
-
-  const unanswerable = items.filter((item) => item.type === 'unanswerable');
-  const answerable = items.filter((item) => item.type !== 'unanswerable');
-  const refusedCorrectly = unanswerable.filter((item) => item.refused).length;
-
-  return {
-    citationsTotal,
-    citationsValid,
-    // No citations means no measurement. Reporting 100 percent here would be
-    // the harness congratulating itself for an empty run.
-    citationValidity: citationsTotal === 0 ? null : citationsValid / citationsTotal,
-    unanswerableTotal: unanswerable.length,
-    unanswerableRefused: refusedCorrectly,
-    abstentionAccuracy: unanswerable.length === 0 ? null : refusedCorrectly / unanswerable.length,
-    answerableTotal: answerable.length,
-    falseRefusals: answerable.filter((item) => item.refused).length,
-    citedWhileRefusing: items.filter((item) => item.citedWhileRefusing).length,
-    correctness: meanOfScored(items.map((item) => item.scores.correctness)),
-    faithfulness: meanOfScored(items.map((item) => item.scores.faithfulness)),
-  };
-}
-
-async function runItems(
-  items: GoldenItem[],
-  answerer: Answerer,
-  corpus: Map<string, CorpusFile>
-): Promise<ItemOutcome[]> {
-  const judge = createJudge();
-  const outcomes: ItemOutcome[] = [];
-
-  for (const item of items) {
-    const base = {
-      id: item.id,
-      type: item.type,
-      split: item.split,
-      lang: item.lang,
-    };
-
-    let answer;
-    try {
-      answer = await answerer.answer(item);
-    } catch (error) {
-      outcomes.push({
-        ...base,
-        citationsTotal: 0,
-        citationsValid: 0,
-        invalid: [],
-        refused: false,
-        abstention: null,
-        citedWhileRefusing: false,
-        scores: emptyScores(),
-        latencyMs: 0,
-        error: (error as Error).message,
-      });
-      continue;
-    }
-
-    const invalid = answer.citations
-      .map((citation) => checkCitation(citation, corpus))
-      .filter((result): result is InvalidCitation => result !== null);
-
-    const refused = isRefusal(answer.text, item.lang);
-    const scores =
-      judge.available && isJudgeable(item) ? await judge.judge(item, answer) : emptyScores();
-
-    outcomes.push({
-      ...base,
-      citationsTotal: answer.citations.length,
-      citationsValid: answer.citations.length - invalid.length,
-      invalid,
-      refused,
-      abstention: item.type === 'unanswerable' ? refused : null,
-      // "Eine Ablehnung traegt keinen einzigen Chip" (docs/SPEC.md). A refusal
-      // with a citation is a contradiction the UI would render as one.
-      citedWhileRefusing: refused && answer.citations.length > 0,
-      scores,
-      latencyMs: answer.latencyMs ?? 0,
-    });
+  // --smoke is exactly the recorded subset: every item that has a fixture, and
+  // no item that has not. A smoke run that failed on a missing fixture would
+  // fail for the wrong reason and would train everyone to ignore it.
+  const recorded = await recordedIds();
+  const selected = items.filter((item) => recorded.has(item.id));
+  if (selected.length === 0) {
+    console.error('No fixtures under evals/fixtures/, so --smoke has nothing to run.');
+    process.exit(2);
   }
-
-  return outcomes;
+  return {
+    answerer: new FixtureAnswerer(),
+    items: selected,
+    notes: [`smoke subset: ${selected.length} of ${items.length} golden items have a fixture`],
+  };
 }
 
 async function main(): Promise<void> {
@@ -234,7 +110,7 @@ async function main(): Promise<void> {
   const blocked = NEEDS_LIVE_ROUTE[mode];
   if (blocked) {
     console.error(`--${mode} needs the live chat route and an API key. It arrives with ${blocked}.`);
-    console.error('Available today: --smoke (recorded fixtures, no key).');
+    console.error('Available today: --smoke (recorded fixtures) and --sanity (stub). Neither needs a key.');
     process.exit(2);
   }
 
@@ -260,29 +136,18 @@ async function main(): Promise<void> {
   }
 
   const corpus = byFile(await loadCorpus());
-  const answerer: Answerer = new FixtureAnswerer();
-
-  // --smoke is exactly the recorded subset: every item that has a fixture, and
-  // no item that has not. A smoke run that failed on a missing fixture would
-  // fail for the wrong reason and would train everyone to ignore it.
-  const recorded = await recordedIds();
-  const selected = items.filter((item) => recorded.has(item.id));
-
-  if (selected.length === 0) {
-    console.error('No fixtures under evals/fixtures/, so --smoke has nothing to run.');
-    process.exit(2);
-  }
-  notes.push(`smoke subset: ${selected.length} of ${items.length} golden items have a fixture`);
+  const selection = await select(mode, items);
+  notes.push(...selection.notes);
 
   const startedAt = new Date().toISOString();
   const started = Date.now();
-  const outcomes = await runItems(selected, answerer, corpus);
+  const outcomes = await runItems(selection.items, selection.answerer, corpus);
   const metrics = computeMetrics(outcomes);
 
   const report: RunReport = {
     mode,
-    answerer: answerer.name,
-    callsModel: answerer.callsModel,
+    answerer: selection.answerer.name,
+    callsModel: selection.answerer.callsModel,
     goldenFile: path.basename(goldenFile),
     startedAt,
     durationMs: Date.now() - started,
@@ -296,13 +161,10 @@ async function main(): Promise<void> {
   console.log(`  written: ${path.relative(process.cwd(), file)}`);
   console.log('');
 
-  // Invariants, not thresholds: a citation that does not match its source, a
-  // refusal that still cites, or an item that produced nothing at all.
-  const invalidCitations = metrics.citationsTotal - metrics.citationsValid;
-  const errors = outcomes.filter((outcome) => outcome.error).length;
-  const broken = invalidCitations + metrics.citedWhileRefusing + errors;
-
+  const broken = countBroken(outcomes, metrics);
   if (broken > 0) {
+    const invalidCitations = metrics.citationsTotal - metrics.citationsValid;
+    const errors = outcomes.filter((outcome) => outcome.error).length;
     console.error(
       `FAIL: ${invalidCitations} invalid citation(s), ${metrics.citedWhileRefusing} refusal(s) with citations, ${errors} item(s) without an answer.`
     );

@@ -110,6 +110,12 @@ jobs:
           NODE_ENV: test
         run: pnpm test
 
+      # Recorded fixtures, no key, no network: this step turns red when a
+      # citation stops matching the text it cites, which is the one regression
+      # that must never reach a highlight in the UI (ADR-0008).
+      - name: Eval (smoke)
+        run: pnpm eval --smoke
+
       - name: Build
         run: pnpm build
 

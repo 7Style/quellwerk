@@ -196,7 +196,7 @@ Files: backend/evals/answerers/stub.answerer.ts, backend/evals/_tests_/citation-
 Test: `pnpm --filter @quellwerk/backend test -- evals && pnpm eval --smoke`
 Expected: the deliberately broken fixture is reported as an invalid citation and drops the run to a non-zero exit; the correct fixture passes.
 Box: 45
-Status: [ ]
+Status: [x]
 
 Milestone end: tag `m1-evals`, then deploy.
 
