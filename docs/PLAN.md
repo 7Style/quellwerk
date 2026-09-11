@@ -284,7 +284,7 @@ Files: backend/app/modules/chat/internal/citations.ts, backend/app/modules/chat/
 Test: `pnpm --filter @quellwerk/backend test -- citations && pnpm --filter @quellwerk/backend exec tsx scripts/offset-probe.ts`
 Expected: a mismatch is dropped and logged with ids and lengths only; the probe reports `N of N citations matched` against the live API and the result is written into offset-check.md.
 Box: 75
-Status: [ ]
+Status: [x]
 
 ### M3-T3 stream.ts, the SSE route and the error cases
 Goal: The answer streams over SSE and every failure ends the stream with a readable event.
