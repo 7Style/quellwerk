@@ -119,6 +119,51 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # The images are built here and not only in the e2e job further down.
+  #
+  # e2e does build both of them (`docker compose up -d --build`), but it needs
+  # verify first and is the slowest job in the run, so a broken image surfaces
+  # late and under the wrong name: "e2e failed" when the truth is "the image
+  # does not build". That happened once already, when backend/tsconfig.build.json
+  # was missing from the Dockerfile's COPY list while `pnpm build` stayed green.
+  #
+  # This job runs in parallel with verify, needs nothing, and says what broke.
+  images:
+    name: docker build (backend, frontend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Neither image is pushed or loaded: the question is whether it builds,
+      # not whether it runs. The e2e job answers the second one.
+      - name: Backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      # NEXT_PUBLIC_* is baked in at build time, so the build needs a value.
+      # Which one does not matter here; nothing is deployed from this job.
+      - name: Frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: false
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:3011
+            NEXT_PUBLIC_APP_NAME=Quellwerk
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
   security-check:
     name: scripts/security-check.sh
     runs-on: ubuntu-latest
