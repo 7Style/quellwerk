@@ -26,9 +26,10 @@ export interface ExtractResult {
 export class ExtractionError extends Error {
   constructor(
     message: string,
-    readonly reason: 'empty' | 'no-text-layer' | 'unsupported' | 'broken'
+    readonly reason: 'empty' | 'no-text-layer' | 'unsupported' | 'broken',
+    options?: { cause?: unknown }
   ) {
-    super(message);
+    super(message, options);
     this.name = 'ExtractionError';
   }
 }
@@ -76,7 +77,20 @@ function extractPlain(input: Buffer | string): ExtractResult {
  * text came out at all.
  */
 async function extractPdf(buffer: Buffer): Promise<ExtractResult> {
-  const pageTexts = await readPdfPages(buffer);
+  let pageTexts: string[];
+  try {
+    pageTexts = await readPdfPages(buffer);
+  } catch (error) {
+    // A library message is not a user-facing reason. pdfjs says "Invalid PDF
+    // structure." for a truncated file, and worse things for others; whatever
+    // it says ends up on the source row and in front of somebody who has to
+    // decide what to do about it. The original is kept as the cause so it is
+    // still in the log.
+    throw new ExtractionError('that PDF could not be read; the file may be damaged', 'broken', {
+      cause: error,
+    });
+  }
+
   const { text, pages } = buildPagedText(pageTexts);
 
   if (text.length < MIN_PDF_CHARS) {

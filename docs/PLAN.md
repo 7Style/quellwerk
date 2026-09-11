@@ -226,7 +226,7 @@ Files: backend/app/worker.ts, backend/app/modules/sources/internal/ingest.job.ts
 Test: `pnpm --filter @quellwerk/backend test -- ingest.job overview.job artifact-request usage-log`
 Expected: the same job id twice produces one result, every step writes a heartbeat, the overview is debounced to one run for three sources added together; the artifact request carries no citations and no schema constraints, and a call with 5 minute and 1 hour cache writes is priced on separate lines.
 Box: 105
-Status: [ ]
+Status: [x]
 
 ### M2-T4 Tests for the ingestion path
 Goal: The path from upload to ready source is covered end to end against a fake LLM adapter.

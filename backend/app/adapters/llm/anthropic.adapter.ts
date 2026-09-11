@@ -11,7 +11,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 import { env } from '../../config/env.config.js';
+import type { ArtifactRequest } from './artifact-request.js';
 import type { ILlmProvider, LlmUsage } from './llm.interface.js';
+import { usageFrom } from './usage.js';
 
 export class AnthropicLlmAdapter implements ILlmProvider {
   private readonly client: Anthropic;
@@ -28,10 +30,36 @@ export class AnthropicLlmAdapter implements ILlmProvider {
     throw new Error('AnthropicLlmAdapter.streamChat arrives in M3-T3');
   }
 
-  parseArtifact<T>(
-    _request: Anthropic.MessageCreateParams
-  ): Promise<{ parsed: T; usage: LlmUsage }> {
-    throw new Error('AnthropicLlmAdapter.parseArtifact arrives in M2-T2');
+  /**
+   * Structured output. Constrained decoding means the answer matches the schema
+   * by construction, so there is no validation retry here: Anthropic states
+   * that schema violations do not occur, and a retry loop around a guarantee is
+   * a loop that only ever hides a different error.
+   *
+   * What can still go wrong is the answer being cut off at `max_tokens` before
+   * the JSON closes. That surfaces as a missing `parsed_output`, and it is an
+   * error rather than a half-written artifact.
+   */
+  async parseArtifact<T>(request: ArtifactRequest): Promise<{ parsed: T; usage: LlmUsage }> {
+    const started = Date.now();
+    const message = await this.client.messages.parse(request);
+    const latencyMs = Date.now() - started;
+
+    const parsed = message.parsed_output as T | null | undefined;
+    if (parsed === null || parsed === undefined) {
+      throw new Error(
+        `the model returned no parseable output (stop_reason: ${message.stop_reason ?? 'unknown'})`
+      );
+    }
+
+    return {
+      parsed,
+      usage: usageFrom(message.usage, {
+        stopReason: message.stop_reason,
+        requestId: message._request_id,
+        latencyMs,
+      }),
+    };
   }
 
   /**

@@ -72,6 +72,8 @@ let repository: InMemorySources;
 let notebookTokenCount: number;
 let tokensForNextSource: number;
 let currentSession: string | null;
+/** What the route handed to the worker. One entry per accepted source. */
+let enqueued: Array<{ sourceId: string; notebookId: string }>;
 
 /** Only NOTEBOOK belongs to session-a; anything else answers the way the real one does. */
 const notebooks: NotebookAccess = {
@@ -103,6 +105,9 @@ function appFor(upload: RequestHandler = fakeUpload()): Express {
     notebooks,
     tokens: { countTextTokens: async () => tokensForNextSource },
     limits: { maxSources: 50, maxTokens: 150_000 },
+    enqueueIngest: async (source) => {
+      enqueued.push(source);
+    },
   });
   const controller = new SourcesController(service, () => currentSession);
   app.use('/api', createSourcesRouter({ controller, upload }));
@@ -120,6 +125,7 @@ beforeEach(() => {
   notebookTokenCount = 0;
   tokensForNextSource = 1_000;
   currentSession = 'session-a';
+  enqueued = [];
 });
 
 describe('a valid pasted source', () => {
@@ -151,6 +157,14 @@ describe('a valid pasted source', () => {
   it('adds its tokens to the notebook total', async () => {
     await request(appFor()).post(`/api/notebooks/${NOTEBOOK}/sources`).send(paste());
     expect(repository.notebookTokens).toBe(1_000);
+  });
+
+  it('hands the source to the worker once the row exists', async () => {
+    // After the write, never before: a job whose row is not there yet would
+    // find nothing and end as "source no longer exists".
+    const response = await request(appFor()).post(`/api/notebooks/${NOTEBOOK}/sources`).send(paste());
+
+    expect(enqueued).toEqual([{ sourceId: response.body.id, notebookId: NOTEBOOK }]);
   });
 
   it('takes the next free position', async () => {
@@ -197,7 +211,7 @@ describe('the capacity gate', () => {
     expect(response.body.error.details.reason).toBe('tokens');
   });
 
-  it('writes nothing when it refuses', async () => {
+  it('writes nothing and queues nothing when it refuses', async () => {
     notebookTokenCount = 149_000;
     tokensForNextSource = 5_000;
 
@@ -205,6 +219,7 @@ describe('the capacity gate', () => {
 
     expect(repository.rows).toHaveLength(0);
     expect(repository.notebookTokens).toBe(0);
+    expect(enqueued).toHaveLength(0);
   });
 
   it('accepts a source that lands exactly on the limit', async () => {

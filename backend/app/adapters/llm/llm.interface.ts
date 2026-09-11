@@ -5,6 +5,8 @@
  */
 import type Anthropic from '@anthropic-ai/sdk';
 
+import type { ArtifactRequest } from './artifact-request.js';
+
 export interface LlmUsage {
   inputTokens: number;
   outputTokens: number;
@@ -19,8 +21,12 @@ export interface LlmUsage {
 export interface ILlmProvider {
   /** Chat and reports: citations on, text out. */
   streamChat(request: Anthropic.MessageCreateParams): AsyncIterable<unknown>;
-  /** Structured outputs: citations off, JSON out. */
-  parseArtifact<T>(request: Anthropic.MessageCreateParams): Promise<{ parsed: T; usage: LlmUsage }>;
+  /**
+   * Structured outputs: citations off, JSON out. The request comes from
+   * `buildArtifactRequest`, whose type is derived from what the SDK's `parse`
+   * accepts, so an output format cannot be handed to the wrong method.
+   */
+  parseArtifact<T>(request: ArtifactRequest): Promise<{ parsed: T; usage: LlmUsage }>;
   /**
    * Input tokens for a request, as the API counts them.
    *

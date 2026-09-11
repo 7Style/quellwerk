@@ -24,9 +24,15 @@ allowBuilds:
   #                    is set; the prebuilt @parcel/watcher-<platform> package is used
   #   @scarf/scarf     postinstall is telemetry (report.js)
   #   core-js          postinstall only prints a funding banner
+  #   msgpackr-extract arrives with bullmq; it compiles a native accelerator for
+  #                    msgpackr, which falls back to pure JS without it. The
+  #                    fallback is fast enough for four queues on one machine,
+  #                    and denying it keeps a compiler toolchain out of the
+  #                    image. Same reasoning as the @napi-rs/canvas override.
   '@parcel/watcher': false
   '@scarf/scarf': false
   core-js: false
+  msgpackr-extract: false
 
 # lucide-react 1.43.0 (2026-09-08) is younger than pnpm's default minimumReleaseAge;
 # the version is fixed by docs/UPGRADE-2026-09.md, so it is excluded from the age gate.

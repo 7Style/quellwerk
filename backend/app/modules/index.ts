@@ -17,6 +17,7 @@ import { prisma } from '../lib/prisma.js';
 import { AnthropicLlmAdapter, buildCountTokensRequest } from '../adapters/llm/index.js';
 import { models } from '../config/models.js';
 import { createUploadMiddleware } from '../common/middleware/upload.middleware.js';
+import { dedupeKey, enqueue, type QueuedJob } from '../services/queue/index.js';
 import { initSessionModule, sessionIdOf } from './session/index.js';
 import { initNotebooksModule } from './notebooks/index.js';
 import { initSourcesModule } from './sources/index.js';
@@ -97,6 +98,15 @@ export async function registerModules(app: Express): Promise<void> {
         maxSources: env.MAX_SOURCES_PER_NOTEBOOK,
         maxTokens: env.MAX_TOKENS_PER_NOTEBOOK,
       },
+      // The job id is (notebook, type, params), so the same source is queued
+      // once however often the route is called. The worker picks it up from
+      // here; the API process never waits for it (ADR-0009).
+      enqueueIngest: ({ sourceId, notebookId }) =>
+        enqueue('ingest', dedupeKey(notebookId, 'ingest', sourceId), {
+          kind: 'ingest',
+          sourceId,
+          notebookId,
+        } satisfies QueuedJob),
       upload: createUploadMiddleware(),
     });
     startupStatus.moduleOk('Sources');

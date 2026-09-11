@@ -41,6 +41,14 @@ export interface SourcesServiceDeps {
   notebooks: NotebookAccess;
   tokens: SourceTokenCounter;
   limits: CapacityLimits;
+  /**
+   * Hands the source to the worker. Injected, so this module never imports a
+   * queue library and the route stays testable without a Redis.
+   *
+   * Called after the row exists, never before: a job whose row is not there yet
+   * would find nothing and end as "source no longer exists".
+   */
+  enqueueIngest(source: { sourceId: string; notebookId: string }): Promise<void>;
 }
 
 export interface PastedSourceInput {
@@ -111,6 +119,7 @@ export class SourcesService {
     });
 
     await this.deps.repository.addNotebookTokens(notebookId, addedTokens);
+    await this.deps.enqueueIngest({ sourceId: source.id, notebookId });
     return source;
   }
 
@@ -127,7 +136,7 @@ export class SourcesService {
     this.refuseIfOver(notebook.tokenCount, sourceCount, {});
 
     const position = (await this.deps.repository.maxPosition(notebookId)) + 1;
-    return this.deps.repository.create({
+    const source = await this.deps.repository.create({
       notebookId,
       position,
       title: input.title,
@@ -140,6 +149,9 @@ export class SourcesService {
       storagePath: input.storagePath,
       status: 'queued',
     });
+
+    await this.deps.enqueueIngest({ sourceId: source.id, notebookId });
+    return source;
   }
 
   private refuseIfOver(

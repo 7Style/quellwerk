@@ -18,6 +18,7 @@ export interface SourcesModuleDeps {
   notebooks: NotebookAccess;
   tokens: SourceTokenCounter;
   limits: { maxSources: number; maxTokens: number };
+  enqueueIngest: (source: { sourceId: string; notebookId: string }) => Promise<void>;
   upload: RequestHandler;
   basePath?: string;
 }
@@ -29,6 +30,7 @@ export function initSourcesModule(app: Express, deps: SourcesModuleDeps): void {
     notebooks: deps.notebooks,
     tokens: deps.tokens,
     limits: deps.limits,
+    enqueueIngest: deps.enqueueIngest,
   });
   const controller = new SourcesController(service, deps.sessionIdOf);
 
