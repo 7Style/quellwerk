@@ -1,0 +1,20 @@
+{
+  "id": "g14",
+  "recordedBy": "handwritten (there is no live route before M3-T5)",
+  "recordedAt": "2026-09-11",
+  "text": "The two sources disagree. Article 113 of the Regulation gives 2 August 2027 for Article 6(1) and the corresponding obligations. The Commission FAQ states a different date: The rules for high-risk AI systems will apply starting 2 December 2027. The regulation text is the binding source.",
+  "citations": [
+    {
+      "file": "01-ki-vo-auszug.pdf",
+      "start": 81619,
+      "end": 81727,
+      "citedText": "c) Artikel 6 Absatz 1 und die entsprechenden Pflichten gemäß dieser Verordnung gelten ab dem 2. August 2027."
+    },
+    {
+      "file": "02-kommission-faq.md",
+      "start": 31320,
+      "end": 31391,
+      "citedText": "The rules for high-risk AI systems will apply starting 2 December 2027."
+    }
+  ]
+}

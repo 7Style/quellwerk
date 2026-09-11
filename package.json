@@ -11,6 +11,7 @@
     "typecheck": "pnpm -r run typecheck",
     "lint": "pnpm -r run lint",
     "test": "pnpm -r --filter=!@quellwerk/e2e run test",
+    "eval": "pnpm --filter @quellwerk/backend exec tsx evals/run.ts",
     "db:migrate": "pnpm --filter @quellwerk/backend run prisma:migrate:deploy",
     "db:seed": "pnpm --filter @quellwerk/backend run prisma:seed",
     "build": "pnpm -r run build",

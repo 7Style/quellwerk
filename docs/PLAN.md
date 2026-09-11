@@ -188,7 +188,7 @@ Files: backend/evals/run.ts, backend/evals/{report.ts,judges.ts}, backend/evals/
 Test: `pnpm eval --smoke`
 Expected: a table with citation validity and abstention accuracy, a new file under backend/evals/results/, exit code 0.
 Box: 75
-Status: [ ]
+Status: [x]
 
 ### M1-T4 StubAnswerer, smoke subset, CI
 Goal: The smoke subset runs in CI without an API key and fails when a citation does not match its source.

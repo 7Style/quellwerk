@@ -1,0 +1,14 @@
+{
+  "id": "g05",
+  "recordedBy": "handwritten (there is no live route before M3-T5)",
+  "recordedAt": "2026-09-11",
+  "text": "General-purpose AI models trained using a total amount of computational resources that exceeds 10^25 FLOP are presumed to pose systemic risks. The Commission may update this threshold in light of technological developments.",
+  "citations": [
+    {
+      "file": "02-kommission-faq.md",
+      "start": 24948,
+      "end": 25013,
+      "citedText": "a total amount of computational resources that exceeds 10^25 FLOP"
+    }
+  ]
+}

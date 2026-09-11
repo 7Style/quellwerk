@@ -1,0 +1,20 @@
+{
+  "id": "g09",
+  "recordedBy": "handwritten (there is no live route before M3-T5)",
+  "recordedAt": "2026-09-11",
+  "text": "Nein. Der Einsatz von KI-Systemen zur Ableitung von Emotionen einer natuerlichen Person am Arbeitsplatz und in Bildungseinrichtungen ist nach Artikel 5 verboten, ausser aus medizinischen Gruenden oder Sicherheitsgruenden. Die Kommission fuehrt Emotion recognition in the workplace and education institutions in derselben Liste der verbotenen Praktiken.",
+  "citations": [
+    {
+      "file": "01-ki-vo-auszug.pdf",
+      "start": 33949,
+      "end": 34042,
+      "citedText": "Ableitung von Emotionen einer natürlichen Person am Arbeitsplatz und in Bildungseinrichtungen"
+    },
+    {
+      "file": "02-kommission-faq.md",
+      "start": 3117,
+      "end": 3180,
+      "citedText": "Emotion recognition in the workplace and education institutions"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "g12",
+  "recordedBy": "handwritten (there is no live route before M3-T5)",
+  "recordedAt": "2026-09-11",
+  "text": "Die Quellen widersprechen sich. Nach Artikel 113 der Verordnung gelten die Kapitel I und II, und damit die Verbote nach Artikel 5, ab dem 2. Februar 2025. Die interne Notiz vom 12. Maerz 2024 nennt dagegen den 1. Januar 2026 und bezeichnet ihre Daten selbst als vorlaeufig. Massgeblich ist der Verordnungstext.",
+  "citations": [
+    {
+      "file": "01-ki-vo-auszug.pdf",
+      "start": 81419,
+      "end": 81473,
+      "citedText": "a) Die Kapitel I und II gelten ab dem 2. Februar 2025;"
+    },
+    {
+      "file": "04-interne-notiz.md",
+      "start": 260,
+      "end": 375,
+      "citedText": "gelten die Verbote nach Artikel 5 ab dem 1. Januar 2026, die Pflichten für Hochrisiko-Systeme ab dem 1. Januar 2027"
+    }
+  ]
+}

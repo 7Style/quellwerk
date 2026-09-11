@@ -1,0 +1,20 @@
+{
+  "id": "g10",
+  "recordedBy": "handwritten (there is no live route before M3-T5)",
+  "recordedAt": "2026-09-11",
+  "text": "Die interne Notiz stuft das Bewerber-Screening im Recruiting unter Anhang III (Beschaeftigung) ein. Anhang III Nummer 4 nennt Systeme fuer die Einstellung oder Auswahl natuerlicher Personen, insbesondere um gezielte Stellenanzeigen zu schalten, Bewerbungen zu sichten oder zu filtern und Bewerber zu bewerten. Die Einschaetzung der Notiz deckt sich damit.",
+  "citations": [
+    {
+      "file": "04-interne-notiz.md",
+      "start": 618,
+      "end": 719,
+      "citedText": "das Bewerber-Screening im Recruiting fällt nach unserer Einschätzung unter Anhang III (Beschäftigung)"
+    },
+    {
+      "file": "01-ki-vo-auszug.pdf",
+      "start": 88191,
+      "end": 88287,
+      "citedText": "insbesondere um gezielte Stellenanzeigen zu schalten, Bewerbungen zu sichten oder zu filtern und"
+    }
+  ]
+}
