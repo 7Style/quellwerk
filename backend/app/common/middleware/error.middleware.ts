@@ -9,15 +9,28 @@ interface ModuleException {
   statusCode: number;
   errorCode?: string;
   code?: string;
+  /** http-errors puts its machine-readable reason here (`entity.too.large`). */
+  type?: string;
   details?: unknown;
 }
 
+/**
+ * Recognises a module's own error by its shape, so a module can report an HTTP
+ * status without importing anything from a shared area (CLAUDE.md).
+ *
+ * `errorCode` OR `code` OR `type`: the third is what http-errors uses, and
+ * without it the errors from `express.json` fell through to the default branch.
+ * A body over the 2 MB limit was answered as a 500 with a full stack trace in
+ * the log, where the honest answer is 413.
+ */
 function isModuleException(error: unknown): error is Error & ModuleException {
   if (!(error instanceof Error)) return false;
-  const candidate = error as Partial<ModuleException>;
+  const candidate = error as Partial<ModuleException> & { type?: string };
   return (
     typeof candidate.statusCode === 'number' &&
-    (typeof candidate.errorCode === 'string' || typeof candidate.code === 'string')
+    (typeof candidate.errorCode === 'string' ||
+      typeof candidate.code === 'string' ||
+      typeof candidate.type === 'string')
   );
 }
 
@@ -98,7 +111,9 @@ export const errorMiddleware = (
   if (error instanceof BaseException || isModuleException(error)) {
     const statusCode = error.statusCode;
     const errorCode =
-      error instanceof BaseException ? error.errorCode : (error.errorCode ?? error.code);
+      error instanceof BaseException
+        ? error.errorCode
+        : (error.errorCode ?? error.code ?? error.type);
 
     const responseError: Record<string, unknown> = {
       code: errorCode,

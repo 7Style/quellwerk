@@ -11,6 +11,10 @@
  * Still no Redis, no Prisma, no API key. The queue is an array, storage is a
  * Map, and the model is a function that returns a fixed object.
  */
+import { access, mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it, beforeEach } from '@jest/globals';
 import express, { type Express, type RequestHandler } from 'express';
 import request from 'supertest';
@@ -46,6 +50,8 @@ class Store implements SourcesRepository {
   readonly queue: Array<{ sourceId: string; notebookId: string }> = [];
   readonly overviewRequests: string[] = [];
   readonly steps: IngestStep[] = [];
+  /** Upload paths the job released after their text was stored. */
+  readonly discarded: string[] = [];
   private next = 0;
 
   async countByNotebook(notebookId: string): Promise<number> {
@@ -102,6 +108,9 @@ class Store implements SourcesRepository {
         if (row) Object.assign(row, { step, status: 'processing' });
       },
       readFile: async () => fileBytes,
+      discardFile: async (path) => {
+        this.discarded.push(path);
+      },
       countTextTokens: async () => tokensForText,
       addNotebookTokens: async (_id, tokens) => {
         this.notebookTokens += tokens;
@@ -156,11 +165,13 @@ function appFor(upload: RequestHandler = uploadOf()): Express {
     enqueueIngest: async (job) => {
       store.queue.push(job);
     },
+    assertBudgetLeft: async () => undefined,
   });
 
   app.use('/api', createSourcesRouter({
     controller: new SourcesController(service, () => 'session-a'),
     upload,
+    limit: (_req, _res, next) => next(),
   }));
   app.use(errorMiddleware);
   return app;
@@ -245,6 +256,9 @@ describe('an uploaded file, from the request to a ready source', () => {
     expect(result.status).toBe('ready');
     expect(store.notebookTokens).toBe(2_400);
     expect(store.rows.get(created.body.id)?.text).toBe('Zeile eins\n\nZeile zwei');
+    // The bytes have become text, so the file is released. The text is the
+    // source from here on (ADR-0003).
+    expect(store.discarded).toEqual(['/tmp/upload']);
   });
 });
 
@@ -287,6 +301,50 @@ describe('a PDF without a text layer', () => {
 
     expect(store.overviewRequests).toHaveLength(0);
   }, 30_000);
+});
+
+describe('an upload nothing takes ownership of', () => {
+  it('is removed from the disk instead of lying there for ever', async () => {
+    // Real bytes on the real disk, because the whole point is whether the file
+    // survives. A refused upload that stays is 20 MB nobody owns: no row points
+    // at it, and the cleanup job in M7-T5 walks notebooks and never sees it.
+    const dir = await mkdtemp(path.join(tmpdir(), 'quellwerk-upload-'));
+    const file = path.join(dir, 'upload');
+    await writeFile(file, 'x'.repeat(1_000));
+
+    const rejected = {
+      originalname: 'foto.png',
+      mimetype: 'image/png',
+      path: file,
+    } as Express.Multer.File;
+
+    const response = await request(appFor(uploadOf(rejected)))
+      .post(`/api/notebooks/${NOTEBOOK}/sources`)
+      .send();
+
+    expect(response.status).toBe(415);
+    await expect(access(file)).rejects.toThrow();
+  });
+
+  it('is kept when it did become a source', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'quellwerk-upload-'));
+    const file = path.join(dir, 'upload');
+    await writeFile(file, 'Ein Text.');
+
+    const accepted = {
+      originalname: 'notiz.md',
+      mimetype: 'text/markdown',
+      path: file,
+    } as Express.Multer.File;
+
+    const response = await request(appFor(uploadOf(accepted)))
+      .post(`/api/notebooks/${NOTEBOOK}/sources`)
+      .send();
+
+    expect(response.status).toBe(201);
+    // Still there: the job has not run yet and needs the bytes.
+    await expect(access(file)).resolves.toBeUndefined();
+  });
 });
 
 describe('the whole path', () => {

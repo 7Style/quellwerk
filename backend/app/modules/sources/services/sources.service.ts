@@ -49,6 +49,14 @@ export interface SourcesServiceDeps {
    * would find nothing and end as "source no longer exists".
    */
   enqueueIngest(source: { sourceId: string; notebookId: string }): Promise<void>;
+  /**
+   * Throws when today's spend has reached the cap.
+   *
+   * Called before the row is written, not after: adding a source starts a chain
+   * of model calls in the worker, and a budget that is checked once the tokens
+   * are spent is an audit rather than a budget (SECURITY.md 7.3).
+   */
+  assertBudgetLeft(): Promise<void>;
 }
 
 export interface PastedSourceInput {
@@ -78,6 +86,7 @@ export class SourcesService {
     input: PastedSourceInput
   ): Promise<SourceRow> {
     const notebook = await this.deps.notebooks.writable(notebookId, sessionId);
+    await this.deps.assertBudgetLeft();
     const sourceCount = await this.deps.repository.countByNotebook(notebookId);
 
     // First gate: no measuring yet. A full notebook and a notebook with fifty
@@ -129,6 +138,7 @@ export class SourcesService {
     input: UploadedSourceInput
   ): Promise<SourceRow> {
     const notebook = await this.deps.notebooks.writable(notebookId, sessionId);
+    await this.deps.assertBudgetLeft();
     const sourceCount = await this.deps.repository.countByNotebook(notebookId);
 
     // The only gate that can run here. The file's tokens are unknown until the

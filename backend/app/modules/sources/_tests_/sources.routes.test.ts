@@ -74,6 +74,8 @@ let tokensForNextSource: number;
 let currentSession: string | null;
 /** What the route handed to the worker. One entry per accepted source. */
 let enqueued: Array<{ sourceId: string; notebookId: string }>;
+/** Flips the injected budget check, which the route calls before it writes. */
+let budgetSpent: boolean;
 
 /** Only NOTEBOOK belongs to session-a; anything else answers the way the real one does. */
 const notebooks: NotebookAccess = {
@@ -108,9 +110,17 @@ function appFor(upload: RequestHandler = fakeUpload()): Express {
     enqueueIngest: async (source) => {
       enqueued.push(source);
     },
+    assertBudgetLeft: async () => {
+      if (budgetSpent) {
+        throw Object.assign(new Error('Tagesbudget erreicht'), {
+          statusCode: 503,
+          errorCode: 'BUDGET_SPENT',
+        });
+      }
+    },
   });
   const controller = new SourcesController(service, () => currentSession);
-  app.use('/api', createSourcesRouter({ controller, upload }));
+  app.use('/api', createSourcesRouter({ controller, upload, limit: (_req, _res, next) => next() }));
   app.use(errorMiddleware);
 
   return app;
@@ -126,6 +136,7 @@ beforeEach(() => {
   tokensForNextSource = 1_000;
   currentSession = 'session-a';
   enqueued = [];
+  budgetSpent = false;
 });
 
 describe('a valid pasted source', () => {
@@ -319,6 +330,42 @@ describe('a file over the size cap', () => {
 
     expect(response.status).toBe(201);
     expect(response.body.kind).toBe('pdf');
+  });
+});
+
+describe('the daily budget', () => {
+  it('refuses a new source with 503 once it is spent', async () => {
+    // Adding a source starts a chain of model calls in the worker. A budget
+    // checked after the tokens are spent is an audit, not a budget.
+    budgetSpent = true;
+
+    const response = await request(appFor()).post(`/api/notebooks/${NOTEBOOK}/sources`).send(paste());
+
+    expect(response.status).toBe(503);
+    expect(response.body.error.code).toBe('BUDGET_SPENT');
+  });
+
+  it('writes nothing and queues nothing when it refuses', async () => {
+    budgetSpent = true;
+    await request(appFor()).post(`/api/notebooks/${NOTEBOOK}/sources`).send(paste());
+
+    expect(repository.rows).toHaveLength(0);
+    expect(enqueued).toHaveLength(0);
+  });
+
+  it('refuses an upload the same way', async () => {
+    budgetSpent = true;
+    const file = {
+      originalname: 'x.pdf',
+      mimetype: 'application/pdf',
+      path: '/tmp/upload-budget',
+    } as Express.Multer.File;
+
+    const response = await request(appFor(fakeUpload(file)))
+      .post(`/api/notebooks/${NOTEBOOK}/sources`)
+      .send();
+
+    expect(response.status).toBe(503);
   });
 });
 

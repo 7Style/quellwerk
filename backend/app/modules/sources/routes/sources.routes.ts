@@ -22,12 +22,23 @@ export interface SourcesRouterDeps {
    * a multer LIMIT_FILE_SIZE, which the error middleware turns into 413.
    */
   upload: RequestHandler;
+  /**
+   * 20 sources per hour and session (SECURITY.md 7.3). In front of `upload`,
+   * so a caller over the limit is refused before 20 MB reach the disk, and in
+   * front of the capacity gate, so being refused costs nothing to serve.
+   */
+  limit: RequestHandler;
 }
 
 export function createSourcesRouter(deps: SourcesRouterDeps): Router {
   const router = Router();
 
-  router.post('/notebooks/:notebookId/sources', deps.upload, wrap(deps.controller.create));
+  router.post(
+    '/notebooks/:notebookId/sources',
+    deps.limit,
+    deps.upload,
+    wrap(deps.controller.create)
+  );
   router.get('/notebooks/:notebookId/sources', wrap(deps.controller.list));
 
   return router;

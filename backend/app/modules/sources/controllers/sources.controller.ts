@@ -1,6 +1,8 @@
 /**
  * Parses, calls the service, shapes the answer.
  */
+import { unlink } from 'node:fs/promises';
+
 import type { Request, Response } from 'express';
 
 import {
@@ -46,24 +48,37 @@ export class SourcesController {
 
     const file = req.file;
     if (file) {
-      const kind = KIND_BY_MIME[file.mimetype];
-      if (!kind) {
-        throw new UnsupportedSourceError(
-          `Quellwerk reads PDF, Word, plain text and Markdown. That file is ${file.mimetype}.`
-        );
-      }
+      // Multer has already written the bytes to disk by the time this runs.
+      // Every path that does not hand them to a source row has to remove them
+      // again: a refused upload that stays on the volume is 20 MB of nothing,
+      // nobody owns it, no row points at it, and the cleanup job in M7-T5 walks
+      // notebooks and would never see it. Repeat that in a loop and the disk of
+      // a server with neighbours fills up.
+      let kept = false;
+      try {
+        const kind = KIND_BY_MIME[file.mimetype];
+        if (!kind) {
+          throw new UnsupportedSourceError(
+            `Quellwerk reads PDF, Word, plain text and Markdown. That file is ${file.mimetype}.`
+          );
+        }
 
-      const source = await this.service.addUploaded(notebookId, sessionId, {
-        // The file name is user data and goes in as it came, minus the
-        // extension. What it must not do is arrive empty.
-        title: fileTitle(file.originalname),
-        kind,
-        originalName: file.originalname,
-        mime: file.mimetype,
-        storagePath: file.path,
-      });
-      res.status(201).json(toSourceResponse(source));
-      return;
+        const source = await this.service.addUploaded(notebookId, sessionId, {
+          // The file name is user data and goes in as it came, minus the
+          // extension. What it must not do is arrive empty.
+          title: fileTitle(file.originalname),
+          kind,
+          originalName: file.originalname,
+          mime: file.mimetype,
+          storagePath: file.path,
+        });
+
+        kept = true;
+        res.status(201).json(toSourceResponse(source));
+        return;
+      } finally {
+        if (!kept) await discard(file.path);
+      }
     }
 
     const input = createPastedSourceSchema.parse(req.body ?? {});
@@ -78,6 +93,19 @@ export class SourcesController {
     const sources = await this.service.list(notebookId, sessionId);
     res.json({ sources: sources.map(toSourceResponse) });
   };
+}
+
+/**
+ * Removes an upload nothing took ownership of. A failure here is logged by the
+ * caller's error path and must not replace the error the user actually gets:
+ * "the notebook is full" is more useful than "unlink failed".
+ */
+async function discard(path: string): Promise<void> {
+  try {
+    await unlink(path);
+  } catch {
+    // Already gone, or never written. Either way there is nothing to clean up.
+  }
 }
 
 /** "Bericht Q2.pdf" becomes "Bericht Q2"; a name that is only an extension stays whole. */

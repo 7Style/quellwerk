@@ -88,6 +88,16 @@ export interface IngestDeps {
   heartbeat(sourceId: string, step: IngestStep): Promise<void>;
   /** Reads an uploaded file from the volume. */
   readFile(storagePath: string): Promise<Buffer>;
+  /**
+   * Removes the uploaded file once its text is stored.
+   *
+   * The text is the source from then on: it is what goes to the model, what the
+   * viewer renders and what offsets point into (ADR-0003). Keeping the original
+   * would mean keeping a second copy of every source for the life of the
+   * notebook, and docs/KNOWN-LIMITS.md already says the upload volume is not
+   * backed up because the text in Postgres is the thing that matters.
+   */
+  discardFile(storagePath: string): Promise<void>;
   /** Tokens for one source's text, measured on a real request. */
   countTextTokens(title: string, text: string): Promise<number>;
   addNotebookTokens(notebookId: string, tokens: number): Promise<void>;
@@ -125,6 +135,8 @@ export interface IngestDeps {
   /** Queues the overview, debounced. Called once, at the end. */
   requestOverview(notebookId: string): Promise<void>;
   maxTokensPerNotebook: number;
+  /** Where the real error goes. Optional so a test does not have to care. */
+  onError?(error: unknown, sourceId: string): void;
   /** The notebook's measured total, without this source. */
   notebookTokens(notebookId: string): Promise<number>;
 }
@@ -164,6 +176,8 @@ export async function runIngestJob(deps: IngestDeps, payload: IngestPayload): Pr
 
     let text = source.text;
     let pages: PageSpan[] = [];
+    /** Set once the bytes have become text; the file is released after the store. */
+    let extractedFrom: string | null = null;
 
     if (text.length === 0) {
       if (!source.storagePath) {
@@ -173,6 +187,7 @@ export async function runIngestJob(deps: IngestDeps, payload: IngestPayload): Pr
       const extracted = await extract(source.kind, buffer);
       text = extracted.text;
       pages = extracted.pages;
+      extractedFrom = source.storagePath;
     }
 
     // ---- measure ---------------------------------------------------------
@@ -206,6 +221,11 @@ export async function runIngestJob(deps: IngestDeps, payload: IngestPayload): Pr
         pages,
       });
       await deps.addNotebookTokens(source.notebookId, tokens);
+
+      // The text is stored, so the bytes have done their job. Released here and
+      // not in a finally: on a failure the file stays, which is what lets a
+      // failed source be retried without asking for the upload again.
+      if (extractedFrom) await deps.discardFile(extractedFrom);
     }
 
     // ---- source guide ----------------------------------------------------
@@ -236,6 +256,9 @@ export async function runIngestJob(deps: IngestDeps, payload: IngestPayload): Pr
 
     return { status: 'ready', tokens };
   } catch (error) {
+    // The error object goes to the caller, which logs it; only the sentence
+    // below reaches the row and the API response.
+    deps.onError?.(error, source.id);
     return fail(deps, source.id, reasonFor(error));
   }
 }
@@ -250,9 +273,17 @@ async function fail(deps: IngestDeps, sourceId: string, reason: string): Promise
 }
 
 /**
- * A reason a person can act on. Extraction already says what went wrong; for
- * anything else the message is kept, because a source that says "failed" and
- * nothing else is a source nobody can fix.
+ * A reason a person can act on, and only from a list this file controls.
+ *
+ * The previous version passed `error.message` through for anything that was not
+ * an ExtractionError. That message lands in `source.error`, which the API
+ * returns and the UI shows. A Prisma failure on `updateSource` carries the
+ * `data` of the statement in its message, and `data` holds the normalised
+ * source text: the route would have handed a slice of the user's document back
+ * in an error response, against a rule CLAUDE.md marks as non-negotiable.
+ *
+ * The real message is not lost. The caller logs the error object itself, where
+ * it belongs; what reaches the row is a sentence somebody can act on.
  */
 function reasonFor(error: unknown): string {
   if (error instanceof ExtractionError) {
@@ -267,5 +298,5 @@ function reasonFor(error: unknown): string {
         return 'That file could not be read.';
     }
   }
-  return error instanceof Error ? error.message : 'unknown error';
+  return 'Something went wrong while preparing this source. Try adding it again.';
 }

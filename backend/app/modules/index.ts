@@ -12,12 +12,14 @@ import { EventEmitter } from 'node:events';
 import { logger } from '../common/utils/logger.util.js';
 import { startupStatus } from '../common/utils/startup-status.util.js';
 import { config, env } from '../config/index.js';
+import { createRateLimiter } from '../common/middleware/rate-limit.middleware.js';
 import { redis } from '../lib/redis.js';
 import { prisma } from '../lib/prisma.js';
 import { AnthropicLlmAdapter, buildCountTokensRequest } from '../adapters/llm/index.js';
 import { models } from '../config/models.js';
 import { createUploadMiddleware } from '../common/middleware/upload.middleware.js';
 import { dedupeKey, enqueue, type QueuedJob } from '../services/queue/index.js';
+import { assertBudgetLeft } from '../services/quota/index.js';
 import { initSessionModule, sessionIdOf } from './session/index.js';
 import { initNotebooksModule } from './notebooks/index.js';
 import { initSourcesModule } from './sources/index.js';
@@ -108,6 +110,13 @@ export async function registerModules(app: Express): Promise<void> {
           notebookId,
         } satisfies QueuedJob),
       upload: createUploadMiddleware(),
+      // 20 per hour and session (SECURITY.md 7.3). The general limiter above is
+      // per address and is the outer bound; this one is the one the spec names.
+      limit: createRateLimiter('sources', config.rateLimit.sources),
+      // M2 opened the path that spends money; the cap that stops it belonged to
+      // M7 and was a stub that threw. The check is one aggregate over
+      // usage_log, so it goes in now rather than after the first bill.
+      assertBudgetLeft: () => assertBudgetLeft(),
     });
     startupStatus.moduleOk('Sources');
   } catch (error) {

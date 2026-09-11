@@ -244,6 +244,18 @@ Expected: the notebook has four ready sources and prints a token total under 150
 Box: 30
 Status: [x]
 
+### M2-T6 Findings from the security review
+Goal: Nothing the M2 security review rated high or critical stays open.
+Files: backend/app/config/rate-limit.config.ts, backend/app/services/quota/*, backend/app/modules/sources/{controllers,routes,services,internal}/*, backend/app/common/middleware/{upload,error}.middleware.ts, backend/app/worker.ts
+Test: `pnpm --filter @quellwerk/backend test -- quota rate-limit sources ingest`
+Expected: a caller who discards the cookie shares one bucket with every other cookieless caller from that address; a refused upload leaves no file behind; adding a source is refused with 503 once the daily budget is spent; a failing job puts a sentence from a fixed list on the row and never a library message.
+Box: 60
+Status: [x]
+
+The review ran with the `reviewer` agent, because `/security-review` does not exist in this repository. It reported 17 findings. Fixed here: the rate-limit key (critical), the unmounted sources limiter, orphaned uploads, the missing budget gate, the raw error message on the source row, the missing multer field limits, a body over 2 MB answering 500 instead of 413, and the model-supplied `language` that was interpolated back into a prompt without bounds.
+
+Left open on purpose, each with its milestone: the content type is still only the declared one (M7-T3), `IFileStorage` has no `safePath` yet (M7-T3), the capacity gate reads and writes without a transaction so two simultaneous requests can both pass it (M7-T2), extraction has no page or time limit and no job timeout (M7-T2), and the demo notebook's sources are not readable by a foreign session because `list` asks for write access (M8-T1, with the demo content).
+
 Milestone end: deploy.
 
 ---

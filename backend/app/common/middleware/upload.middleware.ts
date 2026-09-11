@@ -31,6 +31,14 @@ export function createUploadMiddleware(maxFileSize: number = config.upload.maxFi
       // One file per request, and no other multipart fields to parse. Anything
       // else is refused by multer before it reaches a handler.
       files: 1,
+      // multer defaults `fields` and `parts` to Infinity and buffers every text
+      // field in memory. Without these four a multipart body with thousands of
+      // small fields is a memory exhaustion attack that never touches the file
+      // size limit (SECURITY.md 7.4).
+      fields: 4,
+      parts: 6,
+      fieldSize: 64 * 1024,
+      fieldNameSize: 100,
     },
   });
 

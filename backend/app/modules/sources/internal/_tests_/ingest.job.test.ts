@@ -35,6 +35,7 @@ interface Harness {
   overviewRequests: number;
   titleCalls: number;
   guideCalls: number;
+  discarded: string[];
 }
 
 function harness(overrides: Partial<IngestSourceRow> = {}, options: Partial<{
@@ -66,6 +67,7 @@ function harness(overrides: Partial<IngestSourceRow> = {}, options: Partial<{
     overviewRequests: 0,
     titleCalls: 0,
     guideCalls: 0,
+    discarded: [],
     deps: {} as IngestDeps,
   };
 
@@ -80,6 +82,9 @@ function harness(overrides: Partial<IngestSourceRow> = {}, options: Partial<{
       state.steps.push(step);
     },
     readFile: async () => Buffer.from(options.fileText ?? 'Text aus der Datei.', 'utf8'),
+    discardFile: async (path) => {
+      state.discarded.push(path);
+    },
     countTextTokens: async () => options.tokensForText ?? 1_000,
     addNotebookTokens: async (_id, tokens) => {
       state.notebookTokensAdded += tokens;
@@ -298,7 +303,7 @@ describe('a source that disappeared', () => {
 });
 
 describe('a failing model call', () => {
-  it('ends the source as failed with the reason, never on queued', async () => {
+  it('ends the source as failed, never on queued', async () => {
     // A source stuck on queued is a spinner that never stops, which the spec
     // forbids outright.
     const h = harness({}, { guideThrows: new Error('upstream 529') });
@@ -306,9 +311,65 @@ describe('a failing model call', () => {
     const result = await runIngestJob(h.deps, { sourceId: 'src-1', notebookId: 'nb-1' });
 
     expect(result.status).toBe('failed');
-    expect(result.reason).toBe('upstream 529');
-    expect(h.updates.at(-1)).toMatchObject({ status: 'failed', error: 'upstream 529' });
+    expect(h.updates.at(-1)).toMatchObject({ status: 'failed', step: null });
     expect(h.overviewRequests).toBe(0);
+  });
+
+  it('puts a sentence from a fixed list on the row, not the library message', async () => {
+    // The reason is stored and returned by the API. A library message can carry
+    // the statement it failed on, and for Prisma that statement holds `data` -
+    // which is the normalised source text. Passing it through would hand a
+    // slice of the user's document back in an error response, against a rule
+    // CLAUDE.md marks as non-negotiable.
+    const leaky = new Error(
+      'Invalid `prisma.source.update()` invocation: data: { text: "Sie gilt ab dem 2. August 2026..." }'
+    );
+    const h = harness({}, { guideThrows: leaky });
+
+    const result = await runIngestJob(h.deps, { sourceId: 'src-1', notebookId: 'nb-1' });
+
+    expect(result.reason).toBe('Something went wrong while preparing this source. Try adding it again.');
+    expect(result.reason).not.toContain('2. August 2026');
+    expect(String(h.updates.at(-1)?.error)).not.toContain('prisma');
+  });
+
+  it('hands the real error to the caller, which logs it', async () => {
+    // Not lost, just not on the row: the object with its stack goes where a
+    // stack belongs.
+    const boom = new Error('upstream 529');
+    const seen: unknown[] = [];
+    const h = harness({}, { guideThrows: boom });
+    h.deps.onError = (error) => seen.push(error);
+
+    await runIngestJob(h.deps, { sourceId: 'src-1', notebookId: 'nb-1' });
+
+    expect(seen).toEqual([boom]);
+  });
+});
+
+describe('an uploaded file that was extracted', () => {
+  it('releases the file once its text is stored', async () => {
+    // The text is the source from then on. Keeping the original would mean a
+    // second copy of every source for the life of the notebook.
+    const h = harness(
+      { kind: 'md', text: '', tokenCount: 0, storagePath: '/tmp/upload-9' },
+      { tokensForText: 500 }
+    );
+
+    await runIngestJob(h.deps, { sourceId: 'src-1', notebookId: 'nb-1' });
+
+    expect(h.discarded).toEqual(['/tmp/upload-9']);
+  });
+
+  it('keeps the file when the job failed, so it can be retried', async () => {
+    const h = harness(
+      { kind: 'md', text: '', tokenCount: 0, storagePath: '/tmp/upload-9' },
+      { tokensForText: 20_000, notebookTokens: 140_000, maxTokens: 150_000 }
+    );
+
+    await runIngestJob(h.deps, { sourceId: 'src-1', notebookId: 'nb-1' });
+
+    expect(h.discarded).toEqual([]);
   });
 });
 

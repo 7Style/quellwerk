@@ -19,7 +19,10 @@ export interface SourcesModuleDeps {
   tokens: SourceTokenCounter;
   limits: { maxSources: number; maxTokens: number };
   enqueueIngest: (source: { sourceId: string; notebookId: string }) => Promise<void>;
+  assertBudgetLeft: () => Promise<void>;
   upload: RequestHandler;
+  /** The per-session source limiter, built in modules/index.ts. */
+  limit: RequestHandler;
   basePath?: string;
 }
 
@@ -31,10 +34,14 @@ export function initSourcesModule(app: Express, deps: SourcesModuleDeps): void {
     tokens: deps.tokens,
     limits: deps.limits,
     enqueueIngest: deps.enqueueIngest,
+    assertBudgetLeft: deps.assertBudgetLeft,
   });
   const controller = new SourcesController(service, deps.sessionIdOf);
 
-  app.use(deps.basePath ?? '/api', createSourcesRouter({ controller, upload: deps.upload }));
+  app.use(
+    deps.basePath ?? '/api',
+    createSourcesRouter({ controller, upload: deps.upload, limit: deps.limit })
+  );
 }
 
 export { SourcesService } from './services/sources.service.js';
