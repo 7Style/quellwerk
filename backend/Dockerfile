@@ -37,7 +37,10 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 # Build: prisma generate + tsc, then a pruned production deployment
 # ------------------------------------------------------------------------------
 FROM deps AS build
-COPY backend/tsconfig.json backend/
+# Both configs: tsconfig.build.json extends tsconfig.json and is what `build`
+# compiles with. Copying only the first one fails here and nowhere else, because
+# neither `pnpm verify` nor CI builds this image.
+COPY backend/tsconfig.json backend/tsconfig.build.json backend/
 COPY backend/app backend/app
 # Explicit generate as well: the client must match the schema in this layer
 RUN pnpm --filter @quellwerk/backend exec prisma generate \

@@ -8,7 +8,8 @@
 #
 # Never ignore what the Dockerfiles COPY:
 #   package.json, pnpm-lock.yaml, pnpm-workspace.yaml
-#   backend/package.json, backend/tsconfig.json, backend/prisma.config.ts,
+#   backend/package.json, backend/tsconfig.json, backend/tsconfig.build.json,
+#   backend/prisma.config.ts,
 #   backend/prisma/, backend/app/, backend/docker-entrypoint.sh
 #   frontend/ (whole package, minus the rebuilt or secret paths below)
 # ==============================================================================
