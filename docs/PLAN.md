@@ -25,6 +25,8 @@ Their ids are gone; a session prompt that names one of them will find nothing:
 **M8-T2 and M8-T3 are pulled forward** and run directly after M0, before M1. A
 deploy first attempted on the last evening is the largest risk in this plan; one
 that has been running since day one is none. Their ids stay M8-T2 and M8-T3.
+Both are done by hand, because there is no GitHub repository yet; **M8-T5** is
+new and turns that hand path into a workflow once the repository exists.
 
 ## Gates and tags
 
@@ -119,22 +121,31 @@ Status: [x]
 ## Deploy first (M8-T2 and M8-T3, pulled forward)
 
 Runs directly after M0 and before M1, on the empty shell. Every later milestone
-ends with another deploy, so the pipeline is exercised a dozen times instead of once.
+ends with another deploy, so the path is exercised a dozen times instead of once.
 
-### M8-T2 Production compose, nginx vhost, deploy workflow
-Goal: Images are built to GHCR and deployed over SSH from GitHub Actions.
-Files: deployment/prod/docker/docker-compose.yml, deployment/prod/nginx/*, deployment/prod/deploy.sh, .github/workflows/deploy.yml
-Test: `docker compose -f deployment/prod/docker/docker-compose.yml config --quiet && ! rg -q 'echo .*secrets\.' .github/workflows/deploy.yml`
-Expected: exit code 0 — the production compose file validates and no workflow step echoes a secret.
+**There is no GitHub repository yet**, so the first deploys are done by hand:
+the code is mirrored to the server with rsync and the images are built there.
+That is not a detour. It forces the compose file, the vhost and the firewall to
+be right before a workflow hides them behind a green check, and the workflow in
+M8-T5 then only has to automate a path that already works. The server `intern`
+carries other sites, so Quellwerk is a guest on it: nothing binds to 0.0.0.0,
+nginx runs on the host, and Docker keeps its own iptables rules
+(SECURITY.md 4.3, Fassung 2).
+
+### M8-T2 Production compose and the host vhost
+Goal: The production compose file describes the five services Quellwerk actually has, and the host nginx has a vhost for them.
+Files: deployment/prod/docker/docker-compose.yml, deployment/prod/nginx/quellwerk.conf, deployment/prod/deploy.sh
+Test: `docker compose -f deployment/prod/docker/docker-compose.yml config --quiet && nginx -t -c deployment/prod/nginx/quellwerk.conf 2>&1 | tail -1`
+Expected: compose validates; the vhost parses. Five services with the worker, container names `quellwerk-prod-*`, no published port except on 127.0.0.1, no nginx container (the host serves TLS), and the bridge carries the fixed name and subnet from SECURITY.md 4.3.
 Box: 60
 Status: [ ]
 
-### M8-T3 DEPLOY.md and the first deploy
-Goal: The empty shell is live on the server behind nginx with a certificate.
+### M8-T3 First deploy by hand
+Goal: The empty shell is live on the server behind the host nginx with a certificate.
 Files: docs/DEPLOY.md, deployment/prod/*
 Test: `curl -sS -o /dev/null -w '%{http_code} %{ssl_verify_result}\n' https://<domain>/api/health`
-Expected: `200 0`, and the same request over http redirects to https.
-Box: 45
+Expected: `200 0`, and the same request over http redirects to https. Every server command and its real output is written into DEPLOY.md while it happens, not afterwards from memory.
+Box: 60
 Status: [ ]
 
 ---
@@ -473,6 +484,14 @@ Expected: source, chat with a verified citation and one report pass; the first a
 Box: 30
 Status: [ ]
 
+### M8-T5 Actions and GHCR, once the repository exists
+Goal: The manual path from M8-T2 and M8-T3 runs as a workflow instead of by hand.
+Files: .github/workflows/deploy.yml, deployment/prod/deploy.sh, docs/DEPLOY.md
+Test: `! rg -q 'echo .*secrets\.' .github/workflows/deploy.yml && rg -c 'ghcr.io' .github/workflows/deploy.yml`
+Expected: no step echoes a secret, the images are pushed to GHCR, and a run deploys the same thing the hand path deployed. Blocked until the repository is pushed; not part of the day 1 gate.
+Box: 60
+Status: [ ]
+
 Milestone end: run `/eval` and record numbers, then tag `m8-live`.
 
 ---
@@ -575,7 +594,7 @@ recording is the one that breaks during it.
 | Milestone | Tasks | Minutes |
 |---|---|---|
 | M0 | 7 | 390 |
-| Deploy first (M8-T2, M8-T3) | 2 | 105 |
+| Deploy first (M8-T2, M8-T3) | 2 | 120 |
 | M1 | 4 | 225 |
 | M2 | 5 | 285 |
 | M3 | 5 | 315 |
@@ -583,7 +602,7 @@ recording is the one that breaks during it.
 | M5 | 5 | 210 |
 | M6 | 3 | 165 |
 | M7 | 5 | 225 |
-| M8 (rest) | 2 | 75 |
+| M8 (rest) | 3 | 135 |
 | M9 | 2 | 105 |
 | **M0 to M9** | **46** | **2475 (41.3 h)** |
 | M10 | 3 | 135 |
