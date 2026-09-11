@@ -1,193 +1,129 @@
-# quellwerk
+# Quellwerk
 
-Fullstack-Boilerplate als pnpm-Workspace: Express-5-API mit Prisma 7 auf
-PostgreSQL 17, Next.js-16-Frontend, Redis 8 als Store für Rate-Limits.
-Authentifizierung mit JWT, Rollen und Berechtigungen, TOTP-2FA, Audit-Log,
-Datei-Upload.
+Ein NotebookLM-Klon, der Fragen ausschließlich aus Dokumenten beantwortet, die
+man selbst hinzugefügt hat. Jeder Satz einer Antwort trägt die Passage, aus der
+er stammt, und jedes Zitat wird serverseitig gegen den gespeicherten Quelltext
+geprüft, bevor es angezeigt wird: `source.text.slice(start, end) === cited_text`.
+Was diese Prüfung nicht besteht, wird verworfen und gezählt, nie gerendert.
+
+Das ist der einzige Anspruch, an dem sich das Projekt messen lässt. Umfang,
+Grenzen und Schwellen stehen in [docs/SPEC.md](docs/SPEC.md), der Aufbau in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), die Entscheidungen mit ihren
+verworfenen Alternativen in [docs/adr/](docs/adr/), der Ausführungsplan in
+[docs/PLAN.md](docs/PLAN.md).
+
+Alles läuft auf einem eigenen Server. Der einzige Aufruf nach außen ist die
+Modellinferenz bei Anthropic, hinter `AnthropicLlmAdapter` (ADR-0004, ADR-0006).
+
+## Stand
+
+Im Aufbau. Was fertig ist, steht als abgehakte Aufgabe in
+[docs/PLAN.md](docs/PLAN.md); dort steht auch, was ein Meilenstein jeweils
+beweisen musste.
 
 ## Dienste und Ports
 
-| Dienst | Port | Beschreibung |
+| Dienst | Port (nur 127.0.0.1) | Zweck |
 |---|---|---|
-| Frontend | http://localhost:3010 | Next.js 16 (Container-Port 3000) |
-| Backend | http://localhost:3011 | Express 5, `/health`, `/api/...` |
-| PostgreSQL | 127.0.0.1:5432 | `postgres:17-alpine` |
-| Redis | 127.0.0.1:6379 | `redis:8-alpine`, Rate-Limit-Store |
-
-Alle Host-Ports sind nur auf 127.0.0.1 gebunden.
+| frontend | 3010 | Next.js |
+| backend | 3011 | Express, API und SSE |
+| worker | kein Port | BullMQ: Ingestion, Reports, Audio, Aufräumen |
+| db | 5432 | PostgreSQL 17 |
+| redis | 6379 | Warteschlangen und Sessions |
 
 ## Voraussetzungen
 
-- Node 24 über nvm (`nvm install 24 && nvm use`, Version steht in `.nvmrc`)
-- pnpm 11.26.0: `npm i -g pnpm@11.26.0` (kein Corepack)
-- Docker mit Compose v2
+Node 24 (siehe `.nvmrc`), pnpm 11, Docker mit Compose.
 
 ## Schnellstart
 
-```bash
-# 1. Variablen
-cp example.env .env                     # Compose: POSTGRES_*, REDIS_PASSWORD, APP_NAME, NEXT_PUBLIC_API_URL
-cp backend/example.env backend/.env     # Backend: JWT_*, ENCRYPTION_KEY, CORS_ORIGIN, SMTP_*, ...
-openssl rand -hex 24                    # POSTGRES_PASSWORD und REDIS_PASSWORD (.env)
-openssl rand -hex 32                    # JWT_SECRET, JWT_REFRESH_SECRET, ENCRYPTION_KEY (backend/.env)
-
-# 2. Abhängigkeiten (pnpm install erzeugt den Prisma-Client über postinstall)
-pnpm install
-
-# 3. Datenbank und Redis im Container
-docker compose up -d db redis
-
-# 4. Schema und erster Admin
-pnpm --filter @quellwerk/backend exec prisma migrate deploy
-SEED_ADMIN_PASSWORD='...' pnpm --filter @quellwerk/backend run prisma:seed
-
-# 5. Entwicklung auf dem Host (zwei Terminals)
-pnpm --filter @quellwerk/backend run dev
-pnpm --filter @quellwerk/frontend run dev -p 3010
-```
-
-`pnpm install` erzeugt den Prisma-Client (`backend/app/generated`, gitignored)
-über das `postinstall`-Skript des Backends; nach einer Schema-Änderung
-`pnpm --filter @quellwerk/backend run prisma:generate` (läuft auch im
-Pre-Commit-Hook). Für die Arbeit auf dem Host müssen `DATABASE_URL` und `REDIS_URL` in
-`backend/.env` auf `localhost` zeigen und dieselben Passwörter wie `.env`
-enthalten. Der Seed legt den Admin mit dem Passwort aus `SEED_ADMIN_PASSWORD`
-an; es gibt keine eingebauten Zugangsdaten mehr. Demo-Konten
-(`moderator@`, `user@`, `inactive@` mit der Domain des Admins) entstehen nur
-mit `SEED_DEMO_USERS=true` und `SEED_DEMO_PASSWORD`.
-
-Kompletter Stack in Containern (Produktions-Images, gleiche `.env`; Seed im
-Container mit `SEED_ON_START=true` und `SEED_ADMIN_PASSWORD` in der Root-`.env`):
+Zwei Konfigurationsdateien werden von Hand geschrieben, nie von einem Werkzeug.
+Beide haben eine Vorlage im Repository:
 
 ```bash
-pnpm dev                                # = docker compose up -d --build
-curl -s http://localhost:3011/health    # {"status":"healthy","database":"connected","redis":"connected",...}
+cp example.env .env                  # Compose: Datenbank- und Redis-Passwörter
+cp backend/example.env backend/.env  # Anwendung: Secrets, Modelle, Grenzen
 ```
 
-Prisma Studio läuft auf dem Host, nicht im Container:
+Danach in beiden Dateien die leeren Pflichtwerte füllen:
 
-```bash
-pnpm --filter @quellwerk/backend exec prisma studio
-```
-
-## Skripte
-
-Root (`pnpm <script>`, laufen über `pnpm -r` in allen Paketen):
-
-| Skript | Was |
-|---|---|
-| `pnpm dev` | `docker compose up -d --build` |
-| `pnpm typecheck` | `tsc --noEmit` in Backend, Frontend, e2e |
-| `pnpm lint` | ESLint in Backend und Frontend (e2e hat kein `lint`-Skript) |
-| `pnpm test` | Jest (Backend); e2e ist ausgenommen, siehe unten |
-| `pnpm build` | Backend `prisma generate && tsc`, Frontend `next build` |
-| `pnpm verify` | typecheck + lint + test |
-| `pnpm format` | Prettier |
-
-Paket-Skripte (`pnpm --filter <paket> run <script>`), Pakete
-`@quellwerk/backend`, `@quellwerk/frontend`, `@quellwerk/e2e`:
-
-| Skript | Paket | Was |
+| Datei | Wert | Erzeugen mit |
 |---|---|---|
-| `dev` | backend | `tsx watch app/server.ts` |
-| `dev` | frontend | `next dev` |
-| `prisma:generate` | backend | Client erzeugen |
-| `prisma:migrate:dev` | backend | Migration anlegen (Entwicklung) |
-| `prisma:migrate:deploy` | backend | Migrationen einspielen |
-| `prisma:seed` | backend | Seed, braucht `SEED_ADMIN_PASSWORD`, verweigert in `production` |
-| `test` | e2e | Playwright gegen `BASE_URL` (Default http://localhost:3010), Zugangsdaten aus `e2e/.env` (Vorlage `e2e/.env.example`); Ablauf unter [e2e-Tests](#e2e-tests-playwright) |
+| `.env` | `POSTGRES_PASSWORD` | `openssl rand -hex 24` |
+| `.env` | `REDIS_PASSWORD` | `openssl rand -hex 24` |
+| `backend/.env` | `SESSION_SECRET` (32+ Zeichen) | `openssl rand -hex 32` |
+| `backend/.env` | `ADMIN_TOKEN` (16+ Zeichen) | `openssl rand -hex 16` |
+| `backend/.env` | `ANTHROPIC_API_KEY` | Konsole von Anthropic |
+
+Ohne diese Werte startet das Backend nicht. Das ist Absicht: eine Demo, die mit
+einem fehlenden Secret läuft, läuft auch mit einem falschen.
+
+```bash
+pnpm install     # postinstall erzeugt den Prisma-Client
+pnpm dev         # docker compose up -d --build, alle fünf Dienste
+```
+
+Danach liegt das Frontend auf <http://localhost:3010>, die API auf
+<http://localhost:3011>. Belegt ein anderes Projekt diese Ports, gehört die
+Abweichung in eine lokale `docker-compose.override.yml`; die Datei ist
+absichtlich nicht im Repository.
+
+## Befehle
+
+| Befehl | Was er tut |
+|---|---|
+| `pnpm dev` | Stack bauen und starten |
+| `pnpm typecheck` | tsc über alle drei Pakete |
+| `pnpm lint` | ESLint, inklusive der erzwungenen Modulgrenzen |
+| `pnpm test` | Jest im Backend, nie im Watch-Modus |
+| `pnpm verify` | typecheck, lint, test |
+| `pnpm db:migrate` | `prisma migrate deploy` |
+| `pnpm db:seed` | Seed; das Demo-Notizbuch kommt in M2-T5 |
+| `pnpm eval --smoke \| --dev \| --full` | Eval-Harness; kommt in M1 |
 
 ## Projektstruktur
 
-```
-.
-├── backend/                 Express 5, Prisma 7, Jest 30
-│   ├── app/                 server.ts, app.ts, config/, common/, modules/, services/, lib/
-│   ├── prisma/              schema.prisma, migrations/, seed.ts, seeds/
-│   ├── Dockerfile           Multi-Stage, Build-Kontext Repo-Root
-│   └── docker-entrypoint.sh prisma migrate deploy, Seed nur mit SEED_ON_START=true
-├── frontend/                Next.js 16, React 19, Redux Toolkit, Tailwind 4
-│   ├── src/                 app/, components/ui/, modules/, store/, lib/
-│   └── Dockerfile           Standalone-Output, Build-Arg NEXT_PUBLIC_API_URL
-├── e2e/                     Playwright: tests/auth, pages/ (Page Objects), fixtures/, utils/
-├── deployment/              Compose-Dateien für local, dev, prod, prod-native; Nginx-Image
-├── docs/                    Architektur, Regeln, Upgrade-Log
-├── scripts/security-check.sh
-├── .github/workflows/       ci.yml (verify, security-check, gitleaks, e2e), pr-preview.yml
-├── docker-compose.yml       Stack im Root, Ports auf 127.0.0.1
-├── pnpm-workspace.yaml      Pakete, Catalog, allowBuilds
-└── example.env              Vorlage für .env (Compose-Variablen)
+```text
+backend/app/
+  modules/<name>/     ein Modul je Fachthema, Module importieren einander nie
+  adapters/           llm, storage, tts hinter Interfaces
+  services/           prompt-loader, usage-log, queue, quota
+  worker.ts           BullMQ-Prozess
+backend/prisma/       Schema und Migrationen
+backend/evals/        Golden-Set, Runner, Judges (ab M1)
+frontend/src/modules/ shell, notebooks, sources, chat, studio
+prompts/              jeder Text, der an ein Modell geht
+design/               statischer Prototyp, Referenz für Aussehen und Verhalten
+docs/                 SPEC, ARCHITECTURE, PLAN, ADRs, AI-Prozess
 ```
 
-## e2e-Tests (Playwright)
-
-Die Specs in `e2e/tests/auth` laufen gegen einen laufenden Stack, dessen Seed
-die Demo-Konten angelegt hat (`SEED_DEMO_USERS=true`, `SEED_DEMO_PASSWORD`).
-Gegen den Compose-Stack im Root:
-
-```bash
-# Root-.env: SEED_ON_START=true, SEED_ADMIN_PASSWORD, SEED_DEMO_USERS=true, SEED_DEMO_PASSWORD
-pnpm dev                                                        # docker compose up -d --build
-cp e2e/.env.example e2e/.env                                    # BASE_URL, SEED_* wie in .env
-pnpm --filter @quellwerk/e2e exec playwright install chromium
-pnpm --filter @quellwerk/e2e exec playwright test --project=chromium
-pnpm --filter @quellwerk/e2e run report                        # HTML-Report
-```
-
-Die Locators sind `data-testid`-Attribute der Seiten (`login-*`,
-`password-toggle`, `dashboard-*`), gekapselt in `e2e/pages/*.page.ts`; keine
-CSS-Klassen (`docs/rules/FRONTEND-RULES.md`).
-
-Rate-Limit: das Backend zählt fehlgeschlagene Logins je IP
-(`RATE_LIMIT_LOGIN_MAX`, Default 5 in `RATE_LIMIT_WINDOW_MS` = 15 Minuten;
-erfolgreiche Logins zählen nicht). Die Suite läuft deshalb mit einem Worker
-und seriell, und jede Spec-Datei sendet höchstens 4 Fehlversuche. Für
-wiederholte Läufe innerhalb des Fensters in `backend/.env`
-`RATE_LIMIT_LOGIN_MAX=100` setzen oder die IP des Test-Clients in
-`RATE_LIMIT_TRUSTED_IPS` eintragen (im Compose-Stack die Gateway-Adresse des
-internen Netzes), danach das Backend neu starten. CI setzt für den Stack unter
-Test `RATE_LIMIT_LOGIN_MAX=100`, weil ein Playwright-Retry die serielle Gruppe
-komplett wiederholt.
-
-## Deployment
-
-Vier Compose-Varianten (`deployment/{local,dev,prod,prod-native}`) und der
-Root-Stack, alle mit Build-Kontext Repo-Root, Passwörtern ohne Defaults und
-Healthchecks. Aufruf, Variablen-Aufteilung und Seed-Ablauf in
-[deployment/README.md](deployment/README.md).
-
-## CI
-
-`.github/workflows/ci.yml` läuft bei Push und Pull Request und wird von
-`pr-preview.yml` als Reusable Workflow aufgerufen:
-
-| Job | Was |
-|---|---|
-| `verify` | `pnpm install --frozen-lockfile`, Prisma generate, typecheck, lint, `prisma migrate deploy` gegen Postgres 17 und Redis 8, Jest, build |
-| `security-check` | `bash scripts/security-check.sh` |
-| `gitleaks` | Secret-Scan der Historie (`gitleaks/gitleaks-action@v2`) |
-| `e2e` | nach `verify`: Root-Compose-Stack mit pro Lauf erzeugten `.env`/`backend/.env`, Seed mit Demo-Konten, Playwright (chromium); Report und Traces als Artefakt bei Fehlern, `docker compose down -v` immer |
-
-GitHub-Secrets (Repository-Einstellungen):
-
-- `PREVIEW_WEBHOOK_TOKEN`: Token für den 7Style Preview Manager (`pr-preview.yml`); ohne ihn bricht der Preview-Job ab.
-- `GITLEAKS_LICENSE`: nur für Repositories einer Organisation (dort verlangt gitleaks-action eine Lizenz); bei persönlichen Repositories weglassen.
+Die Modulgrenzen sind keine Konvention, sondern eine Lint-Regel: ein Modul
+erreicht seinen eigenen Teilbaum und sonst nichts unter `modules/`; was es von
+einem anderen braucht, wird in `modules/index.ts` injiziert.
 
 ## Sicherheit
 
-Kurzfassung, Details in [SECURITY.md](SECURITY.md):
+Die Regeln, gegen die gebaut wird, stehen in [SECURITY.md](SECURITY.md),
+Abschnitt 7. Kurz: anonyme Sessions ohne Konten, jede Abfrage auf die Session
+begrenzt, Rate-Limits und ein Tagesbudget, Upload- und URL-Prüfung gegen SSRF,
+Löschung nach sieben Tagen, keine Quelltexte in Logs.
 
-- Ports nur auf 127.0.0.1, Redis und Postgres nur mit Passwort, nie den Docker-Socket mounten.
-- Keine Secret-Fallbacks im Code; ohne `JWT_SECRET`, `JWT_REFRESH_SECRET`, `ENCRYPTION_KEY` (je 32+ Zeichen, `env.config.ts`) startet das Backend nicht. `SESSION_SECRET` ist optional und wird von der JWT-Auth nicht gelesen (Platzhalter für einen späteren Session-Store; wenn gesetzt, ebenfalls 32+ Zeichen).
-- Rate-Limits in Redis, Uploads mit Magic-Byte-Prüfung, Access-Token 15 Minuten, Refresh-Token 7 Tage.
-- `bash scripts/security-check.sh` vor jedem Deploy; läuft auch im Pre-Commit-Hook und in CI.
-- Die Secrets aus Commit `326febbb` sind kompromittiert und dürfen nicht wiederverwendet werden.
+`bash scripts/security-check.sh` prüft vor jedem Commit und in CI auf getrackte
+Konfigurationsdateien, offene Ports, fehlende Passwörter und Secret-Fallbacks.
 
-## Upgrade-Log
+## Herkunft
 
-Versionsmatrix, entfernte Pakete, Arbeitspakete und bewusste Auslassungen:
-[docs/UPGRADE-2026-09.md](docs/UPGRADE-2026-09.md).
+Das Repository beginnt mit meiner Vorlage
+[7Style/bp-monolith](https://github.com/7Style/bp-monolith); M0 entfernt daraus
+alles Kontobasierte. Was von der Vorlage stammt und was neu ist, steht in
+[docs/TEMPLATE.md](docs/TEMPLATE.md).
+
+## KI im Prozess
+
+Dieses Projekt ist mit einem Coding-Agenten gebaut. Was das genau hieß, welche
+Prompts benutzt wurden und was ich verworfen habe, steht in
+[docs/ai-process/](docs/ai-process/).
 
 ## Lizenz
 
-MIT
+Privates Bewerbungsprojekt, keine Lizenz zur Weiterverwendung.

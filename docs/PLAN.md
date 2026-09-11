@@ -112,7 +112,7 @@ Files: docs/DEPLOY.md, README.md, scripts/security-check.sh
 Test: `git clone . /tmp/qw-clean && cd /tmp/qw-clean && cp example.env .env && cp backend/example.env backend/.env && pnpm install --frozen-lockfile && pnpm verify`
 Expected: install without missing-peer warnings, `pnpm verify` green; the two copy steps and the values that still have to be filled in by hand are named in README.
 Box: 30
-Status: [ ]
+Status: [x]
 
 ---
 
