@@ -163,6 +163,14 @@ Goal: normalize, extract and the page map are pure functions with tests, because
 Files: backend/app/modules/sources/internal/{normalize.ts,extract.ts,pages.ts}, backend/app/modules/sources/internal/_tests_/*.test.ts, backend/evals/fixtures/*
 Test: `pnpm --filter @quellwerk/backend test -- sources/internal`
 Expected: all suites pass, including the case that normalising twice changes nothing and that a page map survives a round trip.
+
+The PDF in the corpus uses subset fonts with their own encoding: raw content-stream extraction returns a uniform character shift, not German, and every citation offset would then point into that. Extraction therefore has to go through the font's `ToUnicode` map, and the test proves it with three sentences that stand verbatim in `01-ki-vo-auszug.pdf`:
+
+- `Sie gilt ab dem 2. August 2026`
+- `Die Kapitel I und II gelten ab dem 2. Februar 2025`
+- `Verbotene Praktiken im KI-Bereich`
+
+"Text was extracted" is not the assertion; "this sentence is in the extracted text" is. Expect about 99,800 characters from that file, roughly 30K tokens; the real count is measured in M2-T5 with countTokens, not with a character counter. Which library does the decoding is verified against its documentation with the `researcher` agent before it is added, not guessed.
 Box: 45
 Status: [ ]
 
