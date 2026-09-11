@@ -23,7 +23,12 @@ const source: CitableSource = {
   text: 'Sie gilt ab dem 2. August 2026.',
 };
 
-const sources: TurnSources = { sources: [source], sourceIds: ['src-1'], pageAt: () => null };
+const sources: TurnSources = {
+  sources: [source],
+  sourceIds: ['src-1'],
+  pageAt: () => null,
+  shared: false,
+};
 
 let currentSession: string | null;
 let events: StreamEvent[];
@@ -73,6 +78,7 @@ function appFor(): Express {
     }),
     saveTurn: async () => undefined,
     onError: () => undefined,
+    onDroppedCitations: () => undefined,
   });
 
   const pass: RequestHandler = (_req, _res, next) => next();

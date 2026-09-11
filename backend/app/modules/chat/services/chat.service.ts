@@ -19,6 +19,7 @@ import {
   type CitableSource,
   type DroppedCitation,
 } from '../internal/citations.js';
+import { beginsWithRefusal } from '../internal/refusal.js';
 import {
   errorEvent,
   eventsForStopReason,
@@ -48,6 +49,17 @@ export interface TurnSources {
   /** Index by `document_index`, from the request builder. */
   sourceIds: string[];
   pageAt(sourceId: string, offset: number): number | null;
+  /**
+   * True for the demo notebook, which every visitor may read.
+   *
+   * A turn in a shared notebook is a turn without a memory: no history is
+   * replayed into it and nothing is written back. Both directions matter. One
+   * visitor's question must not reach another visitor's prompt, and a notebook
+   * everyone can write to is a notebook whose history is written by strangers.
+   * Copy-on-first-write gives each visitor their own copy in M7; until then the
+   * original stays as it was seeded.
+   */
+  shared: boolean;
 }
 
 export interface StoredTurn {
@@ -64,11 +76,24 @@ export interface ChatServiceDeps {
   /** Builds and runs the request; yields our own events. */
   stream(input: TurnRequest, sources: TurnSources, signal: AbortSignal): AsyncIterable<StreamEvent>;
   /** Three follow-up questions on MODEL_FAST, after the answer. */
-  followUps(input: { question: string; answer: string; sources: CitableSource[] }): Promise<string[]>;
+  followUps(
+    input: { question: string; answer: string; sources: CitableSource[] },
+    signal: AbortSignal
+  ): Promise<string[]>;
   /** Prices the call and writes the usage row. Returns the cost. */
   recordUsage(message: Anthropic.Message, latencyMs: number, notebookId: string): Promise<TurnTrace>;
   saveTurn(notebookId: string, turn: StoredTurn): Promise<void>;
   onError(error: unknown, context: { notebookId: string }): void;
+  /**
+   * One line per citation that did not survive the check.
+   *
+   * CLAUDE.md requires it, and not for tidiness: the slice comparison is the
+   * claim the whole product rests on, and without this line a systematic offset
+   * drift - say after a change to normalisation - shows up in production as a
+   * number in the trace panel and nowhere else. Offsets and lengths only; the
+   * cited text and the slice are both source content.
+   */
+  onDroppedCitations(dropped: DroppedCitation[], context: { notebookId: string }): void;
 }
 
 /** Re-exported so the route and the tests agree on the shape without a cycle. */
@@ -101,6 +126,7 @@ export class ChatService {
 
       const segments: Array<{ text: string; citations: unknown[] }> = [];
       const dropped: DroppedCitation[] = [];
+      let refusedCitations = 0;
       let finished: Anthropic.Message | null = null;
 
       // Built once. It was inside the citation branch, which rebuilt a map over
@@ -127,6 +153,17 @@ export class ChatService {
             break;
 
           case 'citation': {
+            // A refusal carries no chip (docs/SPEC.md). The prompt says so and
+            // the model has obeyed it in every measured run, but "the sources do
+            // not cover this" with a citation under it is the one contradiction
+            // this product cannot show, so it is refused here as well. The
+            // refusal sentence is the first sentence, so by the time any
+            // citation arrives the answer already says whether it is one.
+            if (beginsWithRefusal(answerText(segments))) {
+              refusedCitations += 1;
+              break;
+            }
+
             // The check, before the chip reaches the client. A dropped citation
             // produces no event at all: the reader never sees a chip that would
             // have pointed somewhere else.
@@ -154,7 +191,25 @@ export class ChatService {
         }
       }
 
-      if (!finished) return { status: 'aborted' };
+      if (dropped.length > 0) this.deps.onDroppedCitations(dropped, { notebookId: input.notebookId });
+      if (refusedCitations > 0) {
+        // Worth seeing: it means the prompt stopped holding, and the eval's
+        // `citedWhileRefusing` would not catch it on a question nobody asked.
+        this.deps.onError(
+          new Error(`a refusal carried ${refusedCitations} citation(s), all suppressed`),
+          { notebookId: input.notebookId }
+        );
+      }
+
+      if (!finished) {
+        // The upstream ended without a final message. Something has to reach the
+        // client here: SPEC rules out a spinner that never stops, and a socket
+        // that simply closes is exactly that if the reader's connection is fine.
+        if (!sink.isClosed && !signal.aborted) {
+          sink.send({ t: 'error', m: 'The answer stopped unexpectedly. Try again.', retry: true });
+        }
+        return { status: 'aborted' };
+      }
 
       for (const event of eventsForStopReason(finished.stop_reason)) sink.send(event);
 
@@ -166,22 +221,33 @@ export class ChatService {
       trace.droppedCitations = dropped.length;
 
       const answer = answerText(segments);
-
-      // After the answer, not during it. The follow-ups are a second model call
-      // on MODEL_FAST and must never delay the first token of the answer.
-      const questions = await this.followUpsOrNone(input.question, answer, sources.sources);
-      if (questions.length > 0) sink.send({ t: 'followups', q: questions });
-
       const usage = usageOf(finished);
+
+      // `done` first, then the follow-ups. They are a second model call on
+      // MODEL_FAST, and a turn that holds `done` back until it returns is a turn
+      // whose answer is complete on screen while the spinner keeps going. The
+      // client treats `followups` as an event that may or may not arrive.
       sink.send({ t: 'done', usage, trace });
 
-      await this.deps.saveTurn(input.notebookId, {
-        question: input.question,
-        segments,
-        droppedCitations: dropped.length,
-        usage,
-        trace,
-      });
+      const questions = await this.followUpsOrNone(
+        input.question,
+        answer,
+        sources.sources,
+        signal
+      );
+      if (questions.length > 0 && !sink.isClosed) sink.send({ t: 'followups', q: questions });
+
+      // Not in a shared notebook. Writing there would put this visitor's
+      // question into the next visitor's history (TurnSources.shared).
+      if (!sources.shared) {
+        await this.deps.saveTurn(input.notebookId, {
+          question: input.question,
+          segments,
+          droppedCitations: dropped.length,
+          usage,
+          trace,
+        });
+      }
 
       return { status: 'done' };
     } catch (error) {
@@ -202,10 +268,11 @@ export class ChatService {
   private async followUpsOrNone(
     question: string,
     answer: string,
-    sources: CitableSource[]
+    sources: CitableSource[],
+    signal: AbortSignal
   ): Promise<string[]> {
     try {
-      return await this.deps.followUps({ question, answer, sources });
+      return await this.deps.followUps({ question, answer, sources }, signal);
     } catch (error) {
       this.deps.onError(error, { notebookId: 'follow-ups' });
       return [];

@@ -14,6 +14,7 @@
 import type { Request, Response } from 'express';
 
 import { chatTurnSchema, notebookIdParamSchema } from '../dto/chat.dto.js';
+import { claimTurn } from '../internal/concurrency.js';
 import { sseFrom } from '../internal/stream.js';
 import type { ChatService } from '../services/chat.service.js';
 
@@ -40,6 +41,17 @@ export class ChatController {
     const { notebookId } = notebookIdParamSchema.parse(req.params);
     const input = chatTurnSchema.parse(req.body ?? {});
 
+    // Before the headers, so this is still a JSON refusal with a status code.
+    // The hourly limiter cannot see a burst and the budget guard reads a total
+    // that the running turns have not written yet (internal/concurrency.ts).
+    const release = claimTurn(sessionId);
+    if (!release) {
+      throw Object.assign(new Error('One answer at a time. Wait for the current one to finish.'), {
+        statusCode: 429,
+        errorCode: 'TOO_MANY_TURNS',
+      });
+    }
+
     const stream = sseFrom(res);
     const controller = new AbortController();
 
@@ -57,6 +69,10 @@ export class ChatController {
     res.on('close', () => {
       if (!res.writableEnded) controller.abort();
       stream.close();
+      // Here as well as in the `finally`. A client that leaves mid-turn never
+      // reaches the end of `run`, and a slot that is only freed there would
+      // leak one per abandoned turn until the session cannot chat at all.
+      release();
     });
 
     stream.open();
@@ -69,6 +85,7 @@ export class ChatController {
       );
     } finally {
       stream.close();
+      release();
     }
   };
 }

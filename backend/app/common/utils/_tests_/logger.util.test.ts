@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import winston from 'winston';
+// The base class comes from `winston-transport`, which is what winston itself
+// re-exports at runtime; `winston.Transport` exists there but not in the type
+// definitions, so the class below extended `any` and nothing in this file was
+// type checked. A devDependency on the package winston already carries.
+import Transport from 'winston-transport';
 import { logger, scrubSensitive } from '../logger.util.js';
 
 const LEVEL = Symbol.for('level');
@@ -8,7 +13,7 @@ const MESSAGE = Symbol.for('message');
 type Entry = Record<string | symbol, unknown>;
 
 /** Captures every entry that reaches the transport layer */
-class SpyTransport extends winston.Transport {
+class SpyTransport extends Transport {
   readonly entries: Entry[] = [];
 
   override log(info: Entry, next: () => void): void {

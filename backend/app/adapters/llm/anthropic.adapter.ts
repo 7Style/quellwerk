@@ -93,9 +93,13 @@ export class AnthropicLlmAdapter implements ILlmProvider {
    * the JSON closes. That surfaces as a missing `parsed_output`, and it is an
    * error rather than a half-written artifact.
    */
-  async parseArtifact<T>(request: ArtifactRequest): Promise<{ parsed: T; usage: LlmUsage }> {
+  async parseArtifact<T>(
+    request: ArtifactRequest,
+    /** Optional: a caller that can be abandoned should not keep paying for it. */
+    signal?: AbortSignal
+  ): Promise<{ parsed: T; usage: LlmUsage }> {
     const started = Date.now();
-    const message = await this.client.messages.parse(request);
+    const message = await this.client.messages.parse(request, signal ? { signal } : undefined);
     const latencyMs = Date.now() - started;
 
     const parsed = message.parsed_output as T | null | undefined;

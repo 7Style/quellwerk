@@ -240,7 +240,3 @@ export function answerText(segments: readonly { text: string }[]): string {
   return segments.map((segment) => segment.text).join('');
 }
 
-/** True when the answer carries no citation at all, which a refusal must not. */
-export function hasNoCitations(answer: ResolvedAnswer): boolean {
-  return answer.segments.every((segment) => segment.citations.length === 0);
-}

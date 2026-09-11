@@ -76,11 +76,14 @@ describe('countChatTokens', () => {
   });
 
   it('hands the counter the built request', async () => {
-    const counter = { countTokens: jest.fn<() => Promise<number>>().mockResolvedValue(1) };
+    const counter = {
+      // Typed with its parameter, so the recorded call below has one.
+      countTokens: jest.fn<(request: { model: string }) => Promise<number>>().mockResolvedValue(1),
+    };
     await countChatTokens(counter, { model: 'claude-opus-5', sources });
 
     expect(counter.countTokens).toHaveBeenCalledTimes(1);
-    const request = counter.countTokens.mock.calls[0][0] as { model: string };
+    const request = counter.countTokens.mock.calls[0][0];
     expect(request.model).toBe('claude-opus-5');
   });
 });

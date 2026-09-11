@@ -38,7 +38,13 @@ type Mode = (typeof MODES)[number];
 
 /** Modes that still need something that does not exist yet. */
 const NOT_YET: Record<string, string> = {
-  record: 'M3-T5 records fixtures from the live answerer; it is not written yet',
+  // The ten fixtures under evals/fixtures/ are handwritten and say so in their
+  // own `recordedBy` field. That is deliberate for --smoke, which exists to run
+  // the harness in CI without a key: a fixture written by hand from the corpus
+  // is a fixture whose expected offsets nobody generated with the code under
+  // test. Recording from the live answerer would make --smoke a replay of one
+  // past run instead, which is a different and weaker thing.
+  record: 'not written. The shipped fixtures are handwritten; see evals/fixtures/*.json',
   'cache-check': 'M6-T1, it asserts cache_read_input_tokens on a second turn',
   batch: 'M6',
 };

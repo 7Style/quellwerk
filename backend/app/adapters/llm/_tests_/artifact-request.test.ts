@@ -17,7 +17,9 @@ const sources: DocumentSource[] = [
 const schema = z.object({ summary: z.string(), topics: z.array(z.string()) });
 
 function contentOf(request: ReturnType<typeof buildArtifactRequest>) {
-  return request.messages[0].content as Array<Record<string, unknown>>;
+  // Through `unknown`: the SDK's union does not overlap with an index
+  // signature, and a direct cast is the compiler telling us so.
+  return request.messages[0].content as unknown as Array<Record<string, unknown>>;
 }
 
 describe('buildArtifactRequest', () => {
@@ -97,7 +99,9 @@ describe('buildArtifactRequest', () => {
       maxTokens: 100,
     });
 
-    const format = request.output_config?.format as { schema: { properties: Record<string, { minLength?: number; description?: string }> } };
+    const format = request.output_config?.format as unknown as {
+      schema: { properties: Record<string, { minLength?: number; description?: string }> };
+    };
     const summary = format.schema.properties.summary;
 
     expect(summary.minLength).toBeUndefined();
@@ -121,7 +125,7 @@ describe('buildArtifactRequest', () => {
         maxTokens: 100,
       });
 
-      const format = request.output_config?.format as {
+      const format = request.output_config?.format as unknown as {
         schema: { properties: Record<string, { description?: string }> };
       };
 

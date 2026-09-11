@@ -37,7 +37,8 @@ export function initChatModule(app: Express, deps: ChatModuleDeps): void {
 
 export { ChatService } from './services/chat.service.js';
 export type { ChatServiceDeps, StreamEvent, TurnSources } from './services/chat.service.js';
-export { answerText, resolveAnswer, resolveCitations, hasNoCitations } from './internal/citations.js';
+export { answerText, resolveAnswer, resolveCitations } from './internal/citations.js';
+export { beginsWithRefusal, REFUSALS } from './internal/refusal.js';
 export type { CitableSource, VerifiedCitation, DroppedCitation } from './internal/citations.js';
 export { sseFrom, SseStream, errorEvent, eventsForStopReason } from './internal/stream.js';
 export type { ChatEvent, TurnTrace, TurnUsage } from './internal/stream.js';

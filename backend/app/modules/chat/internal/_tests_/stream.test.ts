@@ -139,9 +139,17 @@ describe('an error event', () => {
     expect(errorEvent({ status: 429 })).toMatchObject({ retry: true });
   });
 
-  it('offers none when the budget is spent', () => {
-    // A button that cannot work is worse than a sentence that says so.
-    expect(errorEvent({ status: 503 })).toMatchObject({ m: 'Tagesbudget erreicht', retry: false });
+  it('offers none when the spend limit at Anthropic is reached', () => {
+    // A button that cannot work is worse than a sentence that says so. Anthropic
+    // reports this as a 4xx with a billing error, not as a 503; a 503 arriving
+    // mid-stream is the model service having a bad minute and is worth retrying.
+    const spent = {
+      status: 400,
+      error: { error: { type: 'billing_error', message: 'Your credit balance is too low' } },
+    };
+
+    expect(errorEvent(spent)).toMatchObject({ m: 'Das Tagesbudget der Demo ist erreicht.', retry: false });
+    expect(errorEvent({ status: 503 })).toMatchObject({ retry: true });
   });
 
   it('offers none for a request we built wrong', () => {
@@ -168,6 +176,7 @@ const sources: TurnSources = {
   sources: [source],
   sourceIds: ['src-1'],
   pageAt: () => 3,
+  shared: false,
 };
 
 function goodCitation(): Anthropic.TextCitation {
@@ -214,12 +223,29 @@ function collector() {
   };
 }
 
+/**
+ * An upstream that fails on the first pull.
+ *
+ * Not a generator with a `throw` in it: TypeScript then wants a `yield` it can
+ * never reach and ESLint wants a `yield` at all, and satisfying both leaves a
+ * dead line in a test file where a dead line is indistinguishable from an
+ * assertion that never runs. An explicit iterator says the same thing once.
+ */
+function failingStream(fail: () => Error): () => AsyncIterable<StreamEvent> {
+  return () => ({
+    [Symbol.asyncIterator]: (): AsyncIterator<StreamEvent> => ({
+      next: () => Promise.reject(fail()),
+    }),
+  });
+}
+
 function serviceWith(
   stream: StreamEvent[] | (() => AsyncIterable<StreamEvent>),
   overrides: Partial<ConstructorParameters<typeof ChatService>[0]> = {}
 ) {
   const saved: unknown[] = [];
   const errors: unknown[] = [];
+  const droppedLog: unknown[] = [];
 
   const service = new ChatService({
     loadSources: async () => sources,
@@ -240,13 +266,16 @@ function serviceWith(
     saveTurn: async (_id, turn) => {
       saved.push(turn);
     },
+    onDroppedCitations: (entries) => {
+      droppedLog.push(...entries);
+    },
     onError: (error) => {
       errors.push(error);
     },
     ...overrides,
   });
 
-  return { service, saved, errors };
+  return { service, saved, errors, droppedLog };
 }
 
 const request = { notebookId: 'nb-1', sessionId: 'session-a', question: 'Ab wann?' };
@@ -265,13 +294,16 @@ describe('a turn', () => {
     const result = await service.run(request, sink, new AbortController().signal);
 
     expect(result.status).toBe('done');
+    // `done` before `followups`, not after. The follow-ups are a second model
+    // call, and holding `done` until it returns leaves a finished answer on
+    // screen under a spinner that is still turning.
     expect(events.map((event) => event.t)).toEqual([
       'open',
       'text',
       'text',
       'cite',
-      'followups',
       'done',
+      'followups',
     ]);
   });
 
@@ -307,6 +339,47 @@ describe('a turn', () => {
     // The text still goes out. One bad chip does not cost the answer.
     expect(events.some((event) => event.t === 'text')).toBe(true);
     expect((saved[0] as { droppedCitations: number }).droppedCitations).toBe(1);
+  });
+
+  it('sends no chip under a refusal, even when the model attached one', async () => {
+    // docs/SPEC.md: "Eine Ablehnung traegt keinen einzigen Chip". The prompt
+    // asks for it; this is the route refusing to render it anyway.
+    const { service, saved } = serviceWith([
+      { type: 'segment', segment: 0 },
+      { type: 'text', segment: 0, text: 'Die Quellen enthalten dazu keine Informationen.' },
+      { type: 'citation', segment: 0, citation: goodCitation() },
+      { type: 'done', message: finishedMessage() },
+    ]);
+
+    const { events, sink } = collector();
+    await service.run(request, sink, new AbortController().signal);
+
+    expect(events.some((event) => event.t === 'cite')).toBe(false);
+    const stored = saved[0] as { segments: Array<{ citations: unknown[] }> };
+    expect(stored.segments[0].citations).toEqual([]);
+  });
+
+  it('logs a dropped citation with offsets and lengths, never with its text', async () => {
+    // CLAUDE.md: mismatch = drop AND log. Without this line a systematic offset
+    // drift is a number in a panel and nothing a person could debug.
+    const { service, droppedLog } = serviceWith([
+      { type: 'segment', segment: 0 },
+      { type: 'text', segment: 0, text: 'Sie gilt ab 2026.' },
+      { type: 'citation', segment: 0, citation: { ...goodCitation(), cited_text: 'Etwas anderes.' } },
+      { type: 'done', message: finishedMessage() },
+    ]);
+
+    const { sink } = collector();
+    await service.run(request, sink, new AbortController().signal);
+
+    expect(droppedLog).toHaveLength(1);
+    const entry = droppedLog[0] as Record<string, unknown>;
+    expect(entry).toMatchObject({ reason: 'mismatch', sourceId: 'src-1' });
+    expect(Object.keys(entry).sort()).toEqual(
+      ['citedLength', 'documentIndex', 'end', 'reason', 'sliceLength', 'sourceId', 'start'].sort()
+    );
+    expect(JSON.stringify(droppedLog)).not.toContain('Etwas anderes');
+    expect(JSON.stringify(droppedLog)).not.toContain('Sie gilt');
   });
 
   it('counts the dropped citations into the trace the panel shows', async () => {
@@ -362,12 +435,13 @@ describe('an aborted request', () => {
 
   it('is not reported as an error', async () => {
     const controller = new AbortController();
-    const { service, errors } = serviceWith(async function* () {
-      controller.abort();
-      // The SDK throws on an aborted stream; that is expected, not a failure.
-      throw Object.assign(new Error('Request was aborted.'), { name: 'AbortError' });
-      yield { type: 'done', message: finishedMessage() };
-    });
+    const { service, errors } = serviceWith(
+      failingStream(() => {
+        controller.abort();
+        // The SDK throws on an aborted stream; that is expected, not a failure.
+        return Object.assign(new Error('Request was aborted.'), { name: 'AbortError' });
+      })
+    );
 
     const { events, sink } = collector();
     const result = await service.run(request, sink, controller.signal);
@@ -395,10 +469,7 @@ describe('an upstream error', () => {
 
   it('goes to the log with its stack, not to the client', async () => {
     const boom = Object.assign(new Error('upstream said something detailed'), { status: 500 });
-    const { service, errors } = serviceWith(async function* () {
-      throw boom;
-      yield { type: 'done', message: finishedMessage() };
-    });
+    const { service, errors } = serviceWith(failingStream(() => boom));
 
     const { events, sink } = collector();
     await service.run(request, sink, new AbortController().signal);
@@ -408,10 +479,7 @@ describe('an upstream error', () => {
   });
 
   it('saves nothing, because there is no answer to save', async () => {
-    const { service, saved } = serviceWith(async function* () {
-      throw new Error('kaputt');
-      yield { type: 'done', message: finishedMessage() };
-    });
+    const { service, saved } = serviceWith(failingStream(() => new Error('kaputt')));
 
     const { sink } = collector();
     await service.run(request, sink, new AbortController().signal);

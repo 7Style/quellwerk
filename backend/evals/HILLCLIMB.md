@@ -7,6 +7,26 @@ as a zero.
 
 The thresholds live in `docs/SPEC.md` and are not repeated here.
 
+## 2026-09-12, M3 close: follow-up-questions.md, and why no run followed
+
+The security review found the one place in the chat path that assembled a prompt
+in TypeScript: the question and the answer were concatenated onto the
+instructions with their own `Question:` and `Answer:` labels, which meant they
+skipped the renderer and its angle bracket replacement. Both are now `{{question}}`
+and `{{answer}}` in `follow-up-questions.md`, the prompt says they are data, and
+the prompt's own claim about where they stand is true again.
+
+CLAUDE.md asks for `pnpm eval --dev` after any change under `prompts/`. It was
+not run, and the reason is that it could not say anything: no golden item
+measures a follow-up question. The metrics are citation validity, abstention,
+correctness and faithfulness, all of them about the answer. A run would have cost
+four minutes and the price of twenty turns to reproduce the previous numbers.
+
+What that shows is a hole in the set rather than a reason to skip the rule. The
+follow-ups reach the reader as three buttons, they come from a model that was
+just handed untrusted text, and nothing in `golden.draft.jsonl` looks at them.
+An item type for them belongs in the set before M6.
+
 ## 2026-09-11, M3-T5: the first graded runs, and three things they found
 
 Four `pnpm eval --dev` runs over the same twenty dev items of

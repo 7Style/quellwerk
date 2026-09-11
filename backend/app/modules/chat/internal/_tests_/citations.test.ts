@@ -11,11 +11,11 @@ import type Anthropic from '@anthropic-ai/sdk';
 
 import {
   answerText,
-  hasNoCitations,
   resolveAnswer,
   resolveCitations,
   type CitableSource,
 } from '../citations.js';
+import { beginsWithRefusal } from '../refusal.js';
 
 const TEXT = 'Artikel 113\nSie gilt ab dem 2. August 2026.\nJedoch gilt Kapitel I frueher.';
 
@@ -216,22 +216,25 @@ describe('a whole answer', () => {
 });
 
 describe('a refusal', () => {
-  it('is recognised as carrying no citation', () => {
-    // "Eine Ablehnung traegt keinen einzigen Chip" (docs/SPEC.md). The route
-    // checks this before it stores the answer.
-    const refusal = [
-      { type: 'text', text: 'Die Quellen enthalten dazu keine Informationen.', citations: [] },
-    ] as unknown as Anthropic.ContentBlock[];
-
-    expect(hasNoCitations(resolveAnswer(refusal, { sourceIds, sources }))).toBe(true);
+  it('is recognised in both languages, word for word', () => {
+    expect(beginsWithRefusal('Die Quellen enthalten dazu keine Informationen.')).toBe(true);
+    expect(beginsWithRefusal('The sources do not cover this.')).toBe(true);
   });
 
-  it('is not mistaken for one when a chip survived the check', () => {
-    const withChip = [
-      { type: 'text', text: 'Die Quellen enthalten dazu keine Informationen.', citations: [citation()] },
-    ] as unknown as Anthropic.ContentBlock[];
+  it('is still a refusal with the sentences that may follow it', () => {
+    // The prompt allows one or two sentences on what the documents do cover.
+    // They are part of the refusal, and none of them may carry a chip.
+    expect(
+      beginsWithRefusal('The sources do not cover this. They do describe what a notified body is.')
+    ).toBe(true);
+  });
 
-    expect(hasNoCitations(resolveAnswer(withChip, { sourceIds, sources }))).toBe(false);
+  it('is not recognised when the sentence is softened or moved', () => {
+    // Exact, and only at the start. A near miss is a real answer, and stripping
+    // its citations would be the wrong call.
+    expect(beginsWithRefusal('Leider gilt: Die Quellen enthalten dazu keine Informationen.')).toBe(false);
+    expect(beginsWithRefusal('Die Quellen enthalten dazu leider keine Informationen.')).toBe(false);
+    expect(beginsWithRefusal('Sie gilt ab 2026. The sources do not cover this.')).toBe(false);
   });
 });
 

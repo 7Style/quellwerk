@@ -6,6 +6,7 @@
  * it would run it. Everything below is pure apart from the answerer call, which
  * is injected.
  */
+import { REFUSALS as refusalSentences } from '../app/modules/chat/index.js';
 import type { CorpusFile } from './corpus.js';
 import type { GoldenItem } from './golden.js';
 import { meanOfScored, type Judge, type JudgeScores } from './judges.js';
@@ -13,16 +14,14 @@ import type { InvalidCitation, ItemOutcome, RunMetrics } from './report.js';
 import type { Answerer, EvalCitation } from './answerers/types.js';
 
 /**
- * The two refusal sentences, character for character, as the frozen system
- * prompt fixes them (docs/SPEC.md). The comparison is exact on purpose: a
- * refusal that a regular expression has to be lenient about is a refusal the
- * user cannot recognise either. Adding a language means adding its sentence
- * here, never loosening the comparison (prompts/README.md).
+ * The refusal sentences come from the route, not from a copy kept here.
+ *
+ * They used to be declared twice, and two declarations of the same string are
+ * one rename away from an eval that measures a sentence the product no longer
+ * says. The route is where they belong: it enforces the rule that a refusal
+ * carries no chip.
  */
-export const REFUSALS: Record<string, string> = {
-  de: 'Die Quellen enthalten dazu keine Informationen.',
-  en: 'The sources do not cover this.',
-};
+export { REFUSALS } from '../app/modules/chat/index.js';
 
 /**
  * The one check the whole product rests on, run exactly as the chat route will
@@ -65,7 +64,7 @@ export function checkCitation(
 }
 
 export function isRefusal(text: string, lang: string): boolean {
-  const sentence = REFUSALS[lang];
+  const sentence = refusalSentences[lang];
   if (!sentence) return false;
   return text.trimStart().startsWith(sentence);
 }

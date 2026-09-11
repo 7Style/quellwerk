@@ -136,7 +136,9 @@ describe('the history breakpoint', () => {
   it('sits on the last text block of the last assistant turn', () => {
     const { request } = build({ history, cacheHistory: true });
     const assistant = request.messages.find((turn) => turn.role === 'assistant');
-    const blocks = assistant?.content as Anthropic.ContentBlockParam[];
+    // Widened to read `cache_control`, which only some members of the union
+    // carry - which is the whole point of the test below it.
+    const blocks = assistant?.content as unknown as Array<{ type: string; cache_control?: unknown }>;
 
     expect(blocks[1].cache_control).toEqual({ type: 'ephemeral' });
   });
@@ -147,7 +149,9 @@ describe('the history breakpoint', () => {
     // to a text block instead of spreading the union.
     const { request } = build({ history, cacheHistory: true });
     const assistant = request.messages.find((turn) => turn.role === 'assistant');
-    const blocks = assistant?.content as Anthropic.ContentBlockParam[];
+    // Widened to read `cache_control`, which only some members of the union
+    // carry - which is the whole point of the test below it.
+    const blocks = assistant?.content as unknown as Array<{ type: string; cache_control?: unknown }>;
 
     expect(blocks[0].type).toBe('thinking');
     expect(blocks[0].cache_control).toBeUndefined();
@@ -158,7 +162,9 @@ describe('the history breakpoint', () => {
     // every turn anyway.
     const { request } = build({ history, cacheHistory: true });
     const assistant = request.messages.find((turn) => turn.role === 'assistant');
-    const blocks = assistant?.content as Anthropic.ContentBlockParam[];
+    // Widened to read `cache_control`, which only some members of the union
+    // carry - which is the whole point of the test below it.
+    const blocks = assistant?.content as unknown as Array<{ type: string; cache_control?: unknown }>;
 
     expect(blocks[1].cache_control).not.toHaveProperty('ttl');
   });

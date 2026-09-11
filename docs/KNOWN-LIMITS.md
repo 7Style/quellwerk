@@ -78,3 +78,60 @@ wieder hochladbar.
 Der Ablehnungssatz ist in beiden Sprachen wörtlich festgelegt und der
 Eval-Runner vergleicht genau diese zwei Zeichenketten. Das Modell antwortet auch
 in anderen Sprachen, aber deren Ablehnungen zählt keine Metrik.
+
+## Das Demo-Notizbuch hat kein Gedächtnis
+
+Jeder Besucher darf das Demo-Notizbuch lesen und darin fragen. Kein Turn darin
+wird gespeichert, und kein früherer Turn wird in den Prompt zurückgespielt: jede
+Frage im Demo-Notizbuch ist die erste Frage.
+
+Der Grund ist die Sitzungstrennung. Das Notizbuch gehört allen, die Nachrichten
+darin hätten also keinen Besitzer. Ein gespeicherter Verlauf wäre der Verlauf von
+Fremden — die Frage von Besucher A stünde im Prompt von Besucher B und könnte in
+dessen Antwort auftauchen. Lieber kein Gedächtnis als das Gedächtnis eines
+anderen. In den eigenen Notizbüchern gilt die Grenze nicht; dort sind es zwanzig
+Turns.
+
+Aufgehoben wird das mit Copy-on-first-write (M7-T1): der erste Schreibzugriff
+kopiert das Demo-Notizbuch in die eigene Sitzung, und ab da ist es ein normales
+Notizbuch mit Verlauf.
+
+## Das Tagesbudget ist eine Schranke, kein Zähler in Echtzeit
+
+Die Budgetprüfung summiert `usage_log`, und die Zeile eines Turns entsteht erst,
+wenn der Turn fertig ist. Mehrere gleichzeitig laufende Turns lesen deshalb
+denselben Altstand, und das Budget kann um die Kosten der gerade laufenden Turns
+überschritten werden.
+
+Entschärft, nicht beseitigt: eine Sitzung darf höchstens zwei Turns gleichzeitig
+offen haben (`modules/chat/internal/concurrency.ts`), davor liegen 30 Turns je
+Stunde und Sitzung, 60 je Stunde und Adresse und seit M3 `limit_req` im Nginx.
+Die Obergrenze für eine Überschreitung sind damit die Kosten von zwei Turns je
+Sitzung, nicht die von dreißig.
+
+Die saubere Lösung wäre eine Reservierung vor dem Aufruf und eine Abrechnung
+danach. Das ist ein zweiter Schreibpfad für Geld und gehört nicht in einen
+Meilenstein, der den Chat fertig macht.
+
+## Die Kontextgrenze zählt Turns, noch nicht Token
+
+docs/SPEC.md nennt für den Verlauf „20 Turns oder 60.000 Token". Umgesetzt sind
+die 20 Turns. Der Token-Anteil fehlt, und `threadResetAt` steht im Schema, wird
+aber nirgends gelesen oder geschrieben.
+
+Heute unkritisch, weil der Verlauf als Klartext ohne Zitate zurückgeht und zwanzig
+Turns davon selten in die Nähe von 60.000 Token kommen. Es ist trotzdem eine
+MUSS-Zahl ohne Test, und die Stelle dafür ist M5.
+
+## Der Eval-Lauf steht in keiner Abrechnung
+
+`pnpm eval --dev` und `--full` rufen den Adapter direkt auf und schreiben keine
+`usage_log`-Zeile. Ein Lauf taucht damit weder im Tagesbudget noch im
+Admin-Panel auf, und `evalCapMicroCents` aus `services/quota` wird von niemandem
+gelesen.
+
+Das ist bewusst so, solange der Eval von Hand gestartet wird: eine Zeile in
+`usage_log` wäre Demo-Budget, das kein Besucher verbraucht hat, und würde die
+Zahl unbrauchbar machen, an der das Panel hängt. Was fehlt, ist eine eigene
+Obergrenze für den Eval selbst. Bis dahin ist die Grenze, dass ich den Befehl
+tippe.

@@ -79,13 +79,27 @@ function contextFor(source: DocumentSource): string {
   });
 }
 
+/**
+ * The order the document blocks go out in, and therefore the meaning of
+ * `document_index` in every citation that comes back.
+ *
+ * Exported because the caller has to be able to produce the same order. Position
+ * alone does not decide it: two sources can share a position after a re-order or
+ * a duplicate upload, and a database that breaks the tie its own way while this
+ * file breaks it by id gives `document_index` a different meaning on each side.
+ * The citation check would usually catch that as a mismatch - and would not
+ * catch it at all for the same file uploaded twice, where the slice matches and
+ * the chip points at the wrong source.
+ */
+export function byDocumentOrder(left: DocumentSource, right: DocumentSource): number {
+  return left.position - right.position || left.id.localeCompare(right.id);
+}
+
 export function buildDocuments(
   sources: readonly DocumentSource[],
   options: BuildDocumentsOptions
 ): BuiltDocuments {
-  const ordered = [...sources].sort(
-    (left, right) => left.position - right.position || left.id.localeCompare(right.id)
-  );
+  const ordered = [...sources].sort(byDocumentOrder);
 
   const blocks: Anthropic.DocumentBlockParam[] = ordered.map((source) => ({
     type: 'document',

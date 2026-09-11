@@ -48,6 +48,30 @@ function asString(value: RenderValue): string | null {
 }
 
 /**
+ * Finds a `{{...}}` in the TEMPLATE that none of the three patterns above can
+ * consume: a misspelled block, a name with a space or a hyphen in it, an
+ * unclosed brace.
+ *
+ * Deliberately not a check on the rendered output, which is where this used to
+ * sit. The output contains the user's question by then, so a question with a
+ * "{{" in it threw an error carrying its own text - into the exception message,
+ * into `logger.error`, and from there into a log file that SECURITY.md 7.5 says
+ * never holds a question. It also failed a turn that was perfectly fine. The
+ * template is written in this repository and contains no user data, so looking
+ * there answers the same question and cannot leak anything.
+ */
+function findMalformedPlaceholder(template: string): string | null {
+  const valid =
+    /\{\{#if\s+[A-Za-z_][A-Za-z0-9_]*\}\}|\{\{\/if\}\}|\{\{\{[A-Za-z_][A-Za-z0-9_]*\}\}\}|\{\{[A-Za-z_][A-Za-z0-9_]*\}\}/y;
+
+  for (let index = template.indexOf('{{'); index !== -1; index = template.indexOf('{{', index + 2)) {
+    valid.lastIndex = index;
+    if (!valid.test(template)) return template.slice(index, index + 40);
+  }
+  return null;
+}
+
+/**
  * Renders a template.
  *
  * Order matters and is not an implementation detail:
@@ -57,9 +81,9 @@ function asString(value: RenderValue): string | null {
  *   2. `{{{raw}}}`, before `{{escaped}}`, or the two inner braces of a triple
  *      would be eaten by the double-brace pattern.
  *   3. `{{escaped}}`.
- *   4. A check that nothing is left. A prompt that reaches a model with `{{`
- *      still in it is a prompt nobody rendered, and the model would answer
- *      about the placeholder.
+ *   4. A check on the template for a placeholder none of the three patterns can
+ *      consume. A prompt that reaches a model with `{{` still in it is a prompt
+ *      nobody rendered, and the model would answer about the placeholder.
  */
 export function render(template: string, values: RenderValues = {}): string {
   let output = template.replace(
@@ -90,8 +114,8 @@ export function render(template: string, values: RenderValues = {}): string {
     return escapeAngles(value);
   });
 
-  const leftover = /\{\{[^}]*\}?\}?/.exec(output);
-  if (leftover) throw new UnrenderedPlaceholderError(leftover[0].slice(0, 40));
+  const malformed = findMalformedPlaceholder(template);
+  if (malformed) throw new UnrenderedPlaceholderError(malformed);
 
   return output;
 }

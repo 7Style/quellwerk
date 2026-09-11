@@ -51,6 +51,16 @@ export const errorMiddleware = (
   res: Response,
   _next: NextFunction
 ): void => {
+  // A streaming route has already written its headers and, on an error, its own
+  // `error` event; there is nothing left to turn into a JSON body. Writing one
+  // anyway throws ERR_HTTP_HEADERS_SENT and replaces a handled error with an
+  // unhandled one. Express's own final handler closes the connection.
+  if (res.headersSent) {
+    logger.error('[Error] after the response started', error, { path: req.path });
+    _next(error);
+    return;
+  }
+
   const timestamp = config.isProduction ? {} : { timestamp: new Date() };
 
   // Validation errors (zod) -> 400 with field details

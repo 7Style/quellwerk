@@ -10,7 +10,12 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import type { RequestHandler } from 'express';
 
-import { AnthropicLlmAdapter, buildChatRequest, usageFrom } from '../adapters/llm/index.js';
+import {
+  AnthropicLlmAdapter,
+  buildChatRequest,
+  byDocumentOrder,
+  usageFrom,
+} from '../adapters/llm/index.js';
 import { buildArtifactRequest } from '../adapters/llm/artifact-request.js';
 import { effortChat, models } from '../config/models.js';
 import { logger } from '../common/utils/logger.util.js';
@@ -31,6 +36,9 @@ import { z } from 'zod';
 const CHAT_MAX_TOKENS = 4_000;
 const FOLLOW_UP_MAX_TOKENS = 400;
 
+/** A question is one sentence. Anything longer was not written to be clicked. */
+const MAX_FOLLOW_UP_CHARS = 200;
+
 /**
  * The history a turn replays: the last twenty turns (docs/SPEC.md). The token
  * cap on top of it arrives with the trim in M5; twenty turns of a notebook this
@@ -50,6 +58,32 @@ export function budgetMiddleware(): RequestHandler {
   };
 }
 
+/** The notebook fields the access decision needs, and nothing else. */
+export interface NotebookAccess {
+  /** Nullable in the schema. A notebook without a session belongs to nobody. */
+  sessionId: string | null;
+  isDemo: boolean;
+}
+
+/**
+ * May this session chat in this notebook, and is the notebook shared.
+ *
+ * Pure, and exported, because it is the only authorisation the chat route has
+ * and a rule nobody can test is a rule that quietly stops holding. The two
+ * answers are separate on purpose: the demo notebook says yes to everyone, and
+ * saying yes to reading it is not the same as saying yes to writing in it
+ * (SECURITY.md 7.2, and `NotebookService.writable` enforces the same split).
+ */
+export function chatAccess(
+  notebook: NotebookAccess | null,
+  sessionId: string
+): { allowed: false } | { allowed: true; shared: boolean } {
+  if (!notebook) return { allowed: false };
+  if (notebook.isDemo) return { allowed: true, shared: true };
+  if (notebook.sessionId !== sessionId) return { allowed: false };
+  return { allowed: true, shared: false };
+}
+
 export function chatDeps(llm: AnthropicLlmAdapter): ChatServiceDeps {
   return {
     loadSources: async (notebookId, sessionId): Promise<TurnSources> => {
@@ -60,7 +94,8 @@ export function chatDeps(llm: AnthropicLlmAdapter): ChatServiceDeps {
         select: { id: true, sessionId: true, isDemo: true },
       });
 
-      if (!notebook || (!notebook.isDemo && notebook.sessionId !== sessionId)) {
+      const access = chatAccess(notebook, sessionId);
+      if (!access.allowed) {
         throw Object.assign(new Error('No such notebook.'), {
           statusCode: 404,
           errorCode: 'NOTEBOOK_NOT_FOUND',
@@ -70,11 +105,16 @@ export function chatDeps(llm: AnthropicLlmAdapter): ChatServiceDeps {
       // Ready only, in position order. A source still being ingested has no
       // text, and every ready one goes: there is no selection
       // (docs/KNOWN-LIMITS.md).
-      const rows = await prisma.source.findMany({
+      const unordered = await prisma.source.findMany({
         where: { notebookId, status: 'ready' },
-        orderBy: { position: 'asc' },
         select: { id: true, title: true, text: true, kind: true, position: true, pages: true },
       });
+
+      // Sorted here with the builder's own comparator, not with `orderBy`. The
+      // index in this array is what a citation's `document_index` resolves
+      // against, so it has to be the order the document blocks go out in, tie
+      // for tie (`byDocumentOrder`).
+      const rows = [...unordered].sort(byDocumentOrder);
 
       const pages = new Map<string, PageSpan[]>(
         rows.map((row) => [row.id, (row.pages as PageSpan[] | null) ?? []])
@@ -84,6 +124,7 @@ export function chatDeps(llm: AnthropicLlmAdapter): ChatServiceDeps {
         sources: rows.map((row) => ({ id: row.id, title: row.title, text: row.text })),
         sourceIds: rows.map((row) => row.id),
         pageAt: (sourceId, offset) => pageAt(pages.get(sourceId) ?? [], offset),
+        shared: access.shared,
       };
     },
 
@@ -91,12 +132,20 @@ export function chatDeps(llm: AnthropicLlmAdapter): ChatServiceDeps {
       return streamTurn(llm, input, sources, signal);
     },
 
-    followUps: async ({ question, answer, sources }) => {
-      const instructions = await renderPrompt('follow-up-questions', { language: 'German' });
+    followUps: async ({ question, answer, sources }, signal) => {
+      // Through the renderer, not concatenated here. The question is typed by a
+      // reader and the answer comes from a model, so both need the angle bracket
+      // replacement every other untrusted value gets, and a prompt assembled in
+      // TypeScript is a prompt nobody reviews (prompts/README.md).
+      const instructions = await renderPrompt('follow-up-questions', {
+        language: 'German',
+        question,
+        answer,
+      });
 
       const request = buildArtifactRequest({
         model: models.fast,
-        instructions: `${instructions}\n\nQuestion: ${question}\n\nAnswer: ${answer}`,
+        instructions,
         sources: sources.map((source, index) => ({
           id: source.id,
           position: index + 1,
@@ -106,17 +155,30 @@ export function chatDeps(llm: AnthropicLlmAdapter): ChatServiceDeps {
         })),
         schema: followUpSchema,
         maxTokens: FOLLOW_UP_MAX_TOKENS,
+        // The same documents the answer was just built from, seconds earlier and
+        // on a different model, so this prefix is written once and read by every
+        // follow-up call in the next five minutes.
+        cache5m: true,
       });
 
-      const { parsed, usage } = await llm.parseArtifact<z.infer<typeof followUpSchema>>(request);
+      const { parsed, usage } = await llm.parseArtifact<z.infer<typeof followUpSchema>>(
+        request,
+        signal
+      );
 
       // The second usage row of the turn (docs/ARCHITECTURE.md): one for the
       // chat on MODEL_CHAT, one for the follow-ups on MODEL_FAST.
       await recordUsage({ ...usage, route: 'chat.follow-ups', model: models.fast });
 
-      // Exactly three, enforced here: a count constraint in a structured-output
-      // schema is demoted to prose rather than honoured (prompts/README.md).
-      return parsed.questions.slice(0, 3);
+      // Three, and each of them short. Both are prose in the schema rather than
+      // constraints (prompts/README.md), so both are enforced here; the length
+      // matters because these strings are rendered as buttons and a model that
+      // has been talked into writing a paragraph must not fill the screen with
+      // it.
+      return parsed.questions
+        .map((one) => one.trim())
+        .filter((one) => one.length > 0 && one.length <= MAX_FOLLOW_UP_CHARS)
+        .slice(0, 3);
     },
 
     recordUsage: async (message, latencyMs, notebookId) => {
@@ -172,6 +234,17 @@ export function chatDeps(llm: AnthropicLlmAdapter): ChatServiceDeps {
     onError: (error, context) => {
       logger.error('[Chat] turn failed', error, context);
     },
+
+    onDroppedCitations: (dropped, context) => {
+      // Offsets and lengths, never the cited text and never the slice
+      // (CLAUDE.md, ADR-0003). `warn` and not `error`: the turn was answered and
+      // the reader saw a correct answer with one chip fewer.
+      logger.warn('[Chat] citations dropped', {
+        ...context,
+        count: dropped.length,
+        dropped,
+      });
+    },
   };
 }
 
@@ -196,7 +269,9 @@ async function* streamTurn(
     customInstructions: input.customInstructions ?? '',
   });
 
-  const history = await loadHistory(input.notebookId);
+  // Nothing replayed in a shared notebook: its messages were written by other
+  // visitors, and one visitor's question is not context for the next one.
+  const history = sources.shared ? [] : await loadHistory(input.notebookId);
 
   const { request } = buildChatRequest({
     model: models.chat,

@@ -161,17 +161,36 @@ export function eventsForStopReason(stopReason: string | null): ChatEvent[] {
  * wrong". Overload and a network hiccup pass; a bad request or an exhausted
  * budget do not, and offering a button that cannot work is worse than saying so.
  */
+/**
+ * Anthropic's wording for an exhausted spend limit or an empty balance. Matched
+ * on the error type rather than on the message, which is free text; the message
+ * check is the fallback and stays narrow so no other 400 borrows this banner.
+ */
+function isCreditError(error: unknown): boolean {
+  const body = (error as { error?: { error?: { type?: string; message?: string } } } | null)?.error
+    ?.error;
+  if (body?.type === 'billing_error') return true;
+  const message = body?.message ?? '';
+  return /credit balance|spend limit/i.test(message);
+}
+
 export function errorEvent(error: unknown): ChatEvent {
   const status = (error as { status?: number } | null)?.status;
 
   if (status === 429 || status === 529) {
     return { t: 'error', m: 'The model is busy right now. Try again in a moment.', retry: true };
   }
-  if (status === 503) {
-    return { t: 'error', m: 'Tagesbudget erreicht', retry: false };
-  }
   if (typeof status === 'number' && status >= 500) {
+    // Including 503. Our own daily budget is checked before the stream opens and
+    // answers as JSON with its own message; a 503 arriving mid-stream comes from
+    // the model service and means the opposite of "you have spent enough".
     return { t: 'error', m: 'The model service had a problem. Try again in a moment.', retry: true };
+  }
+  if (status === 400 && isCreditError(error)) {
+    // Anthropic reports an exhausted spend limit as a 4xx, not as a 503. It is
+    // the one 4xx the reader is entitled to an explanation for, because it is
+    // the same situation our own budget guard describes (SECURITY.md 7.3).
+    return { t: 'error', m: 'Das Tagesbudget der Demo ist erreicht.', retry: false };
   }
   if (typeof status === 'number' && status >= 400) {
     // A 4xx is our own mistake in building the request. The user cannot fix it

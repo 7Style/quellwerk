@@ -231,7 +231,7 @@ describe('the shipped prompts', () => {
       ['notebook-overview', { language: 'German' }],
       ['notebook-chat-system', {}],
       ['chat-preferences-tail', { question: 'Warum?' }],
-      ['follow-up-questions', { language: 'German' }],
+      ['follow-up-questions', { language: 'German', question: 'Warum?', answer: 'Darum.' }],
     ] as const) {
       const rendered = await renderPrompt(name, values);
       expect(rendered).not.toContain('{{');
