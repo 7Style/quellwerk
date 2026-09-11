@@ -200,7 +200,7 @@ class LoggerService {
       ip?: string;
       socket?: { remoteAddress?: string };
       headers: Record<string, unknown>;
-      user?: { id?: number };
+      session?: { id?: string };
       get(name: string): string | undefined;
     },
     res: { statusCode: number },
@@ -218,7 +218,7 @@ class LoggerService {
       responseTime: `${responseTime}ms`,
       ip: req.ip ?? req.socket?.remoteAddress,
       userAgent: req.get('user-agent'),
-      userId: req.user?.id,
+      sessionId: req.session?.id,
     };
 
     // Add non-sensitive headers

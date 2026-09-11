@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
-import { registerModules } from './modules/index.js';
+import { registerModules, registerSessionMiddleware } from './modules/index.js';
 import { errorMiddleware, notFoundMiddleware } from './common/middleware/error.middleware.js';
 import { createRateLimiter } from './common/middleware/rate-limit.middleware.js';
 import { logger } from './common/utils/logger.util.js';
@@ -65,6 +65,11 @@ export async function createApp(): Promise<Express> {
   // CORS -- allowlist only, never a wildcard origin; credentials only with a listed Origin
   app.use(cors(config.corsDelegate));
 
+  // Anonymous session (ADR-0005). Before the rate limiter, because the limiter
+  // keys on the session id and would otherwise see none; after `trust proxy`
+  // above, because the secure cookie depends on the forwarded protocol.
+  registerSessionMiddleware(app);
+
   // General rate limiting (Redis store, fails open when Redis is unavailable)
   app.use(createRateLimiter('general', config.rateLimit.default));
 
@@ -89,7 +94,11 @@ export async function createApp(): Promise<Express> {
     });
   });
 
-  app.get('/health', async (_req, res) => {
+  // Two paths, one handler. `/health` is what the container healthcheck calls
+  // inside the network; `/api/health` is what reaches the backend through the
+  // host nginx, which proxies `/api/` and keeps the prefix. Without the second
+  // one the documented smoke check in docs/DEPLOY.md would hit the frontend.
+  app.get(['/health', '/api/health'], async (_req, res) => {
     const checks = { database: 'disconnected', redis: 'disconnected' };
 
     try {

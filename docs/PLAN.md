@@ -210,7 +210,7 @@ Files: backend/app/modules/session/*, backend/app/adapters/llm/documents.ts, bac
 Test: `pnpm --filter @quellwerk/backend test -- session documents`
 Expected: a request without a cookie creates a session, a second request keeps it; documents are emitted in position order with title and context.
 Box: 45
-Status: [ ]
+Status: [x]
 
 ### M2-T1 Routes for notebooks and sources, capacity gate
 Goal: Notebooks and sources can be created through zod-validated routes that refuse to exceed the caps.

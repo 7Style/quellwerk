@@ -17,14 +17,18 @@ export const skipTrustedIps: Options['skip'] = (req) => {
 };
 
 /**
- * Key generator: IP (IPv6 masked to /56 by ipKeyGenerator) plus user id when
- * the request is authenticated, so logged-in users do not share a bucket with
- * anonymous traffic from the same address.
+ * Key generator: IP (IPv6 masked to /56 by ipKeyGenerator) plus the anonymous
+ * session, so two people behind one address do not share a bucket.
+ *
+ * There are no accounts (ADR-0005), so the session is all there is. Before the
+ * session middleware has run, or on a route that has none, the key falls back
+ * to the address alone; that is the stricter of the two, which is the right way
+ * round for a limiter.
  */
-export const ipAndUserKeyGenerator: Options['keyGenerator'] = (req) => {
+export const ipAndSessionKeyGenerator: Options['keyGenerator'] = (req) => {
   const ip = ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? 'unknown');
-  const userId = req.user?.id ?? 'anonymous';
-  return `${ip}:${userId}`;
+  const sessionId = req.session?.id ?? 'anonymous';
+  return `${ip}:${sessionId}`;
 };
 
 const base = {
@@ -40,7 +44,7 @@ export const rateLimitConfig = {
     windowMs: env.RATE_LIMIT_WINDOW_MS,
     limit: env.RATE_LIMIT_MAX_REQUESTS,
     message: 'Too many requests from this IP, please try again later.',
-    keyGenerator: ipAndUserKeyGenerator,
+    keyGenerator: ipAndSessionKeyGenerator,
     passOnStoreError: true,
   },
 

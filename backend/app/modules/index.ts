@@ -12,6 +12,7 @@ import { EventEmitter } from 'node:events';
 import { logger } from '../common/utils/logger.util.js';
 import { startupStatus } from '../common/utils/startup-status.util.js';
 import { config, env } from '../config/index.js';
+import { redis } from '../lib/redis.js';
 import { initSessionModule } from './session/index.js';
 import { initAdminModule } from './admin/index.js';
 
@@ -19,21 +20,36 @@ import { initAdminModule } from './admin/index.js';
 const globalEventEmitter = new EventEmitter();
 globalEventEmitter.setMaxListeners(50);
 
-export async function registerModules(app: Express): Promise<void> {
-  logger.info('[Modules] Starting module registration...');
-
+/**
+ * The session is mounted on its own and earlier than the rest.
+ *
+ * It has to sit in front of the rate limiter, whose key is the session id: a
+ * limiter that runs first sees no session and puts every visitor behind one
+ * address into the same bucket. And it has to sit behind `trust proxy`, or the
+ * secure cookie is dropped on the plain http hop from nginx to the container.
+ * That is a decision about the order of the middleware chain, which belongs to
+ * app.ts, so it gets its own call instead of hiding inside registerModules.
+ */
+export function registerSessionMiddleware(app: Express): void {
   try {
     initSessionModule(app, {
       sessionSecret: env.SESSION_SECRET,
       cookieName: env.SESSION_COOKIE_NAME,
       maxAgeMs: env.SESSION_MAX_AGE,
       isProduction: config.isProduction,
+      // Injected, not imported: the module must not know where the connection
+      // comes from. server.ts has already awaited connectRedis() by now.
+      redisClient: redis,
     });
     startupStatus.moduleOk('Session');
   } catch (error) {
     startupStatus.moduleFail('Session', error);
     throw error;
   }
+}
+
+export async function registerModules(app: Express): Promise<void> {
+  logger.info('[Modules] Starting module registration...');
 
   try {
     initAdminModule(app, { adminToken: env.ADMIN_TOKEN });

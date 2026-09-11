@@ -21,4 +21,14 @@ export interface ILlmProvider {
   streamChat(request: Anthropic.MessageCreateParams): AsyncIterable<unknown>;
   /** Structured outputs: citations off, JSON out. */
   parseArtifact<T>(request: Anthropic.MessageCreateParams): Promise<{ parsed: T; usage: LlmUsage }>;
+  /**
+   * Input tokens for a request, as the API counts them.
+   *
+   * The 150,000 token cap is enforced against this number and not against an
+   * estimate (docs/SPEC.md): the same characters tokenise differently in dense
+   * legal text than in prose, and the difference decides whether a source is
+   * accepted. The endpoint is free and has its own rate limit, separate from
+   * message creation, so calling it on every upload is affordable.
+   */
+  countTokens(request: Anthropic.MessageCountTokensParams): Promise<number>;
 }
