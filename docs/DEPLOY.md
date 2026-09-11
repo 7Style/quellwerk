@@ -45,8 +45,8 @@ braucht also `ports: !override`.
 Der Server `intern` trägt weitere Seiten, Quellwerk ist ein Gast darauf. Daraus
 folgen drei Regeln, die den ganzen Abschnitt bestimmen: kein Container
 veröffentlicht auf `0.0.0.0`, der Nginx läuft auf dem Host und nicht im
-Container, und Docker verwaltet seine iptables-Regeln selbst (SECURITY.md 4.3,
-Fassung 2).
+Container, und Docker fasst die Firewall nicht an (`"iptables": false`), also legt
+jeder Stack seine Regeln selbst an (SECURITY.md 4.3).
 
 Der Ablauf steht in M8-T2 und M8-T3 in `docs/PLAN.md` und wird beim ersten Deploy
 hier mit den echten Ausgaben festgehalten:
@@ -56,8 +56,8 @@ hier mit den echten Ausgaben festgehalten:
 2. Konfiguration auf dem Server von Hand schreiben, mit eigenen Werten
 3. Images auf dem Server bauen und starten
 4. Nginx-Vhost auf dem Host, dann das Zertifikat über certbot
-5. Firewall nach SECURITY.md 4.3, Fassung 2, inklusive der systemd-Unit, damit
-   die Regel einen Reboot überlebt
+5. Firewall nach SECURITY.md 4.3: die UFW-Regel plus `quellwerk-firewall.sh` mit
+   seiner systemd-Unit, damit die Regeln einen Reboot überleben
 6. Die Prüfbefehle aus SECURITY.md 4.3 und Abschnitt 8
 
 Solange es kein GitHub-Repository gibt, läuft der Deploy von Hand. Der Workflow

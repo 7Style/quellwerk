@@ -130,7 +130,7 @@ be right before a workflow hides them behind a green check, and the workflow in
 M8-T5 then only has to automate a path that already works. The server `intern`
 carries other sites, so Quellwerk is a guest on it: nothing binds to 0.0.0.0,
 nginx runs on the host, and Docker keeps its own iptables rules
-(SECURITY.md 4.3, Fassung 2).
+(SECURITY.md 4.3).
 
 ### M8-T2 Production compose and the host vhost
 Goal: The production compose file describes the five services Quellwerk actually has, and the host nginx has a vhost for them.
@@ -138,7 +138,7 @@ Files: deployment/prod/docker/docker-compose.yml, deployment/prod/nginx/quellwer
 Test: `docker compose -f deployment/prod/docker/docker-compose.yml config --quiet && nginx -t -c deployment/prod/nginx/quellwerk.conf 2>&1 | tail -1`
 Expected: compose validates; the vhost parses. Five services with the worker, container names `quellwerk-prod-*`, no published port except on 127.0.0.1, no nginx container (the host serves TLS), and the bridge carries the fixed name and subnet from SECURITY.md 4.3.
 Box: 60
-Status: [ ]
+Status: [x]
 
 ### M8-T3 First deploy by hand
 Goal: The empty shell is live on the server behind the host nginx with a certificate.

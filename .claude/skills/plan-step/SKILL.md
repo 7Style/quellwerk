@@ -11,8 +11,14 @@ Task id: $ARGUMENTS
 3. Implement only that task. If you discover that the task needs a decision that is not in docs/SPEC.md or an ADR, stop and ask; do not decide silently.
 4. Run the task's Test command. Paste the output. If it fails, fix and re-run. If it cannot pass, say why and stop; do not tick the box.
 5. Tick the checkbox in docs/PLAN.md.
-6. Commit with the message format "<milestone> <area>: <what and why>" (for example "M3 chat: verify citations against stored text before persisting"). Keep the Co-Authored-By trailer.
-7. Print: task id, files changed, test command, first line of the test output, commit hash.
+6. Before committing, state in one sentence whether the change still satisfies the
+   two rules the architecture stands on: modules import nothing from each other
+   and reach one another only through `modules/index.ts`, and the only external
+   call is model inference at Anthropic behind `AnthropicLlmAdapter`. Say which
+   of the two you checked and how; if either is broken, fix it before the commit
+   rather than noting it.
+7. Commit with the message format "<milestone> <area>: <what and why>" (for example "M3 chat: verify citations against stored text before persisting"). Keep the Co-Authored-By trailer.
+8. Print: task id, files changed, test command, first line of the test output, commit hash.
 
 ## Closing a milestone
 

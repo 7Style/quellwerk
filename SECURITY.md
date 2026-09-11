@@ -287,46 +287,52 @@ erreicht die Container-IPs; UFW `default deny outgoing` blockt das, bis das
 Bridge-Interface freigegeben ist) und Container nach Internet (Backend und Worker rufen
 `api.anthropic.com`).
 
-**Fassung 1, Docker mit `"iptables": false`** (Server nur für Quellwerk). Alles liegt bei
-UFW und überlebt einen Reboot, weil UFW seine Regeln selbst lädt:
+**So läuft `intern`: Docker mit `"iptables": false`.** Der Daemon fasst die Firewall
+nicht an, also legt jeder Stack seine eigenen Regeln an, und zwar in einem eigenen
+Skript mit eigener systemd-Unit. Vorbild ist `nexom-firewall`, das dort schon so läuft.
+Die Regel für den Weg vom Host ins Netz gehört zu UFW und übersteht damit einen Reboot
+von selbst:
 
 ```bash
-# 1. Host -> Container
-ufw allow out on br-quellwerk to 172.30.0.0/24
-
-# 2. Container -> Internet, nur nach draußen; hinein kommt weiterhin nichts
-ufw route allow in on br-quellwerk out on eth0
-
-# 3. NAT: in /etc/ufw/before.rules VOR dem Block "*filter" einfügen
-*nat
-:POSTROUTING ACCEPT [0:0]
--A POSTROUTING -s 172.30.0.0/24 -o eth0 -j MASQUERADE
-COMMIT
-
-# 4. Weiterleitung im Kernel: in /etc/ufw/sysctl.conf
-net/ipv4/ip_forward=1
-
-ufw reload
+ufw allow out to 172.30.0.0/24
 ```
 
-**Fassung 2, Docker verwaltet iptables** (geteilter Server, so läuft `intern`). Docker
-legt NAT und Forwarding selbst an; zu tun bleibt der Weg vom Host in das Netz und die
-Regel, dass von außen nichts an Container geht, was nicht über 127.0.0.1 veröffentlicht
-ist:
+Alles andere steht in `/usr/local/sbin/quellwerk-firewall.sh`, ausgeführt von
+`quellwerk-firewall.service` (`Type=oneshot`, `After=docker.service`,
+`Wants=docker.service`, `RemainAfterExit=yes`). Das Skript tut vier Dinge, jedes davon
+erst nach einer Prüfung mit `iptables -C`, damit ein zweiter Lauf nichts verdoppelt:
+
+1. warten, bis das Docker-Netz da ist (die Bridge `br-quellwerk` existiert), denn die
+   Unit startet nach `docker.service`, aber das Netz entsteht erst mit dem ersten
+   `compose up`
+2. das Subnetz aus dem Netz auslesen statt es im Skript zu wiederholen, damit Compose
+   und Firewall nie auseinanderlaufen
+3. `MASQUERADE` für dieses Subnetz nach draußen, weil Docker das mit abgeschalteten
+   iptables nicht selbst anlegt
+4. zwei Regeln in `DOCKER-USER`: Egress vom Subnetz nach draußen erlauben, und die
+   Antworten mit `ESTABLISHED,RELATED` zurück
+
+Von Hand gesetzte iptables-Regeln verschwinden beim Reboot; deshalb die Unit und nicht
+die Kommandozeile. Das Skript liegt unter `deployment/prod/firewall/` im Repository und
+wird auf den Server kopiert, damit die Regeln versioniert sind und nicht nur auf der
+Platte des Servers existieren.
+
+**Die Alternative, Docker verwaltet iptables selbst.** Dann legt der Daemon NAT und
+Forwarding an, und zu tun bleibt der Weg vom Host in das Netz und die Regel, dass von
+außen nichts an Container geht, was nicht über 127.0.0.1 veröffentlicht ist:
 
 ```bash
 ufw allow out on br-quellwerk to 172.30.0.0/24
-iptables -I DOCKER-USER -i eth0 ! -s 127.0.0.0/8 -o br-quellwerk -m conntrack --ctstate NEW -j DROP
+iptables -I DOCKER-USER -i ens192 ! -s 127.0.0.0/8 -o br-quellwerk -m conntrack --ctstate NEW -j DROP
 ```
 
-Von Hand gesetzte iptables-Regeln verschwinden beim Reboot. Sie gehören in ein Skript,
-das eine systemd-Unit nach `docker.service` ausführt (`quellwerk-firewall.service`,
-`After=docker.service`, `ExecStart=/usr/local/sbin/quellwerk-firewall.sh`); das Skript
-prüft mit `iptables -C`, ob die Regel schon steht, bevor es sie einfügt.
+Diese Fassung gilt für `intern` NICHT. Sie steht hier, weil sie auf einem Server
+gebraucht wird, der Docker die Firewall überlassen darf, und damit der Unterschied
+sichtbar bleibt.
 
-`eth0` ist das Interface mit der Default-Route (`ip route show default`). DNS aus
-Containern läuft über Dockers eingebauten Resolver im Host-Kontext, darum reicht die
-Host-Regel für 53/udp. Prüfen, bevor die App live geht:
+`ens192` ist auf `intern` das Interface mit der Default-Route (`ip route show default`).
+DNS aus Containern läuft über Dockers eingebauten Resolver im Host-Kontext, darum reicht
+die Host-Regel für 53/udp. Prüfen, bevor die App live geht:
 
 ```bash
 C="docker compose -f deployment/prod/docker/docker-compose.yml"
@@ -335,44 +341,6 @@ $C exec backend node -e "fetch('https://api.anthropic.com/v1/models').then(r=>co
 curl -sI http://127.0.0.1:3021/health | head -1
 # erwartet: HTTP/1.1 200
 ```
-
-### 4.4 Datenbanken: im Container oder nativ
-
-Quellwerk fährt Variante A: PostgreSQL und Redis als Container ohne Host-Port im Netz
-`internal`. Das ist sicher, solange die Regeln aus 4.2 gelten, und es hält Entwicklung
-und Produktion auf derselben Compose-Datei.
-
-Variante B, native Datenbanken auf dem Host mit `network_mode: host` für die App-Container,
-ist die Reserve, wenn das Container-Netz auf einem Server nicht sauber durch die Firewall
-geht: es gibt dann gar kein Docker-Netz, die Container binden über `HOST=127.0.0.1`
-(Backend) und `HOSTNAME=127.0.0.1` (Frontend) nur loopback, und UFW gilt für sie wie für
-jeden Host-Prozess. Die Prozesse teilen sich dafür den Netzwerk-Namensraum des Hosts.
-
-```bash
-# PostgreSQL nativ
-apt-get install -y postgresql-17 postgresql-client-17
-PG_PW=$(openssl rand -hex 24)
-sudo -u postgres psql -c "CREATE USER qw_user WITH PASSWORD '$PG_PW';"
-sudo -u postgres psql -c "CREATE DATABASE quellwerk OWNER qw_user;"
-grep "^#\?listen_addresses" /etc/postgresql/17/main/postgresql.conf   # localhost
-# pg_hba.conf: nur local (peer) sowie 127.0.0.1/32 und ::1/128 mit scram-sha-256
-
-# Redis nativ
-apt-get install -y redis-server
-REDIS_PW=$(openssl rand -hex 24)
-cat >> /etc/redis/redis.conf <<EOT
-requirepass $REDIS_PW
-appendonly yes
-maxmemory-policy noeviction
-EOT
-systemctl restart redis-server
-grep -E "^(bind|protected-mode)" /etc/redis/redis.conf   # bind 127.0.0.1 -::1 / protected-mode yes
-```
-
-In beiden Varianten gilt: `ss -tlnp | grep -E "5432|6379"` zeigt ausschließlich
-`127.0.0.1` oder gar nichts, und `redis-cli ping` ohne Passwort antwortet `NOAUTH`.
-
----
 
 ## 5. Nginx und TLS
 
@@ -474,7 +442,8 @@ Befehle für den aktuellen Server.
    Servern. `chmod 600` auf beide. `NODE_ENV=production`, `TRUST_PROXY=1`,
    `PUBLIC_URL` und `CORS_ORIGIN` auf `https://quellwerk.7style.net`, `SEED_ON_START`
    nur für den ersten Start.
-8. Firewall-Regeln für das Container-Netz (4.3), bei Fassung 2 mit der systemd-Unit.
+8. Firewall-Regeln für das Container-Netz (4.3): UFW-Regel plus das Stack-Skript mit
+   seiner systemd-Unit.
 9. Nginx mit dem HTTP-Block, Zertifikat holen, HTTPS-Block aktivieren (5).
 10. Compose gegen die Checkliste prüfen (8), `bash scripts/security-check.sh`, dann
     `docker compose -f deployment/prod/docker/docker-compose.yml up -d`, `ps`,
@@ -602,7 +571,8 @@ Server
 
 - [ ] SSH nur mit Schlüssel, fail2ban aktiv
 - [ ] `ufw status verbose`: deny incoming, deny outgoing, deny routed, herein nur 22/80/443
-- [ ] `daemon.json` passend zur Fassung aus 4.1; bei Fassung 2 die systemd-Unit aktiv
+- [ ] `daemon.json` passend zu 4.1 (`"iptables": false` auf `intern`);
+      `quellwerk-firewall.service` aktiv und `systemctl status` grün
 - [ ] Anthropic aus dem Backend-Container erreichbar (4.3)
 - [ ] Zertifikat gültig, Renewal-Timer aktiv, Backup-Cron eingetragen
 
