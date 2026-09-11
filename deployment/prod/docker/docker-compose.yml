@@ -20,6 +20,10 @@
 # kopiert.
 # ==============================================================================
 
+# Fester Projektname. Ohne ihn nimmt Compose den Ordnernamen "docker", den auf
+# einem geteilten Server auch andere Stacks tragen koennen.
+name: quellwerk-prod
+
 x-logging: &default-logging
   driver: json-file
   options:
@@ -85,6 +89,10 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    # Der Entrypoint wechselt per su-exec auf den Nutzer redis, dem /data gehoert.
+    cap_add:
+      - SETGID
+      - SETUID
     logging: *default-logging
 
   backend:
@@ -123,7 +131,13 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 40s
+      # 120s statt 40s: beim allerersten Start laeuft `prisma migrate deploy`
+      # im Entrypoint, bevor der Server lauscht. Auf einem geteilten Server mit
+      # kalter Platte reichten 40s nicht, der Container galt als unhealthy und
+      # der Worker startete nie (er wartet auf service_healthy). Ein grosses
+      # Startfenster kostet nichts: fehlgeschlagene Versuche darin zaehlen nicht
+      # gegen `retries`, und ein erfolgreicher beendet es sofort.
+      start_period: 120s
     depends_on:
       db:
         condition: service_healthy
@@ -137,9 +151,13 @@ services:
     logging: *default-logging
 
   worker:
-    build:
-      context: ../../..
-      dockerfile: backend/Dockerfile
+    # Kein eigener `build`: der Worker ist derselbe Code wie das Backend, nur mit
+    # einem anderen Startbefehl. `backend` baut das Image und vergibt den Tag,
+    # der Worker benutzt ihn. Ein zweiter Build-Eintrag mit demselben Kontext
+    # und demselben Tag baut dieselbe Schicht ein zweites Mal.
+    # Das setzt voraus, dass der Tag vorhanden ist: immer `up -d --build`
+    # aufrufen (so steht es in deploy.sh), nie `up -d worker` allein auf einem
+    # Server, auf dem noch nie gebaut wurde.
     image: quellwerk-backend:prod
     container_name: quellwerk-prod-worker
     command: ['node', 'dist/app/worker.js']
@@ -218,6 +236,8 @@ volumes:
 
 networks:
   internal:
+    # Name fest, weil quellwerk-firewall.sh auf genau dieses Netz wartet.
+    name: quellwerk_internal
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: br-quellwerk
