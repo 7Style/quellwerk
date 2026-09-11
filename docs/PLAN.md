@@ -276,7 +276,7 @@ Files: backend/app/adapters/llm/chat-request.ts, backend/app/adapters/llm/_tests
 Test: `pnpm --filter @quellwerk/backend test -- chat-request`
 Expected: one 1h breakpoint on the last document block, nothing on the system block, no breakpoint on a thinking block or a citation; the request carries `thinking: {type: 'adaptive', display: 'summarized'}` so the thinking state has something to show before the first token.
 Box: 45
-Status: [ ]
+Status: [x]
 
 ### M3-T2 citations.ts and offset check
 Goal: Every citation is verified against the stored text before it is rendered, and the check is proven against a real API response.
