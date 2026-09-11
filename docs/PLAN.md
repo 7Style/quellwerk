@@ -234,7 +234,7 @@ Files: backend/app/modules/sources/_tests_/*.test.ts, backend/app/modules/notebo
 Test: `pnpm --filter @quellwerk/backend test`
 Expected: all suites pass; a PDF without a text layer ends as `failed` with a reason, never as a hanging job.
 Box: 45
-Status: [ ]
+Status: [x]
 
 ### M2-T5 Base seed and token measurement
 Goal: A demo notebook with the fixed id `demo` exists after seeding, and its real token count is recorded.
