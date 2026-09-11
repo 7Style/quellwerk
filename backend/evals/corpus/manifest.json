@@ -1,0 +1,6 @@
+[
+  { "file": "01-ki-vo-auszug.pdf", "kind": "pdf", "title": "Verordnung (EU) 2024/1689, Auszug: Art. 1-15, Art. 113, Anhang III", "source": "https://eur-lex.europa.eu/legal-content/DE/TXT/PDF/?uri=OJ:L_202401689" },
+  { "file": "02-kommission-faq.md", "kind": "md", "title": "Europäische Kommission: Navigating the AI Act (Fragen und Antworten, englisch)", "source": "https://digital-strategy.ec.europa.eu/en/faqs/navigating-ai-act" },
+  { "file": "03-glossar.md", "kind": "md", "title": "Glossar: Begriffe der EU-KI-Verordnung" },
+  { "file": "04-interne-notiz.md", "kind": "text", "title": "Interne Notiz: KI-Verordnung, Stand unserer Vorbereitung" }
+]
