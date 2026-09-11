@@ -20,6 +20,11 @@
 #
 # Ebenfalls ausgeschlossen, weil der Server sie nicht braucht: .claude, .github,
 # .husky und design.
+#
+# --chown=root:root ist kein Schoenheitsfehler: rsync -a bewahrt Besitzer
+# numerisch, und die uid des Arbeitsrechners (501 auf macOS) gehoert auf dem
+# Server entweder niemandem oder, schlimmer, spaeter einem Deploy-Benutzer, der
+# dann ungefragt an docker-compose.yml schreiben darf.
 # ==============================================================================
 set -euo pipefail
 
@@ -43,6 +48,7 @@ fi
 echo "==> Code nach ${SERVER}:${REMOTE_DIR} spiegeln"
 rsync -az --delete --stats ${DRY_RUN} \
   -e "${SSH_CMD}" \
+  --chown=root:root \
   --exclude '.git/' \
   --exclude 'node_modules/' \
   --exclude '.next/' \
