@@ -287,6 +287,41 @@ Erwartet: `200 0`. Die Erneuerung übernimmt der Timer von certbot; der
 Reload-Hook, weil `systemctl reload nginx` als `--deploy-hook` mitgegeben werden
 kann.
 
+## Der zweite Deploy: M2 auf den Server, 11.09.2026
+
+Derselbe Weg, diesmal über `deployment/prod/deploy.sh`. Berichtet vom Server
+nach dem Lauf:
+
+- Alle fünf Dienste oben.
+- `curl -sI http://127.0.0.1:3021/health` → 200.
+- `curl -sI http://127.0.0.1:3021/api/health` → 200. Der zweite Pfad ist neu
+  (M2-T0): der Vhost leitet `/api/` mit Präfix weiter, und ohne ihn hätte der in
+  Abschnitt 9 dokumentierte Abnahmetest `https://quellwerk.7style.net/api/health`
+  das Frontend getroffen statt das Backend.
+- Frontend über 127.0.0.1:3020 → 200.
+- Die Firewall-Regeln stehen unverändert; die systemd-Unit hat den Neustart der
+  Container überdauert, was sie soll: sie hängt an `docker.service`, nicht am
+  Stack.
+
+Was mit M2 neu auf dem Server liegt und beim nächsten Deploy zu beachten ist:
+
+**Der Worker hat jetzt Arbeit.** Bis M2 hielt er nur den Prozess offen; jetzt
+bedient er die Ingest-Queue und ruft Modelle auf. Ein Neustart des Stacks
+während eines laufenden Jobs lässt dessen Quelle auf `processing` stehen, bis
+sie erneut eingestellt wird — der Aufräumer für abgestandene Jobs kommt mit
+M7-T2.
+
+**Der Seed ist nicht gelaufen und soll es auch nicht.** `SEED_ON_START` steht auf
+`false`, und in `NODE_ENV=production` bricht `prisma/seed.ts` ohnehin ab. Das
+Demo-Notizbuch wird mit einem eigenen Befehl gesetzt (M8-T1), damit das Anlegen
+von Demo-Inhalten eine Entscheidung bleibt und kein Nebeneffekt eines Neustarts.
+
+**Das Tagesbudget greift ab jetzt.** `DAILY_SPEND_CAP_CENTS` aus der
+Backend-Konfiguration wird vor jeder neuen Quelle gegen die Summe in `usage_log`
+gehalten. Ist die Summe nicht lesbar, wird abgelehnt statt geraten; ein
+Notizbuch, dem eine Quelle mit 503 verweigert wird, ist dann das erwartete
+Verhalten und kein Fehler.
+
 ## Ein späterer Deploy
 
 ```bash
