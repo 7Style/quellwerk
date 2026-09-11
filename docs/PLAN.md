@@ -144,7 +144,7 @@ Status: [x]
 Goal: The empty shell is live on the server behind the host nginx with a certificate.
 Files: docs/DEPLOY.md, deployment/prod/*
 Test: `curl -sS -o /dev/null -w '%{http_code} %{ssl_verify_result}\n' https://<domain>/api/health`
-Expected: `200 0`, and the same request over http redirects to https. Every server command and its real output is written into DEPLOY.md while it happens, not afterwards from memory.
+Expected: `200 0`, and the same request over http redirects to https. Every server command and its real output is written into DEPLOY.md while it happens, not afterwards from memory. Afterwards the template leftovers go: `deployment/local`, `deployment/dev`, `deployment/prod-native` and `domains.conf`; only `deployment/prod` stays.
 Box: 60
 Status: [ ]
 
@@ -484,6 +484,14 @@ Expected: source, chat with a verified citation and one report pass; the first a
 Box: 30
 Status: [ ]
 
+### M8-T6 Backups
+Goal: The database is dumped daily and a restore has been tried once, not assumed.
+Files: deployment/prod/backup.sh, deployment/prod/backup.cron, docs/DEPLOY.md, docs/KNOWN-LIMITS.md
+Test: `ssh <server> '/usr/local/bin/quellwerk-backup.sh && ls -l /var/backups/quellwerk | tail -3'`
+Expected: a file `quellwerk-<stamp>.sql.gz` larger than a kilobyte, mode 600, and the script reports how many older than seven days it deleted. The target is `/var/backups/quellwerk`, outside the deploy directory, because `rsync --delete` would clear it otherwise. A restore into a throwaway database is run once and its output written into DEPLOY.md; a backup nobody has restored is a hope, not a backup.
+Box: 45
+Status: [ ]
+
 ### M8-T5 Actions and GHCR, once the repository exists
 Goal: The manual path from M8-T2 and M8-T3 runs as a workflow instead of by hand.
 Files: .github/workflows/deploy.yml, deployment/prod/deploy.sh, docs/DEPLOY.md
@@ -602,7 +610,7 @@ recording is the one that breaks during it.
 | M5 | 5 | 210 |
 | M6 | 3 | 165 |
 | M7 | 5 | 225 |
-| M8 (rest) | 3 | 135 |
+| M8 (rest) | 4 | 180 |
 | M9 | 2 | 105 |
 | **M0 to M9** | **46** | **2475 (41.3 h)** |
 | M10 | 3 | 135 |

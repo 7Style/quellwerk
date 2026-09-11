@@ -59,6 +59,14 @@ hier mit den echten Ausgaben festgehalten:
 5. Firewall nach SECURITY.md 4.3: die UFW-Regel plus `quellwerk-firewall.sh` mit
    seiner systemd-Unit, damit die Regeln einen Reboot überleben
 6. Die Prüfbefehle aus SECURITY.md 4.3 und Abschnitt 8
+7. Sicherung: `quellwerk-backup.sh` nach `/usr/local/bin`, die Cron-Datei nach
+   `/etc/cron.d/quellwerk-backup`, einmal von Hand ausführen und einmal
+   zurückspielen (M8-T6)
+
+Die Sicherungen liegen unter `/var/backups/quellwerk`, ausdrücklich außerhalb
+von `/apps/quellwerk`: dort räumte `rsync --delete` sie beim nächsten Deploy weg.
+Gesichert wird die Datenbank, nicht das Upload-Volume; der Text jeder Quelle
+liegt in Postgres und ist das, worauf jedes Zitat zeigt.
 
 Solange es kein GitHub-Repository gibt, läuft der Deploy von Hand. Der Workflow
 mit GHCR und SSH aus GitHub Actions kommt nach, sobald das Repository steht; die

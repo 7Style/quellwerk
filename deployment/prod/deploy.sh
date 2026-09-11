@@ -14,10 +14,18 @@
 #     sie aus, damit ein Deploy sie nie ueberschreibt.
 #   - Migrationen ausfuehren. Das macht der Entrypoint des Backend-Containers.
 #   - Die Firewall anfassen. Die haengt an ihrer systemd-Unit.
+#   - Backups beruehren. Die liegen unter /var/backups/quellwerk, ausserhalb
+#     dieses Verzeichnisses; laegen sie darin, raeumte --delete sie beim
+#     naechsten Deploy weg.
+#
+# Ebenfalls ausgeschlossen, weil der Server sie nicht braucht: .claude, .github,
+# .husky und design.
 # ==============================================================================
 set -euo pipefail
 
-SERVER="${QW_SERVER:-intern}"
+SERVER="${QW_SERVER:-root@217.160.14.35}"
+SSH_KEY="${QW_SSH_KEY:-$HOME/.ssh/strato_migration}"
+SSH_CMD="ssh -i ${SSH_KEY}"
 REMOTE_DIR="${QW_REMOTE_DIR:-/apps/quellwerk}"
 COMPOSE="deployment/prod/docker/docker-compose.yml"
 
@@ -33,7 +41,8 @@ if [ ! -f "$COMPOSE" ]; then
 fi
 
 echo "==> Code nach ${SERVER}:${REMOTE_DIR} spiegeln"
-rsync -az --delete ${DRY_RUN} \
+rsync -az --delete --stats ${DRY_RUN} \
+  -e "${SSH_CMD}" \
   --exclude '.git/' \
   --exclude 'node_modules/' \
   --exclude '.next/' \
@@ -41,11 +50,15 @@ rsync -az --delete ${DRY_RUN} \
   --exclude 'coverage/' \
   --exclude 'logs/' \
   --exclude 'uploads/' \
+  --exclude 'app/generated/' \
   --exclude '.lh/' \
+  --exclude '.claude/' \
+  --exclude '.husky/' \
+  --exclude '.github/' \
+  --exclude 'design/' \
   --exclude '.env' \
   --exclude '.env.*' \
   --exclude 'docker-compose.override.yml' \
-  --exclude 'app/generated/' \
   ./ "${SERVER}:${REMOTE_DIR}/"
 
 if [ -n "$DRY_RUN" ]; then
@@ -54,10 +67,10 @@ if [ -n "$DRY_RUN" ]; then
 fi
 
 echo "==> Images auf dem Server bauen und starten"
-ssh "$SERVER" "cd ${REMOTE_DIR} && docker compose -f ${COMPOSE} --env-file .env up -d --build"
+${SSH_CMD} "$SERVER" "cd ${REMOTE_DIR} && docker compose -f ${COMPOSE} --env-file .env up -d --build"
 
 echo "==> Zustand"
-ssh "$SERVER" "cd ${REMOTE_DIR} && docker compose -f ${COMPOSE} ps --format '{{.Service}} {{.Status}}'"
+${SSH_CMD} "$SERVER" "cd ${REMOTE_DIR} && docker compose -f ${COMPOSE} ps --format '{{.Service}} {{.Status}}'"
 
 echo "==> Healthcheck ueber den Host"
-ssh "$SERVER" "curl -sI http://127.0.0.1:3021/health | head -1"
+${SSH_CMD} "$SERVER" "curl -sI http://127.0.0.1:3021/health | head -1"
