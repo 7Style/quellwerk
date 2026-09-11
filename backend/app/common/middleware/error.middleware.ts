@@ -54,13 +54,20 @@ export const errorMiddleware = (
     return;
   }
 
-  // Multipart/upload errors -> 400
+  // Multipart/upload errors. A file over the limit is 413 and not 400: the
+  // request was well formed, it was too big, and the UI shows a different
+  // message for the two (docs/SPEC.md, "Zahlen"). Everything else multer
+  // reports is a malformed request.
   if (error instanceof MulterError) {
-    res.status(400).json({
+    const tooLarge = error.code === 'LIMIT_FILE_SIZE';
+    const statusCode = tooLarge ? 413 : 400;
+    res.status(statusCode).json({
       error: {
-        code: 'UPLOAD_ERROR',
-        message: error.message,
-        statusCode: 400,
+        code: tooLarge ? 'FILE_TOO_LARGE' : 'UPLOAD_ERROR',
+        message: tooLarge
+          ? `That file is larger than ${Math.round(config.upload.maxFileSize / (1024 * 1024))} MB.`
+          : error.message,
+        statusCode,
         details: { field: error.field, multerCode: error.code },
         ...timestamp,
       },
@@ -68,13 +75,24 @@ export const errorMiddleware = (
     return;
   }
 
-  // Log the error
-  logger.error('Request error:', error, {
-    method: req.method,
-    url: req.originalUrl,
-    ip: req.ip,
-    userAgent: req.get('user-agent'),
-  });
+  // A refused request is not a failure of the server. A 404 for a notebook that
+  // is not yours and a 413 for a notebook that is full are the application
+  // working, and writing a stack trace for each one buries the 500 that
+  // actually needs reading. So: 5xx with the error and its stack, 4xx as one
+  // warning line with the code and nothing else.
+  const status =
+    error instanceof BaseException || isModuleException(error) ? error.statusCode : 500;
+  const where = { method: req.method, url: req.originalUrl, ip: req.ip };
+
+  if (status >= 500) {
+    logger.error('Request error:', error, { ...where, userAgent: req.get('user-agent') });
+  } else {
+    logger.warn('Request refused', {
+      ...where,
+      status,
+      code: error instanceof BaseException ? error.errorCode : error.name,
+    });
+  }
 
   // Normalize module and app exceptions into a consistent ErrorResponseDto
   if (error instanceof BaseException || isModuleException(error)) {

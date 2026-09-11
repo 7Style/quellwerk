@@ -218,7 +218,7 @@ Files: backend/app/modules/notebooks/*, backend/app/modules/sources/{controllers
 Test: `pnpm --filter @quellwerk/backend test -- notebooks sources.routes`
 Expected: 201 for a valid source, 413 with a readable message at the 51st source, at 20 MB and at 150K tokens.
 Box: 60
-Status: [ ]
+Status: [x]
 
 ### M2-T2 Ingest worker, artifact-request.ts and usage_log
 Goal: Adding a source runs an idempotent job chain that ends in a terminal status, and every model call it makes is priced into usage_log.

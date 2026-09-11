@@ -13,7 +13,13 @@ import { logger } from '../common/utils/logger.util.js';
 import { startupStatus } from '../common/utils/startup-status.util.js';
 import { config, env } from '../config/index.js';
 import { redis } from '../lib/redis.js';
-import { initSessionModule } from './session/index.js';
+import { prisma } from '../lib/prisma.js';
+import { AnthropicLlmAdapter, buildCountTokensRequest } from '../adapters/llm/index.js';
+import { models } from '../config/models.js';
+import { createUploadMiddleware } from '../common/middleware/upload.middleware.js';
+import { initSessionModule, sessionIdOf } from './session/index.js';
+import { initNotebooksModule } from './notebooks/index.js';
+import { initSourcesModule } from './sources/index.js';
 import { initAdminModule } from './admin/index.js';
 
 // Cross-module communication without imports between modules.
@@ -58,8 +64,48 @@ export async function registerModules(app: Express): Promise<void> {
     startupStatus.moduleFail('Admin', error);
   }
 
-  // notebooks and sources arrive in M2-T1, chat in M3-T3, notes in M5-T4,
-  // studio in M6-T1.
+  // The one place that knows about more than one module. Notebooks answers
+  // "may this session write here", sources asks it, and neither imports the
+  // other: the answer is handed over as a function.
+  const llm = new AnthropicLlmAdapter();
+
+  try {
+    const notebooks = initNotebooksModule(app, { prisma, sessionIdOf });
+    startupStatus.moduleOk('Notebooks');
+
+    initSourcesModule(app, {
+      prisma,
+      sessionIdOf,
+      notebooks: {
+        writable: async (notebookId, sessionId) =>
+          notebooks.service.writable(notebookId, sessionId),
+      },
+      tokens: {
+        // One source, counted as the API counts it. The notebook's total is
+        // the sum of these, kept as an increment on the row; counting the
+        // whole notebook again on every upload would cost a request the size
+        // of the notebook for a number that only moved by one document.
+        countTextTokens: async (title, text) =>
+          llm.countTokens(
+            buildCountTokensRequest({
+              model: models.chat,
+              sources: [{ id: 'pending', position: 1, title, kind: 'paste', text }],
+            })
+          ),
+      },
+      limits: {
+        maxSources: env.MAX_SOURCES_PER_NOTEBOOK,
+        maxTokens: env.MAX_TOKENS_PER_NOTEBOOK,
+      },
+      upload: createUploadMiddleware(),
+    });
+    startupStatus.moduleOk('Sources');
+  } catch (error) {
+    startupStatus.moduleFail('Notebooks/Sources', error);
+    throw error;
+  }
+
+  // chat arrives in M3-T3, notes in M5-T4, studio in M6-T1.
 
   logger.info('[Modules] All modules registered successfully');
   startupStatus.logSummary();
