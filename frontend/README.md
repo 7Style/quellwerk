@@ -73,4 +73,5 @@ docker build -f frontend/Dockerfile --build-arg NEXT_PUBLIC_API_URL=http://local
 
 Build-Kontext ist das Repo-Root (`.dockerignore` dort); der Runner startet
 `node server.js` aus dem Standalone-Output, Port `3000`, Interface über
-`HOSTNAME` (Compose: `0.0.0.0`, prod-native: `127.0.0.1`).
+`HOSTNAME` (`0.0.0.0`, also das Container-Netz; nach aussen sichtbar ist nur
+der veroeffentlichte Port, in Produktion auf 127.0.0.1 gebunden).

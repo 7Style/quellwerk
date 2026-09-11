@@ -6,8 +6,9 @@ import { closeRedis, connectRedis } from './lib/redis.js';
 import { config } from './config/index.js';
 
 const PORT = config.port;
-// HOST (env, default 0.0.0.0): 127.0.0.1 in deployment/prod-native, where the
-// container shares the host network and only the host Nginx may be public.
+// HOST (env, default 0.0.0.0): that is the container network, not the machine.
+// What faces the outside is decided by the published port, which is bound to
+// 127.0.0.1 in production so only the host Nginx can reach it.
 const HOST = config.host;
 
 async function startServer() {

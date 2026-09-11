@@ -37,9 +37,9 @@ Ein leerer Wert (`KEY=`) gilt als nicht gesetzt.
   `ENCRYPTION_KEY` (Secrets mindestens 32 Zeichen, `openssl rand -hex 32`).
   Ohne sie startet der Server nicht. `SESSION_SECRET` ist optional und wird
   nicht gelesen (express-session entfernt); wenn gesetzt, ebenfalls 32+ Zeichen.
-- Optional mit Default: `PORT` (3011), `HOST` (0.0.0.0; `127.0.0.1` in
-  `deployment/prod-native`), `TRUST_PROXY` (1 = hinter Nginx, 0 = direkt
-  erreichbar), `NODE_ENV`, `APP_NAME` (quellwerk), `RATE_LIMIT_*`,
+- Optional mit Default: `PORT` (3011), `HOST` (0.0.0.0, also das Container-Netz;
+  auf dem Host waere `127.0.0.1` richtig), `TRUST_PROXY` (1 = hinter Nginx,
+  0 = direkt erreichbar), `NODE_ENV`, `APP_NAME` (quellwerk), `RATE_LIMIT_*`,
   `LOG_LEVEL`, `UPLOAD_*`, `EMAIL_*`/`SMTP_*`/`BREVO_*`, `SEED_*`.
 - `CORS_ORIGIN` (kommagetrennt) ist optional ohne Default: ohne Wert sind nur
   die localhost-Ports in `development` erlaubt, in `production` also praktisch
