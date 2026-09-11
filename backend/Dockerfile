@@ -30,6 +30,10 @@ COPY backend/package.json backend/
 # see prisma.config.ts).
 COPY backend/prisma.config.ts backend/
 COPY backend/prisma backend/prisma
+# The demo notebook is seeded from these four files (M2-T5), so the seed needs
+# them inside the image. It is the same tree the golden set quotes; a second
+# copy of the text would let the demo and the evals drift apart.
+COPY backend/evals/corpus backend/evals/corpus
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --filter @quellwerk/backend...
 
@@ -77,6 +81,10 @@ COPY --from=build --chown=nodejs:nodejs /out/prisma.config.ts ./prisma.config.ts
 # runtime. They sit one level above the package root, so `../prompts` resolves
 # the same way in the image as it does from backend/ in a checkout.
 COPY --chown=nodejs:nodejs prompts /usr/src/prompts
+# The four corpus files the demo notebook is seeded from (M2-T5). Application
+# data like the prompts, not documentation: the seed reads them at runtime and
+# they are the same tree the golden set quotes.
+COPY --chown=nodejs:nodejs backend/evals/corpus ./evals/corpus
 COPY --chown=nodejs:nodejs backend/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 # logs/ and uploads/ (= UPLOAD_DIR) must be writable by the non-root user; a
 # named volume mounted on uploads/ inherits this ownership on first creation.

@@ -28,8 +28,9 @@ export const createPastedSourceSchema = z.object({
 
 export type CreatePastedSourceInput = z.infer<typeof createPastedSourceSchema>;
 
+/** Mirrors the notebooks module: a uuid, or the demo notebook's fixed id. */
 export const notebookIdParamSchema = z.object({
-  notebookId: z.uuid({ error: 'Not a notebook id.' }),
+  notebookId: z.union([z.uuid(), z.literal('demo')], { error: 'Not a notebook id.' }),
 });
 
 export interface SourceResponse {

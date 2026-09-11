@@ -25,9 +25,18 @@ export const createNotebookSchema = z.object({
 
 export type CreateNotebookInput = z.infer<typeof createNotebookSchema>;
 
-export const notebookIdSchema = z.object({
-  id: z.uuid({ error: 'Not a notebook id.' }),
+/**
+ * The demo notebook carries the fixed id `demo` (M2-T5), so a notebook id is a
+ * uuid or that one word. Without the exception `/n/demo` answers 400 and the
+ * link everybody is given is the one link that does not work.
+ */
+export const DEMO_NOTEBOOK_ID = 'demo';
+
+const notebookId = z.union([z.uuid(), z.literal(DEMO_NOTEBOOK_ID)], {
+  error: 'Not a notebook id.',
 });
+
+export const notebookIdSchema = z.object({ id: notebookId });
 
 /**
  * What a notebook looks like on the wire.

@@ -242,7 +242,7 @@ Files: backend/prisma/seed.ts, backend/scripts/recount-tokens.ts, backend/Docker
 Test: `pnpm db:seed && pnpm --filter @quellwerk/backend exec tsx scripts/recount-tokens.ts demo`
 Expected: the notebook has four ready sources and prints a token total under 150000, written into the document.
 Box: 30
-Status: [ ]
+Status: [x]
 
 Milestone end: deploy.
 

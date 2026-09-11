@@ -4,6 +4,6 @@
     "types": ["node", "jest"],
     "noEmit": true
   },
-  "include": ["app/**/*", "prisma/**/*", "prisma.config.ts", "evals/**/*"],
+  "include": ["app/**/*", "prisma/**/*", "prisma.config.ts", "evals/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"]
 }
