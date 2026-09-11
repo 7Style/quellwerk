@@ -12,7 +12,7 @@ Wants=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/local/sbin/quellwerk-firewall.sh
+ExecStart=/usr/local/bin/quellwerk-firewall.sh
 
 [Install]
 WantedBy=multi-user.target

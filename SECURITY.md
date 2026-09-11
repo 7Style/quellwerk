@@ -297,7 +297,7 @@ von selbst:
 ufw allow out to 172.30.0.0/24
 ```
 
-Alles andere steht in `/usr/local/sbin/quellwerk-firewall.sh`, ausgeführt von
+Alles andere steht in `/usr/local/bin/quellwerk-firewall.sh`, ausgeführt von
 `quellwerk-firewall.service` (`Type=oneshot`, `After=docker.service`,
 `Wants=docker.service`, `RemainAfterExit=yes`). Das Skript tut vier Dinge, jedes davon
 erst nach einer Prüfung mit `iptables -C`, damit ein zweiter Lauf nichts verdoppelt:
@@ -309,8 +309,12 @@ erst nach einer Prüfung mit `iptables -C`, damit ein zweiter Lauf nichts verdop
    und Firewall nie auseinanderlaufen
 3. `MASQUERADE` für dieses Subnetz nach draußen, weil Docker das mit abgeschalteten
    iptables nicht selbst anlegt
-4. zwei Regeln in `DOCKER-USER`: Egress vom Subnetz nach draußen erlauben, und die
-   Antworten mit `ESTABLISHED,RELATED` zurück
+4. zwei Regeln in `DOCKER-USER`, beide mit `-I DOCKER-USER 1` an den ANFANG der Kette:
+   Egress vom Subnetz nach draußen und die Antworten mit `ESTABLISHED,RELATED` zurück.
+   Niemals mit `-A`: am Ende von `DOCKER-USER` steht auf `intern` eine DROP-Regel von
+   orbynt für eingehendes TCP auf `ens192`, angehängte Regeln stünden dahinter und wären
+   wirkungslos. Kette und der Sprung aus `FORWARD` existieren dort bereits; das Skript
+   legt beides nur an, falls es fehlt.
 
 Von Hand gesetzte iptables-Regeln verschwinden beim Reboot; deshalb die Unit und nicht
 die Kommandozeile. Das Skript liegt unter `deployment/prod/firewall/` im Repository und
