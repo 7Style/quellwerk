@@ -267,8 +267,16 @@ dig +short quellwerk.7style.net                       # muss 217.160.14.35 zeige
 certbot certonly --webroot -w /var/www/html -d quellwerk.7style.net
 ```
 
-Dann den TLS-Block in `/etc/nginx/sites-available/quellwerk.conf` einkommentieren
-und `nginx -t && systemctl reload nginx`.
+Dann den TLS-Block in `/etc/nginx/sites-available/quellwerk.conf` einkommentieren,
+den Testblock auf `127.0.0.1:8081` **darüber löschen** und `nginx -t && systemctl
+reload nginx`.
+
+Der Testblock existiert nur, weil ohne Zertifikat der einzige aktive Block der auf
+Port 80 ist und der alles nach https umleitet. Es gäbe also keinen Weg, über den
+eine SSE-Antwort durch nginx läuft, und Buffering-Fehler zeigen sich nur dort. Er
+trägt dieselben Direktiven wie der 443-Block und hört ausschließlich auf dem
+Loopback; sobald der echte Block steht, ist er ein zweiter Pfad auf dieselbe
+Anwendung und gehört weg.
 
 Bewusst `certonly --webroot` und **nicht** `certbot --nginx`: der nginx-Installer
 baut den 443-Block, indem er den vorhandenen 80-Block dupliziert. Dieser enthält
