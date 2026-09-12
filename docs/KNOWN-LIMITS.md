@@ -224,3 +224,77 @@ Erzeugen von `seed-data/demo.json` haben zwei Läufe desselben Prompts über das
 Glossar verschiedene Antworten gegeben, einmal true und einmal false. Für ein
 Abzeichen in der Oberfläche wäre das zu wackelig, und wer es einbaut, braucht
 vorher eine Messung, nicht ein Feld.
+
+## Was am Ende des dritten Tages offen ist, und warum
+
+Eine Zeile je offener Box in docs/PLAN.md, damit niemand eine Lücke für ein
+Versehen hält. Was hier nicht steht, ist gebaut und getestet; was hier steht,
+ist entschieden und nicht gebaut.
+
+**Configure chat (M5-T2).** Stil, Länge und eigene Anweisungen gehen bereits
+durch den letzten Benutzerturn und sind im Cache-Beweis gemessen; der Dialog,
+mit dem ein Leser sie setzt, fehlt. Reihenfolge: der Weg, den ein Wert nimmt,
+war wichtiger als das Feld, in das man ihn tippt.
+
+**Notes (M5-T4).** "Save to note" und "Convert to source" stehen in SPEC.md und
+sind nicht gebaut. Eine Notiz ist ein zweiter Schreibpfad in ein Notizbuch, und
+die drei Tage sind in den ersten gegangen: Quellen, Antworten mit geprüften
+Belegen, Reports.
+
+**Trace-Toggle (M5-T5).** Die Zahlen dafür stehen vollständig in `usage_log` -
+Modell, Token, Cache, Latenz, Cent, verworfene Zitate, `stop_reason` - und die
+Antwort trägt sie bis in den Browser. Was fehlt, ist die Klappe, die sie
+anzeigt. Deshalb stehen sie in RESULTS.md und im README statt in der
+Oberfläche.
+
+**Verlauf löschen (M5-T5).** `threadResetAt` steht im Schema und wird von
+niemandem gelesen; ein eigenes Notizbuch behält seine zwanzig Turns, bis es
+selbst gelöscht wird.
+
+**CSRF-Middleware (M7-T1).** Geschützt ist heute über CORS mit Allowlist und
+`sameSite: 'lax'` auf dem Cookie; das ist für die schreibenden Routen eine
+Schicht zu wenig, und die fehlende Schicht ist eine Herkunftsprüfung, keine
+Bibliothek.
+
+**Copy-on-first-write (M7-T1).** Siehe oben, "Das Demo-Notizbuch wird nur
+gelesen".
+
+**Eingabehärtung und Security-Header (M7-T3).** Das Backend trägt helmet mit
+CSP, HSTS und `frame-ancestors 'none'`; das Frontend trägt seit M4 ganze
+Dokumente im DOM und hat noch keine eigenen Header. Die MIME-Prüfung am Inhalt
+und die SSRF-Prüfung fehlen ebenfalls - letztere fällt praktisch weg, weil es
+keine URL-Quellen gibt (siehe oben).
+
+**Der Aufräumer nach sieben Tagen (M7-T5).** Die Seite `/datenschutz` steht und
+sagt selbst, dass er nicht läuft: gelöscht wird derzeit von Hand. Eine
+Löschfunktion für den Leser gibt es auch nicht. Das ist die eine offene Box, die
+einem Besucher etwas verspricht, und deshalb verspricht die Seite es nicht.
+
+**DEMO_OFFLINE (M8-T1).** Der Schalter, der den Chat aus aufgezeichneten
+Antworten bedienen würde, ist nicht gebaut. Er existiert für eine Maschine ohne
+Schlüssel; die Vorführung läuft gegen den Server mit Schlüssel, und ein Schalter
+für den Notfall, den niemand geprüft hat, ist selbst ein Notfall.
+
+**Rauchtest und Kaltstart (M8-T4).** Die Messung an der Produktions-URL im
+README ist ein Lauf von Hand. Das Skript, das sie wiederholbar macht, und die
+Kaltstartzahl nach einer stillen Stunde fehlen.
+
+**Sicherung (M8-T6).** `deployment/prod/backup.sh` und die Cron-Zeile liegen im
+Repository, eingerichtet ist sie auf dem Server nicht, und wiederhergestellt hat
+noch niemand etwas. Eine Sicherung, die keiner zurückgespielt hat, ist eine
+Hoffnung; der Eintrag oben über Dateien und Datenbank beschreibt, was sie
+umfassen wird, nicht was heute läuft.
+
+**Actions und GHCR (M8-T5).** Deployt wird über `deployment/prod/deploy.sh` von
+Hand, und DEPLOY.md beschreibt diesen Weg als den gelieferten. Die Aufgabe hing
+immer daran, ob am Ende ein Repository existiert.
+
+**Abschlusslauf (M9-T1).** Der Held-out-Split ist ungemessen, und damit fehlen
+im README der Durchschnitt je Antwort und die zweite Modellzeile. Er wird einmal
+gemessen, und einmal heißt: nicht vor dem Ende.
+
+**M8-T3, die Box, die falsch offen steht.** Der erste Deploy von Hand ist
+passiert, die Seite läuft, DEPLOY.md ist mitgeschrieben worden. Offen ist daran
+nur noch das Aufräumen der Vorlagen-Reste, das die Aufgabe hinten anhängt. Eine
+Box, die offen steht, obwohl die Sache erledigt ist, ist die harmlose Richtung
+des Fehlers - die andere wäre ein Häkchen an etwas, das niemand ausgeführt hat.

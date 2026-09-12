@@ -77,11 +77,16 @@ gerechnet mit den Preisen aus `backend/app/config/prices.ts`:
 |---|---|---|---|
 | erste Frage einer Stunde | 21 Token | schreibt 76.239 | 0,76 $ |
 | jede weitere Frage | 23 Token | liest 76.239 | 0,04 $ |
-| Frage nach "Configure chat" | 42 Token | liest 76.239 | 0,04 $ |
+| Frage mit Stil- und Längenvorgabe | 42 Token | liest 76.239 | 0,04 $ |
 | ein Report | 601 Token | liest 76.239 | 0,04 $ |
 
 Der gecachte Präfix ist größer als die Summe der Quellen (63.431 Token), weil
 der Systemblock und die Rahmen der Dokumentblöcke mitzählen.
+
+Die dritte Zeile prüft eine Regel, nicht eine Funktion: Stil und Länge gehen in
+den letzten Benutzerturn, hinter den Cache-Punkt, und nicht in den Systemblock
+davor. Der Dialog, mit dem ein Leser sie setzt, ist offen (M5-T2) -- der Weg,
+den die Werte nehmen, steht und ist gemessen.
 
 Die Spalte ist die Eingabeseite; die Ausgabe kommt mit 25 $ je Million Token
 dazu und ist das, was sich zwischen einer Antwort und einem Report
@@ -127,6 +132,12 @@ Die Langfassung steht in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md).
 Was fertig ist, steht als abgehakte Aufgabe in
 [docs/PLAN.md](docs/PLAN.md); dort steht auch, was ein Meilenstein jeweils
 beweisen musste, und was offen ist, steht als offene Box.
+
+Jede offene Box hat eine Zeile am Ende von
+[docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md), die sagt, warum sie offen ist.
+Dreizehn davon sind es am Ende des dritten Tages, und die Liste ist der Teil der
+Dokumentation, den ich zuletzt geschrieben habe: sie ist leichter zu schreiben,
+solange der Grund noch stimmt.
 
 ## Dienste und Ports
 
