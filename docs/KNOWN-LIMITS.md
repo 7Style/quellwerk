@@ -96,27 +96,38 @@ dessen Antwort auftauchen. Lieber kein Gedächtnis als das Gedächtnis eines
 anderen. In den eigenen Notizbüchern gilt die Grenze nicht; dort sind es zwanzig
 Turns.
 
-Aufgehoben würde das mit Copy-on-first-write: der erste Schreibzugriff kopiert
-das Demo-Notizbuch in die eigene Sitzung, und ab da wäre es ein normales
-Notizbuch mit Verlauf. Gebaut ist es nicht (M7-T1, offene Box).
+Aufgehoben wird das mit Copy-on-first-write, und das ist gebaut: wer im
+Demo-Notizbuch eine Quelle hinzufügt oder einen Report bestellt, bekommt eine
+Kopie in der eigenen Sitzung, und die hat einen Verlauf wie jedes eigene
+Notizbuch. Nur die Frage allein löst das nicht aus — sie legt nichts an, und
+eine Kopie je Frage wäre ein Notizbuch je Besucher, der einmal etwas wissen
+wollte.
 
-## Das Demo-Notizbuch wird nur gelesen
+## Das Demo-Notizbuch wird gelesen, und beim ersten Schreiben kopiert
 
 Es steht in der Liste jedes Besuchers und trägt dort "Read-only example". Lesen,
-Quellen öffnen, Fragen stellen, Reports ansehen: alles. Quellen hinzufügen,
-umbenennen, löschen, einen Report bestellen: nichts davon, und zwar nicht aus
-Versehen. Das Notizbuch gehört keiner Sitzung, ein Schreibzugriff darin wäre
-also eine Änderung an dem, was alle anderen sehen — und die Kosten trüge das
-Tagesbudget der Demo, ausgelöst von jemandem, der nur geklickt hat.
+Quellen öffnen, Fragen stellen, Reports ansehen: alles, und nichts davon
+verändert es.
 
-`NotebookService.writable` gibt darauf 404 und nicht 403, dieselbe Antwort wie
-für ein fremdes Notizbuch: eine ID zu bestätigen ist eine Auskunft. Ein eigenes
-Notizbuch ist einen Klick entfernt und dort gilt nichts davon.
+Wer darin etwas anlegt — eine Quelle hinzufügt oder einen Report bestellt —,
+schreibt nicht in das Original. Der erste solche Zugriff legt eine Kopie in der
+eigenen Sitzung an, der Schreibzugriff landet dort, und die Oberfläche wechselt
+in die Kopie (Copy-on-first-write, `notebooks/internal/copy-on-write.ts`). Ab
+da ist es ein normales Notizbuch: mit Verlauf, beschreibbar, in keiner fremden
+Liste. Kopiert werden Notizbuch und Quellen mitsamt Text, Seitenkarte, Guide und
+gemessenen Token — nicht die Reports und nicht die Turns, denn ein Report, den
+jemand anderes bestellt hat, gehört nicht in die eigene Arbeitsfläche.
 
-Der Weg, der beides hätte, ist Copy-on-first-write: beim ersten Schreibzugriff
-eine Kopie in der eigenen Sitzung anlegen und in ihr weiterarbeiten. Das ist
-eine Entscheidung über Eigentum und Kosten (vier Quellen kopieren heißt 63.000
-Token kopieren) und keine, die neben dem Video getroffen wird.
+Einmal je Sitzung, nicht einmal je Schreibzugriff: zwei Uploads hintereinander
+sind ein Notizbuch mit zwei Quellen. `clonedFrom` auf der Kopie ist die Stelle,
+an der das steht.
+
+Zwei Grenzen bleiben. Eine Frage ist kein Schreibzugriff, also kopiert sie
+nichts, und der Chat im Demo-Notizbuch bleibt ohne Gedächtnis (siehe oben);
+wer den Verlauf will, legt eine Quelle dazu oder ein eigenes Notizbuch an. Und
+eine Kopie kostet Platz: vier Quellen sind rund 145.000 Zeichen in der
+Datenbank. Solange der Aufräumer aus M7-T5 nicht läuft, bleibt jede Kopie
+liegen, die je entstanden ist.
 
 ## Das Tagesbudget ist eine Schranke, kein Zähler in Echtzeit
 
@@ -254,10 +265,13 @@ selbst gelöscht wird.
 **CSRF-Middleware (M7-T1).** Geschützt ist heute über CORS mit Allowlist und
 `sameSite: 'lax'` auf dem Cookie; das ist für die schreibenden Routen eine
 Schicht zu wenig, und die fehlende Schicht ist eine Herkunftsprüfung, keine
-Bibliothek.
+Bibliothek. Das ist der Grund, warum die Box von M7-T1 offen steht, obwohl
+Copy-on-first-write darin erledigt ist.
 
-**Copy-on-first-write (M7-T1).** Siehe oben, "Das Demo-Notizbuch wird nur
-gelesen".
+**Die Sitzungshärtung (M7-T1).** Das Cookie ist `httpOnly`, `sameSite: 'lax'`,
+`secure` in Produktion und rollierend, und ein fremdes Notizbuch antwortet 404
+statt 403. Was die Aufgabe darüber hinaus vorsieht — ein eigenes Modul mit
+Tests für genau diese Zusicherungen — steht nicht.
 
 **Eingabehärtung und Security-Header (M7-T3).** Das Backend trägt helmet mit
 CSP, HSTS und `frame-ancestors 'none'`; das Frontend trägt seit M4 ganze

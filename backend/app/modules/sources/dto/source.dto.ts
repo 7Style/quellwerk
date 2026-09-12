@@ -55,6 +55,15 @@ export function toSourceTextResponse(row: SourceRow & { text: string }): SourceT
 
 export interface SourceResponse {
   id: string;
+  /**
+   * Das Notizbuch, in dem diese Quelle liegt.
+   *
+   * Steht hier, weil es nicht immer das ist, an das die Anfrage ging: eine
+   * Quelle, die im Demo-Notizbuch hinzugefügt wird, landet in einer Kopie, die
+   * der eigenen Sitzung gehört (Copy-on-first-write, M7-T1). Die Oberfläche
+   * vergleicht diese Id mit der Adresse und wechselt, wenn sie abweicht.
+   */
+  notebookId: string;
   position: number;
   title: string;
   kind: string;
@@ -74,6 +83,7 @@ export interface SourceResponse {
 export function toSourceResponse(row: SourceRow): SourceResponse {
   return {
     id: row.id,
+    notebookId: row.notebookId,
     position: row.position,
     title: row.title,
     kind: row.kind,

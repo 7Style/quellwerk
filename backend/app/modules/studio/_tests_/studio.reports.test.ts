@@ -22,6 +22,8 @@ import type {
 } from '../interfaces/studio.repository.js';
 
 const NOTEBOOK = '00000000-0000-4000-8000-000000000001';
+/** Das Notizbuch, das keiner Sitzung gehört und beim Schreiben kopiert wird. */
+const DEMO = 'demo';
 
 class InMemoryArtifacts implements StudioRepository {
   readonly rows: ArtifactWithBody[] = [];
@@ -99,6 +101,13 @@ const notebooks: NotebookAccess = {
     sessionId === 'session-a' ? { id: notebookId } : notFound(),
   writable: async (notebookId, sessionId) =>
     sessionId === 'session-a' ? { id: notebookId } : notFound(),
+  // Wie im echten Modul: das Demo-Notizbuch wird beim Schreiben kopiert, und
+  // der Aufrufer bekommt die Kopie zurück. `DEMO` ist hier die eine Id, die
+  // jeder Sitzung gehört, sobald sie hineinschreibt.
+  writableOrCopy: async (notebookId, sessionId) => {
+    if (notebookId === DEMO) return { id: `copy-of-demo-for-${sessionId}` };
+    return sessionId === 'session-a' ? { id: notebookId } : notFound();
+  },
 };
 
 let repository: InMemoryArtifacts;
@@ -214,6 +223,29 @@ describe('asking for a report', () => {
       statusCode: 404,
       errorCode: 'NOTEBOOK_NOT_FOUND',
     });
+  });
+
+  it('puts a report asked for in the demo notebook into the copy', async () => {
+    // Copy-on-first-write (M7-T1): das Demo-Notizbuch gehoert keiner Sitzung,
+    // ein Report darin waere ein Report in fremder Arbeit.
+    const service = serviceFor();
+
+    const { artifact } = await service.request(DEMO, 'visitor', {
+      format: 'briefing',
+      focus: '',
+    });
+
+    expect(artifact.notebookId).toBe('copy-of-demo-for-visitor');
+    expect(enqueued[0].notebookId).toBe('copy-of-demo-for-visitor');
+  });
+
+  it('does not copy the demo notebook to retry a report it cannot hold', async () => {
+    const service = serviceFor();
+
+    await expect(service.retry(DEMO, 'any-artifact', 'visitor')).rejects.toMatchObject({
+      errorCode: 'NOTEBOOK_NOT_FOUND',
+    });
+    expect(repository.rows).toHaveLength(0);
   });
 
   it('reuses the row when a failed report is asked for again', async () => {

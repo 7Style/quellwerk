@@ -66,7 +66,10 @@ export class StudioService {
     sessionId: string,
     input: { format: ReportFormat; focus: string }
   ): Promise<{ artifact: ArtifactRow; created: boolean }> {
-    await this.deps.notebooks.writable(notebookId, sessionId);
+    // Die Prüfung zuerst, und die Id, die sie zurückgibt, gilt ab hier: im
+    // Demo-Notizbuch ist das eine Kopie dieser Sitzung, und der Report gehört
+    // in die Kopie (M7-T1). Die Route gibt die Id mit der Antwort zurück.
+    const { id: target } = await this.deps.notebooks.writableOrCopy(notebookId, sessionId);
 
     if (FORMATS[input.format].needsFocus && input.focus.trim().length === 0) {
       throw Object.assign(new Error('Describe the report you want.'), {
@@ -80,14 +83,14 @@ export class StudioService {
     await this.deps.assertBudgetLeft();
 
     const result = await this.deps.repository.createOrGet({
-      notebookId,
+      notebookId: target,
       type: 'report',
       idempotencyKey: reportKey(input.format, input.focus),
       params: { format: input.format, focus: input.focus.trim() },
     });
 
     if (result.created) {
-      await this.deps.enqueueReport({ artifactId: result.artifact.id, notebookId });
+      await this.deps.enqueueReport({ artifactId: result.artifact.id, notebookId: target });
     }
 
     return result;

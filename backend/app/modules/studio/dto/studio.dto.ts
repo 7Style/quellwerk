@@ -30,6 +30,15 @@ export type CreateReportInput = z.infer<typeof createReportSchema>;
 
 export interface ReportResponse {
   id: string;
+  /**
+   * Das Notizbuch, in dem dieser Report liegt.
+   *
+   * Nicht immer das, an das die Anfrage ging: ein Report, der im
+   * Demo-Notizbuch bestellt wird, entsteht in einer Kopie, die der eigenen
+   * Sitzung gehört (Copy-on-first-write, M7-T1). Die Oberfläche vergleicht die
+   * Id mit der Adresse und wechselt, wenn sie abweicht.
+   */
+  notebookId: string;
   type: string;
   format: string;
   focus: string;
@@ -43,6 +52,7 @@ export interface ReportResponse {
 export function toReportResponse(row: ArtifactRow): ReportResponse {
   return {
     id: row.id,
+    notebookId: row.notebookId,
     type: row.type,
     format: row.params?.format ?? 'briefing',
     focus: row.params?.focus ?? '',

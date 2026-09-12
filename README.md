@@ -130,11 +130,11 @@ Die Langfassung steht in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md).
 - **Keine Konten.** Ein Notizbuch hängt an einer anonymen Session im Cookie; ein
   Login vor der ersten Frage hätte die Demo teurer gemacht als das Produkt
   (ADR-0005).
-- **Das Demo-Notizbuch wird nur gelesen.** Es gehört keiner Session, also würde
-  ein Schreibzugriff darin die Arbeit von Fremden verändern.
-- **Kein Gedächtnis im Demo-Notizbuch.** Aus demselben Grund: ein gespeicherter
-  Verlauf wäre der Verlauf von Fremden, und die Frage von A stünde im Prompt
-  von B.
+- **Kein Gedächtnis im Demo-Notizbuch.** Es gehört keiner Session, ein
+  gespeicherter Verlauf wäre also der Verlauf von Fremden, und die Frage von A
+  stünde im Prompt von B. Wer eine Quelle hinzufügt oder einen Report bestellt,
+  bekommt eine Kopie in der eigenen Sitzung und darin einen Verlauf
+  (Copy-on-first-write); eine Frage allein löst das nicht aus.
 
 ## Stand
 

@@ -4,6 +4,14 @@ import type { SourceSummary } from '../types/source';
 /** `SourceResponse` from backend/app/modules/sources/dto/source.dto.ts. */
 interface SourceApiRow {
   id: string;
+  /**
+   * Das Notizbuch, in dem die Quelle liegt.
+   *
+   * Nicht immer das, an das die Anfrage ging: eine Quelle, die im
+   * Demo-Notizbuch hinzugefügt wird, landet in einer Kopie der eigenen Sitzung
+   * (Copy-on-first-write, M7-T1). Die Route vergleicht und wechselt dorthin.
+   */
+  notebookId: string;
   position: number;
   title: string;
   kind: string;
@@ -88,8 +96,18 @@ export const sourcesApi = baseApi.injectEndpoints({
         url: `/api/notebooks/${notebookId}/sources`,
         body: { kind: 'paste', title, text },
       }),
-      invalidatesTags: (_result, _error, { notebookId }) => [
+      // Keine Umwandlung: eine angelegte Ressource kommt bar zurueck, eine
+      // Sammlung unter einem Schluessel (`notebooks.api.ts` nennt die Regel).
+      // Das steht hier, weil die Fixture es eine Weile anders hatte und die
+      // erste Fassung dieser Zeile sich nach der Fixture gerichtet hat statt
+      // nach dem Server -- gefunden gegen den laufenden Stack, nicht im Test.
+      invalidatesTags: (result, _error, { notebookId }) => [
         { type: 'Source' as const, id: notebookId },
+        // Auch die Liste der Kopie, wenn eine entstanden ist: sonst zeigt das
+        // Notizbuch, in das gewechselt wird, eine Liste ohne die neue Quelle.
+        ...(result && result.notebookId !== notebookId
+          ? [{ type: 'Source' as const, id: result.notebookId }]
+          : []),
         'Notebook',
       ],
     }),
@@ -100,8 +118,11 @@ export const sourcesApi = baseApi.injectEndpoints({
         body.append('file', file);
         return { method: 'POST', url: `/api/notebooks/${notebookId}/sources`, body };
       },
-      invalidatesTags: (_result, _error, { notebookId }) => [
+      invalidatesTags: (result, _error, { notebookId }) => [
         { type: 'Source' as const, id: notebookId },
+        ...(result && result.notebookId !== notebookId
+          ? [{ type: 'Source' as const, id: result.notebookId }]
+          : []),
         'Notebook',
       ],
     }),

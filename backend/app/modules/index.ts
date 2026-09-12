@@ -163,6 +163,11 @@ export async function registerModules(app: Express): Promise<void> {
       notebooks: {
         readable: async (notebookId, sessionId) =>
           notebooks.service.readable(notebookId, sessionId),
+        // Ein bestellter Report darf das Demo-Notizbuch kopieren, ein
+        // "nochmal versuchen" nicht: es braucht die Zeile, die es dort nicht
+        // gibt (M7-T1).
+        writableOrCopy: async (notebookId, sessionId) =>
+          notebooks.service.writableOrCopy(notebookId, sessionId),
         writable: async (notebookId, sessionId) =>
           notebooks.service.writable(notebookId, sessionId),
       },

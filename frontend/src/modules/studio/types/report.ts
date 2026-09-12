@@ -27,6 +27,14 @@ export type ReportStatus = 'queued' | 'running' | 'ready' | 'failed';
 
 export interface ReportSummary {
   id: string;
+  /**
+   * Das Notizbuch, in dem der Report liegt.
+   *
+   * Nicht immer das, an das die Anfrage ging: ein Report, der im
+   * Demo-Notizbuch bestellt wird, entsteht in einer Kopie der eigenen Sitzung
+   * (Copy-on-first-write, M7-T1). Die Route vergleicht und wechselt dorthin.
+   */
+  notebookId: string;
   format: ReportFormat;
   focus: string;
   title: string | null;

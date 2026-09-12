@@ -443,6 +443,7 @@ Goal: Foreign notebooks are invisible, cross-site writes are refused, the demo n
 Files: backend/app/modules/session/internal/*, backend/app/common/middleware/csrf.middleware.ts, backend/app/modules/notebooks/internal/copy-on-write.ts
 Test: `pnpm --filter @quellwerk/backend test -- session.hardening csrf copy-on-write`
 Expected: a foreign notebook returns 404 and not 403, a cross-site Origin returns 403, the first write to `demo` creates a copy and leaves the original untouched.
+Result: copy-on-first-write is done and tested (`pnpm --filter @quellwerk/backend test -- copy-on-write`, 14 cases): a write that creates something copies the demo notebook into the caller's session once per session, the original stays untouched, the route answers with the new notebook id and the interface follows it. The 404-not-403 rule was already in place and is asserted there too. **The box stays open for the other two thirds**: there is no CSRF middleware (CORS allowlist and `sameSite: 'lax'` are what guard a write today) and no session-hardening module with tests of its own. Both have a line in docs/KNOWN-LIMITS.md.
 Box: 45
 Status: [ ]
 

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,27 @@ export interface NotebookWorkspaceProps {
  * both and neither knows about the other.
  */
 export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
+  const router = useRouter();
+
+  /**
+   * Der Wechsel in die Kopie, nachdem im Demo-Notizbuch geschrieben wurde.
+   *
+   * Der Server entscheidet das, nicht die Oberfläche: das Demo-Notizbuch gehört
+   * keiner Sitzung, also legt der erste Schreibzugriff eine Kopie an und
+   * antwortet mit deren Id (Copy-on-first-write, M7-T1). Hier wird nur
+   * verglichen und gewechselt -- ohne das stünde die neue Quelle in einem
+   * Notizbuch, das der Leser nicht offen hat.
+   *
+   * `replace` und nicht `push`: der Zurück-Knopf soll nicht auf die Adresse
+   * führen, in der der Schreibzugriff gerade nicht gelandet ist.
+   */
+  function followCopy(target: string | undefined): void {
+    // Ohne Id wird nicht gewechselt. Eine Antwort ohne `notebookId` kommt von
+    // einem Server, der aelter ist als dieses Feld, und `/n/undefined` waere
+    // schlimmer als ein Wechsel, der ausbleibt.
+    if (target && target !== notebookId) router.replace(`/n/${target}`);
+  }
+
   const notebook = useGetNotebookQuery(notebookId);
   const sources = useListSourcesQuery(notebookId);
   const history = useListMessagesQuery(notebookId);
@@ -202,13 +224,16 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
               onAddPaste={(input) =>
                 addPaste({ notebookId, ...input })
                   .unwrap()
-                  .then(() => undefined)
+                  .then((source) => {
+                    followCopy(source.notebookId);
+                  })
               }
               onAddFiles={async (files) => {
                 // One after another, so the first refusal is the one shown and
                 // the rest are not queued behind a full notebook.
                 for (const file of files) {
-                  await uploadSource({ notebookId, file }).unwrap();
+                  const source = await uploadSource({ notebookId, file }).unwrap();
+                  followCopy(source.notebookId);
                 }
               }}
             />
@@ -271,7 +296,11 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
             onRequest={(input) =>
               requestReport({ notebookId, ...input })
                 .unwrap()
-                .then(() => undefined)
+                .then((report) => {
+                  // Ein Report im Demo-Notizbuch entsteht in der Kopie, und der
+                  // Leser soll dort zusehen, wie er geschrieben wird.
+                  followCopy(report.notebookId);
+                })
             }
             onOpen={setOpenReportId}
             onRetry={(reportId) =>

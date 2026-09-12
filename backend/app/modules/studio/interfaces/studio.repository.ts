@@ -56,6 +56,21 @@ export interface ReadableNotebook {
 export interface NotebookAccess {
   /** The notebook when this session may read it, otherwise a throw (404). */
   readable(notebookId: string, sessionId: string): Promise<ReadableNotebook>;
-  /** The notebook when this session may write to it. Reports are writes. */
+  /**
+   * Das Notizbuch, in das dieser Report gehört. Ein Report ist ein
+   * Schreibzugriff.
+   *
+   * **Nicht unbedingt das Notizbuch, nach dem gefragt wurde.** Beim
+   * Demo-Notizbuch entsteht hier eine Kopie in der eigenen Sitzung, und der
+   * Report gehört in die Kopie (M7-T1). Ab hier gilt `notebook.id`.
+   */
+  writableOrCopy(notebookId: string, sessionId: string): Promise<ReadableNotebook>;
+  /**
+   * Wie oben, ohne Kopie: für einen Schreibzugriff, der nichts anlegen kann.
+   *
+   * Das ist "nochmal versuchen". Es braucht die Zeile, um die es geht, und im
+   * Demo-Notizbuch gibt es keine - eine Kopie dafür wäre ein leeres Notizbuch
+   * und danach ein 404 auf den Report.
+   */
   writable(notebookId: string, sessionId: string): Promise<ReadableNotebook>;
 }

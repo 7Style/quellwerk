@@ -72,6 +72,28 @@ test.describe('the source list', () => {
   });
 });
 
+test.describe('writing in the demo notebook', () => {
+  test('lands in a copy of this session, and the reader goes with it', async ({ page }) => {
+    // Copy-on-first-write (M7-T1). Das Demo-Notizbuch gehoert keiner Sitzung:
+    // der Server legt beim ersten Schreibzugriff eine Kopie an und antwortet
+    // mit deren Id, und die Oberflaeche wechselt dorthin. Ohne diesen Wechsel
+    // haette der Leser gerade eine Quelle in ein Notizbuch geschrieben, das er
+    // nicht offen hat.
+    await page.goto('/n/demo');
+    await expect(page.getByTestId('overview')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Add source' }).click();
+    await page.getByRole('tab', { name: 'Paste text' }).click();
+    await page.getByLabel('Title').fill('Meine Notiz');
+    await page.getByLabel('Text').fill('Artikel 9 verlangt ein Risikomanagementsystem.');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+    await expect(page).toHaveURL(/\/n\/3f1b0a3c-1f2e-4c3a-9a1b-0000000000c0$/);
+    // Und die Kopie ist ein normales Notizbuch: die Marke des Demos ist weg.
+    await expect(page.getByTestId('demo-badge')).toHaveCount(0);
+  });
+});
+
 test.describe('the Add sources dialog', () => {
   test('opens on Add source and closes on Escape', async ({ page }) => {
     await expect(page.getByRole('dialog')).toHaveCount(0);

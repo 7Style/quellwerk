@@ -18,6 +18,10 @@ import type { Page } from '@playwright/test';
  */
 
 export const NOTEBOOK_ID = '3f1b0a3c-1f2e-4c3a-9a1b-000000000001';
+/** Das Notizbuch, das keiner Sitzung gehoert (M8-T1). */
+export const DEMO_ID = 'demo';
+/** Die Kopie, die der erste Schreibzugriff darin anlegt (M7-T1). */
+export const COPY_ID = '3f1b0a3c-1f2e-4c3a-9a1b-0000000000c0';
 
 const REGULATION = `Article 9
 Risk management system
@@ -51,6 +55,7 @@ const TEXTS: Record<string, string> = { s1: REGULATION, s2: FAQ };
 const SOURCES = [
   {
     id: 's1',
+    notebookId: NOTEBOOK_ID,
     position: 1,
     title: 'Regulation (EU) 2024/1689, Chapter III (excerpt)',
     kind: 'pdf',
@@ -63,6 +68,7 @@ const SOURCES = [
   },
   {
     id: 's2',
+    notebookId: NOTEBOOK_ID,
     position: 2,
     title: 'Commission Q&A on high-risk AI systems',
     kind: 'md',
@@ -75,6 +81,7 @@ const SOURCES = [
   },
   {
     id: 's3',
+    notebookId: NOTEBOOK_ID,
     position: 3,
     title: 'Internal memo: readiness gaps in the triage model',
     kind: 'paste',
@@ -87,6 +94,7 @@ const SOURCES = [
   },
   {
     id: 's4',
+    notebookId: NOTEBOOK_ID,
     position: 4,
     title: 'Board minutes, March 2024.pdf',
     kind: 'pdf',
@@ -300,6 +308,7 @@ function reports() {
     ...REPORTS,
     {
       id: 'r-writing',
+      notebookId: NOTEBOOK_ID,
       type: 'report',
       format: 'faq',
       focus: '',
@@ -313,6 +322,7 @@ function reports() {
       // Custom on purpose: it is the one format the panel never counts as
       // written, so this row does not take the offer away from another test.
       id: 'r-stalled',
+      notebookId: NOTEBOOK_ID,
       type: 'report',
       format: 'custom',
       focus: 'Only the deadlines, one page',
@@ -328,6 +338,7 @@ function reports() {
 const REPORTS = [
   {
     id: 'r-ready',
+    notebookId: NOTEBOOK_ID,
     type: 'report',
     format: 'briefing',
     focus: '',
@@ -339,6 +350,7 @@ const REPORTS = [
   },
   {
     id: 'r-failed',
+    notebookId: NOTEBOOK_ID,
     type: 'report',
     format: 'timeline',
     focus: '',
@@ -417,6 +429,50 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
     if (path === '/api/notebooks') {
       return route.fulfill(json({ notebooks: NOTEBOOKS }));
     }
+
+    /*
+     * Copy-on-first-write (M7-T1), wie der Server es macht: das Demo-Notizbuch
+     * liest sich fuer jeden, und der erste Schreibzugriff antwortet mit einer
+     * Quelle, die in einer Kopie liegt. Die Oberflaeche hat nur eine Aufgabe
+     * dabei - die Id vergleichen und dorthin wechseln.
+     */
+    if (path === `/api/notebooks/${DEMO_ID}`) {
+      return route.fulfill(json(NOTEBOOKS[2]));
+    }
+    if (path === `/api/notebooks/${DEMO_ID}/sources`) {
+      if (route.request().method() === 'POST') {
+        // Bar und nicht unter einem Schluessel, wie die Route: eine angelegte
+        // Ressource kommt bar zurueck (sources.controller.ts).
+        return route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ ...SOURCES[0], id: 's-new', notebookId: COPY_ID }),
+        });
+      }
+      return route.fulfill(json({ sources: SOURCES }));
+    }
+    if (path === `/api/notebooks/${DEMO_ID}/messages`) {
+      return route.fulfill(json({ messages: [] }));
+    }
+    if (path === `/api/notebooks/${DEMO_ID}/reports`) {
+      return route.fulfill(json({ reports: [] }));
+    }
+
+    // Das Ziel des Wechsels: ein eigenes Notizbuch, mit derselben Quellenliste
+    // und ohne die Marke "Read-only example".
+    if (path === `/api/notebooks/${COPY_ID}`) {
+      return route.fulfill(json({ ...NOTEBOOKS[2], id: COPY_ID, isDemo: false }));
+    }
+    if (path === `/api/notebooks/${COPY_ID}/sources`) {
+      return route.fulfill(json({ sources: SOURCES }));
+    }
+    if (path === `/api/notebooks/${COPY_ID}/messages`) {
+      return route.fulfill(json({ messages: [] }));
+    }
+    if (path === `/api/notebooks/${COPY_ID}/reports`) {
+      return route.fulfill(json({ reports: [] }));
+    }
+
     if (path === `/api/notebooks/${NOTEBOOK_ID}`) {
       return route.fulfill(json(NOTEBOOKS[0]));
     }
@@ -440,6 +496,7 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
           body: JSON.stringify({
             report: {
               id: `r-new-${asked.format}`,
+              notebookId: NOTEBOOK_ID,
               type: 'report',
               format: asked.format,
               focus: '',
