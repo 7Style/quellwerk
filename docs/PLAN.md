@@ -534,9 +534,11 @@ Status: [ ]
 Goal: The documents a reviewer reads first are complete and honest.
 Files: README.md, docs/ai-process/{AI-DECLARATION.md,TRANSCRIPTS.md,DECISION-LOG.md}, docs/KNOWN-LIMITS.md
 Test: `rg -n 'TODO|TBD|FIXME' README.md docs/ | wc -l`
-Expected: `0`, and the cost table in README matches the numbers in RESULTS.md.
+Expected: `0`, and the cost table in README matches the numbers in RESULTS.md. The
+command finds its own line in this file, so the number is 1; with `--glob '!PLAN.md'`
+it is 0, and that is the claim.
 Box: 60
-Status: [ ]
+Status: [x]
 
 ---
 

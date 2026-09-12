@@ -96,9 +96,27 @@ dessen Antwort auftauchen. Lieber kein Gedächtnis als das Gedächtnis eines
 anderen. In den eigenen Notizbüchern gilt die Grenze nicht; dort sind es zwanzig
 Turns.
 
-Aufgehoben wird das mit Copy-on-first-write (M7-T1): der erste Schreibzugriff
-kopiert das Demo-Notizbuch in die eigene Sitzung, und ab da ist es ein normales
-Notizbuch mit Verlauf.
+Aufgehoben würde das mit Copy-on-first-write: der erste Schreibzugriff kopiert
+das Demo-Notizbuch in die eigene Sitzung, und ab da wäre es ein normales
+Notizbuch mit Verlauf. Gebaut ist es nicht (M7-T1, offene Box).
+
+## Das Demo-Notizbuch wird nur gelesen
+
+Es steht in der Liste jedes Besuchers und trägt dort "Read-only example". Lesen,
+Quellen öffnen, Fragen stellen, Reports ansehen: alles. Quellen hinzufügen,
+umbenennen, löschen, einen Report bestellen: nichts davon, und zwar nicht aus
+Versehen. Das Notizbuch gehört keiner Sitzung, ein Schreibzugriff darin wäre
+also eine Änderung an dem, was alle anderen sehen — und die Kosten trüge das
+Tagesbudget der Demo, ausgelöst von jemandem, der nur geklickt hat.
+
+`NotebookService.writable` gibt darauf 404 und nicht 403, dieselbe Antwort wie
+für ein fremdes Notizbuch: eine ID zu bestätigen ist eine Auskunft. Ein eigenes
+Notizbuch ist einen Klick entfernt und dort gilt nichts davon.
+
+Der Weg, der beides hätte, ist Copy-on-first-write: beim ersten Schreibzugriff
+eine Kopie in der eigenen Sitzung anlegen und in ihr weiterarbeiten. Das ist
+eine Entscheidung über Eigentum und Kosten (vier Quellen kopieren heißt 63.000
+Token kopieren) und keine, die neben dem Video getroffen wird.
 
 ## Das Tagesbudget ist eine Schranke, kein Zähler in Echtzeit
 

@@ -15,11 +15,93 @@ verworfenen Alternativen in [docs/adr/](docs/adr/), der Ausführungsplan in
 Alles läuft auf einem eigenen Server. Der einzige Aufruf nach außen ist die
 Modellinferenz bei Anthropic, hinter `AnthropicLlmAdapter` (ADR-0004, ADR-0006).
 
+**Live: <https://quellwerk.7style.net>** — das Demo-Notizbuch steht auf der
+Startseite und ist ohne Anmeldung lesbar, direkt unter
+<https://quellwerk.7style.net/n/demo>. Fragen stellen geht dort, Quellen
+hinzufügen nicht; ein eigenes Notizbuch legt man mit einem Klick an, ohne
+Konto.
+
+## Was gemessen ist
+
+Der Dev-Split des Golden Sets, zwanzig Items aus
+[`backend/evals/golden.jsonl`](backend/evals/golden.jsonl), beantwortet über die
+echte Route mit `claude-opus-5`. Die vollen Blöcke mit Deltas stehen in
+[backend/evals/RESULTS.md](backend/evals/RESULTS.md).
+
+| Metrik | Wert | Wie sie zustande kommt |
+|---|---|---|
+| Beleggüte | 100,0 % (97/97) | `source.text.slice(start, end) === cited_text`, kein Richter, kein Ermessen |
+| Abstinenz | 100,0 % (5/5) | fünf Fragen, die der Korpus nicht beantwortet, fünf Ablehnungen |
+| Korrektheit | 100,0 % | Richter `claude-sonnet-5`, ein anderes Modell als das geprüfte (ADR-0011) |
+| Treue | 1,00 | derselbe Richter, je Behauptung geprüft, Ablehnungen ausgenommen |
+
+Dazu zwei Zahlen, die null sein müssen und null sind: keine falsche Ablehnung
+bei fünfzehn beantwortbaren Items, kein Beleg an einer Ablehnung.
+
+Die zehn Held-out-Items sind bis zum Abschlusslauf ungemessen. Ein
+Held-out-Split, der jeden Tag gemessen wird, ist ein Dev-Split mit
+Zusatzschritten.
+
+### Was ein Notizbuch kostet
+
+Gemessen an vier echten Aufrufen über dieselben vier Quellen, aus denen das
+Demo-Notizbuch besteht (`pnpm eval --cache-check`, Tabelle in RESULTS.md),
+gerechnet mit den Preisen aus `backend/app/config/prices.ts`:
+
+| Aufruf | Neue Eingabe | Aus dem Cache | Eingabe kostet |
+|---|---|---|---|
+| erste Frage einer Stunde | 21 Token | schreibt 76.239 | 0,76 $ |
+| jede weitere Frage | 23 Token | liest 76.239 | 0,04 $ |
+| Frage nach "Configure chat" | 42 Token | liest 76.239 | 0,04 $ |
+| ein Report | 601 Token | liest 76.239 | 0,04 $ |
+
+Der gecachte Präfix ist größer als die Summe der Quellen (63.431 Token), weil
+der Systemblock und die Rahmen der Dokumentblöcke mitzählen.
+
+Die Spalte ist die Eingabeseite; die Ausgabe kommt mit 25 $ je Million Token
+dazu und ist das, was sich zwischen einer Antwort und einem Report
+unterscheidet: gemessen 124 Token für eine Antwort, 5.744 für einen Briefing
+Doc. Der eine Report, den ich ganz gemessen habe, kostete 0,91 $, weil er den
+Cache selbst geschrieben hat; der nächste über dieselben Quellen kostet ein
+Zehntel davon.
+
+Das ist der ganze Grund für ADR-0002: die Dokumente werden einmal je Stunde
+bezahlt und nicht einmal je Frage. Ein Durchschnitt je Antwort steht erst nach
+dem Abschlusslauf hier, weil er dann gemessen ist.
+
+## Was bewusst fehlt
+
+Jede Zeile ist eine Entscheidung, nicht eine Lücke, die noch keiner gesehen hat.
+Die Langfassung steht in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md).
+
+- **Keine Website-Quellen.** Ein Dienst, der eine vom Nutzer gewählte URL
+  abruft, ist eine serverseitige Anfrageschleuse, und ein Fehler darin trifft
+  nicht Quellwerk, sondern die neun anderen Seiten auf derselben Maschine.
+- **Kein Vektorindex, kein Retrieval.** Die Dokumente gehen ganz in den Prompt
+  und werden gecacht; bis 150.000 Token je Notizbuch ist das genauer und
+  billiger als eine Ähnlichkeitssuche, deren Fehler niemand sieht (ADR-0002).
+  Was oberhalb dieser Kante zu tun wäre, ist entworfen und nicht gebaut
+  (ADR-0012).
+- **Keine Audio Overview, keine Mind Map.** Beides ist in NotebookLM
+  beeindruckend, und die Tage dafür sind in die Belege gegangen: geprüfte
+  Zitate, Evals mit Richtern, der Cache-Beweis oben.
+- **Keine Auswahl einzelner Quellen.** Jede Frage geht über alle Quellen des
+  Notizbuchs: ein wechselnder Teil der Dokumente wäre ein anderer Cache-Präfix
+  und damit voller Preis bei jeder Umschaltung.
+- **Keine Konten.** Ein Notizbuch hängt an einer anonymen Session im Cookie; ein
+  Login vor der ersten Frage hätte die Demo teurer gemacht als das Produkt
+  (ADR-0005).
+- **Das Demo-Notizbuch wird nur gelesen.** Es gehört keiner Session, also würde
+  ein Schreibzugriff darin die Arbeit von Fremden verändern.
+- **Kein Gedächtnis im Demo-Notizbuch.** Aus demselben Grund: ein gespeicherter
+  Verlauf wäre der Verlauf von Fremden, und die Frage von A stünde im Prompt
+  von B.
+
 ## Stand
 
-Im Aufbau. Was fertig ist, steht als abgehakte Aufgabe in
+Was fertig ist, steht als abgehakte Aufgabe in
 [docs/PLAN.md](docs/PLAN.md); dort steht auch, was ein Meilenstein jeweils
-beweisen musste.
+beweisen musste, und was offen ist, steht als offene Box.
 
 ## Dienste und Ports
 
@@ -120,9 +202,18 @@ alles Kontobasierte. Was von der Vorlage stammt und was neu ist, steht in
 
 ## KI im Prozess
 
-Dieses Projekt ist mit einem Coding-Agenten gebaut. Was das genau hieß, welche
-Prompts benutzt wurden und was ich verworfen habe, steht in
-[docs/ai-process/](docs/ai-process/).
+Dieses Projekt ist mit einem Coding-Agenten gebaut, und das Harness dafür ist
+Teil der Abgabe: [CLAUDE.md](CLAUDE.md), die Hooks und Skills unter
+[.claude/](.claude/), der Reviewer-Agent, den ich am Ende jedes Meilensteins auf
+den Diff gesetzt habe. Was der Agent durfte und was nicht, ist damit lesbar und
+nicht behauptet — `backend/evals/golden.jsonl` etwa darf er nicht schreiben, und
+keine Konfigurationsdatei mit Secrets darf er lesen.
+
+Die Erklärung nach ai-declaration.md, die vom Modell erzeugten Daten im
+Repository und drei Fälle, in denen ich Ausgaben verworfen habe, stehen in
+[docs/ai-process/AI-DECLARATION.md](docs/ai-process/AI-DECLARATION.md). Was
+nachlesbar ist und was nicht, steht in
+[docs/ai-process/TRANSCRIPTS.md](docs/ai-process/TRANSCRIPTS.md).
 
 ## Lizenz
 
