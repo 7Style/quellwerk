@@ -63,5 +63,11 @@ frontend/.env*
 # ... but the prompts are application data, not documentation: every text that
 # goes to a model lives there and is loaded at runtime (CLAUDE.md).
 !prompts/**
+# ... and so is the corpus. Three of those four files are markdown, and without
+# this line the image carries the PDF alone: the seed then fails on file two,
+# inside the container, where the demo notebook is supposed to be created
+# (M8-T1). Every image since M2-T5 was built that way; the first run of
+# `docker compose exec backend node dist/prisma/seed.js` found it.
+!backend/evals/corpus/**
 **/.DS_Store
 **/.editorconfig

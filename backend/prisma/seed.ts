@@ -2,109 +2,77 @@
  * Database seed: the demo notebook.
  *
  * It is built from `backend/evals/corpus/`, the same four files the golden set
- * is written against. One tree of files, not two with the same text in them: a
- * demo that drifts from the corpus would be a demo of something the evals never
- * measured.
+ * is written against, plus `seed-data/demo.json` for the part a model wrote.
+ * One tree of files, not two with the same text in them: a demo that drifts
+ * from the corpus would be a demo of something the evals never measured.
  *
- * What this script does NOT do is call a model. It extracts, normalises and
- * writes; the token counts stay at zero until `scripts/recount-tokens.ts`
- * measures them on a real request. That keeps seeding runnable without an API
- * key, and it keeps the distinction honest: a count is a measurement, not
- * content.
+ * What this script does NOT do is call a model. The guides, the overview and
+ * the token counts were measured once by `scripts/make-demo-data.ts` and are
+ * checked in, so seeding needs no key, costs nothing, and produces the same
+ * notebook here and on the server. That last part is the point: a demo that is
+ * regenerated per machine is not a demo anybody can reproduce.
  *
- * Idempotent. Running it twice leaves one demo notebook with four sources.
+ * Idempotent. Running it twice leaves one demo notebook with four sources, and
+ * it also cleans up: a source in this notebook that the seed did not write is
+ * removed, which is how the old `demo-1` rows disappear.
  */
 import { PrismaPg } from '@prisma/adapter-pg';
 
-import { extract } from '../app/modules/sources/internal/extract.js';
-import { Prisma, PrismaClient } from '../app/generated/prisma/client.js';
+import { PrismaClient } from '../app/generated/prisma/client.js';
 import { env } from '../app/config/env.config.js';
-import { loadCorpusFiles, type CorpusEntry } from './seed-data/corpus.js';
-
-if (env.NODE_ENV === 'production') {
-  console.error('Seeding is disabled in production (NODE_ENV=production).');
-  process.exit(1);
-}
+import { DEMO_ID, seedDemo } from './seed-demo.js';
 
 /**
- * Fixed, and short enough to type. It is the id in the link the reviewer is
- * given, so it is not a uuid; both route schemas allow this one exception.
+ * Production needs the flag, and gets one line about what it will do.
+ *
+ * The guard is against a seed nobody typed - `SEED_ON_START=true` left in an
+ * environment file, which the entrypoint also refuses in production - and not
+ * against the operator who runs it deliberately. On the server this is exactly
+ * how the demo notebook is restored:
+ *
+ *   docker compose -f deployment/prod/docker/docker-compose.yml \
+ *     exec backend node dist/prisma/seed.js --yes-production
  */
-const DEMO_ID = 'demo';
+const FLAG = '--yes-production';
+
+if (env.NODE_ENV === 'production' && !process.argv.includes(FLAG)) {
+  console.error(
+    `Seeding is disabled in production. It rewrites the "${DEMO_ID}" notebook and deletes every\n` +
+      `report and turn in it; no other notebook is touched. Run it with ${FLAG} if that is what\n` +
+      'you want.'
+  );
+  process.exit(1);
+}
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: env.DATABASE_URL }),
 });
 
-async function seedSource(entry: CorpusEntry, position: number): Promise<number> {
-  const { text, pages } = await extract(entry.kind, entry.data);
-
-  // Deterministic ids, so a second run updates the same rows instead of adding
-  // four more. `demo-1` and not a uuid for the same reason the notebook has a
-  // fixed id: it is data somebody reads while debugging.
-  const id = `${DEMO_ID}-${position}`;
-
-  await prisma.source.upsert({
-    where: { id },
-    create: {
-      id,
-      notebookId: DEMO_ID,
-      position,
-      title: entry.title,
-      kind: entry.kind,
-      url: entry.source ?? null,
-      originalName: entry.file,
-      text,
-      charCount: text.length,
-      // Measured by scripts/recount-tokens.ts, not here.
-      tokenCount: 0,
-      // Prisma types a Json column as InputJsonValue, which an array of a named
-      // interface does not satisfy structurally. The cast is at the boundary to
-      // the database and nowhere else.
-      pages: pages as unknown as Prisma.InputJsonValue,
-      status: 'ready',
-    },
-    update: {
-      position,
-      title: entry.title,
-      text,
-      charCount: text.length,
-      pages: pages as unknown as Prisma.InputJsonValue,
-      status: 'ready',
-      error: null,
-      step: null,
-    },
-  });
-
-  return text.length;
-}
-
 async function main(): Promise<void> {
-  const corpus = await loadCorpusFiles();
+  const report = await seedDemo(prisma);
 
-  await prisma.notebook.upsert({
-    where: { id: DEMO_ID },
-    create: {
-      id: DEMO_ID,
-      // Nobody's. It is readable by every session and written by none; the
-      // first write copies it into the caller's own session (M7-T1).
-      sessionId: null,
-      title: 'EU-KI-Verordnung',
-      emoji: '⚖️',
-      isDemo: true,
-    },
-    update: { isDemo: true, sessionId: null },
-  });
-
-  let chars = 0;
-  for (const [index, entry] of corpus.entries()) {
-    chars += await seedSource(entry, index + 1);
+  console.log(`Seed: notebook "${DEMO_ID}" - ${report.data.notebook.title}`);
+  for (const source of report.sources) {
+    console.log(
+      `  ${source.position}. ${source.title}\n` +
+        `     ${source.kind}, ${source.chars.toLocaleString('en-US')} characters, ` +
+        `${source.tokens.toLocaleString('en-US')} tokens, ${source.language}, id ${source.id}`
+    );
   }
 
-  const sources = await prisma.source.count({ where: { notebookId: DEMO_ID } });
+  console.log(
+    `  overview: ${report.data.notebook.themes.length} themes, ` +
+      `${report.data.notebook.suggestedQuestions.length} questions ` +
+      `(generated ${report.data.generatedAt} by ${report.data.models.overview})`
+  );
+  console.log(`  ${report.tokens.toLocaleString('en-US')} tokens in total`);
 
-  console.log(`Seed: notebook "${DEMO_ID}" with ${sources} ready sources, ${chars.toLocaleString('en-US')} characters.`);
-  console.log('Token counts are zero until scripts/recount-tokens.ts measures them.');
+  const { sources, messages, artifacts } = report.removed;
+  if (sources + messages + artifacts > 0) {
+    console.log(
+      `  removed: ${sources} source(s) the seed did not write, ${messages} turn(s), ${artifacts} report(s)`
+    );
+  }
 }
 
 main()

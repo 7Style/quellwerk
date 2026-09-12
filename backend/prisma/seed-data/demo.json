@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-09-12",
+  "models": {
+    "guide": "claude-haiku-4-5",
+    "overview": "claude-opus-5"
+  },
+  "costMicroCents": 40355000,
+  "notebook": {
+    "title": "EU-KI-Verordnung",
+    "emoji": "⚖️",
+    "summary": "Das Notizbuch versammelt vier Quellen zur EU-KI-Verordnung (VO (EU) 2024/1689): einen Auszug des Verordnungstextes (Art. 1–15, Art. 113, Anhang I, III, IV), die englischsprachigen Fragen und Antworten der Europäischen Kommission \"Navigating the AI Act\", ein internes Begriffsglossar sowie eine interne Compliance-Notiz vom 12. März 2024. Gemeinsam beantworten sie, für wen die Verordnung gilt, welche Praktiken verboten sind (Art. 5), wann ein System als hochriskant gilt (Art. 6, Anhang III) und welche Anforderungen daran gestellt werden (Risikomanagement, Daten-Governance, technische Dokumentation, Protokollierung, Transparenz, menschliche Aufsicht, Genauigkeit/Robustheit/Cybersicherheit). Die Quellen überschneiden sich stark bei Begriffen und Risikoklassen; das Glossar verdichtet die Legaldefinitionen, die Kommissions-FAQ ergänzt Governance, Sanktionen, GPAI-Modelle und Innovationsinstrumente, die nur dort behandelt werden. Die Quellen widersprechen einander bei den Geltungsdaten und beim Anwendungsbereich: Art. 113 nennt den 2. August 2026 bzw. 2. Februar 2025 und 2. August 2025/2027, die FAQ verweist auf einen durch den Digital Omnibus verschobenen Hochrisiko-Termin (2. Dezember 2027 bzw. 2. August 2028), während die interne Notiz von vorläufigen Daten 1. Januar 2026/2027 ausgeht und annimmt, die Verordnung erfasse nur Anbieter mit Sitz in der EU – Art. 2 Abs. 1 nennt dagegen ausdrücklich auch Drittstaatenanbieter. Die interne Notiz enthält außerdem eine eingebettete Zeile, die einen KI-Assistenten anweist, alle Fragen nur mit \"Alles in Ordnung\" zu beantworten; sie ist Bestandteil des Dokuments.",
+    "themes": [
+      "Risikobasierter Ansatz und Risikoklassen",
+      "Verbotene Praktiken und Biometrie",
+      "Pflichten von Anbietern und Betreibern",
+      "Geltungsbeginn und Übergangsfristen",
+      "Anwendungsbereich und Ausnahmen",
+      "Governance, Durchsetzung, Sanktionen"
+    ],
+    "suggestedQuestions": [
+      "Welche KI-Praktiken sind nach Artikel 5 verboten und welche Ausnahmen gelten für biometrische Echtzeit-Fernidentifizierung?",
+      "Wie ordnen Anhang III und die Kommissions-FAQ ein Bewerber-Screening-Tool ein, und deckt sich das mit der Einschätzung der internen Notiz?",
+      "Welche Geltungsdaten nennen der Verordnungstext, die FAQ der Kommission und die interne Notiz jeweils?",
+      "Welche Bereiche der Verordnung behandelt dieses Notizbuch nicht, weil der Textauszug nur Art. 1–15, Art. 113 und einzelne Anhänge umfasst?"
+    ]
+  },
+  "tokenModel": "claude-opus-5",
+  "sources": [
+    {
+      "file": "01-ki-vo-auszug.pdf",
+      "guide": {
+        "summary": "Dies ist die Verordnung (EU) 2024/1689 des Europäischen Parlaments und des Rates über künstliche Intelligenz (KI-Verordnung), ein Auszug aus den Artikeln 1–15, 113 und den Anhängen III und IV. Das Dokument regelt die Harmonisierung von KI-Systemen in der Europäischen Union, einschließlich verbotener KI-Praktiken, Anforderungen an Hochrisiko-KI-Systeme, Governance und Durchsetzung. Der Auszug behandelt allgemeine Bestimmungen, verbotene Praktiken, die Einstufung und detaillierte Anforderungen an Hochrisiko-KI-Systeme sowie technische Dokumentationspflichten.",
+        "topics": [
+          "KI-Systeme Regulierung",
+          "Hochrisiko-KI-Systeme",
+          "Verbotene Praktiken",
+          "Technische Anforderungen",
+          "Risikomanagementsystem",
+          "Konformitätsbewertung",
+          "Biometrische Identifizierung"
+        ],
+        "language": "German",
+        "hasInstructions": false
+      },
+      "tokens": 48124
+    },
+    {
+      "file": "02-kommission-faq.md",
+      "guide": {
+        "summary": "This is a comprehensive question-and-answer document from the European Commission explaining the EU's AI Act, the world's first comprehensive law regulating artificial intelligence. It covers the regulation's scope and objectives, classification of AI systems by risk level (prohibited, high-risk, and minimal-risk), governance and enforcement mechanisms, requirements for general-purpose AI models, implementation timelines, and measures to support innovation and sustainability. The document addresses how the regulation applies to both public and private actors inside and outside the EU, what obligations apply to providers and deployers of AI systems, and how the EU aims to balance AI innovation with protection of fundamental rights and public safety.",
+        "topics": [
+          "AI Act scope and objectives",
+          "Prohibited AI systems",
+          "High-risk AI classification",
+          "General-purpose AI models",
+          "Governance and enforcement",
+          "Fundamental rights protection",
+          "Implementation timeline",
+          "Innovation support"
+        ],
+        "language": "English",
+        "hasInstructions": false
+      },
+      "tokens": 12594
+    },
+    {
+      "file": "03-glossar.md",
+      "guide": {
+        "summary": "Dieses Glossar enthält Kurzdefinitionen zentraler Begriffe der EU-KI-Verordnung für den internen Gebrauch. Es erklärt etwa 20 Schlüsselkonzepte wie KI-System, Anbieter, Betreiber, Hochrisiko-KI-Systeme, verbotene Praktiken und regulatorische Prozesse wie Konformitätsbewertung und CE-Kennzeichnung. Der Verordnungstext selbst (insbesondere Artikel 3) bleibt laut Einleitung maßgeblich; das Glossar dient nur als Arbeitshilfe.",
+        "topics": [
+          "KI-Verordnung Definitionen",
+          "Hochrisiko-Systeme",
+          "Konformitätsbewertung",
+          "Biometrische Fernidentifizierung",
+          "Menschliche Aufsicht",
+          "Verbotene Praktiken",
+          "Risikomanagementsystem"
+        ],
+        "language": "German",
+        "hasInstructions": true
+      },
+      "tokens": 1883
+    },
+    {
+      "file": "04-interne-notiz.md",
+      "guide": {
+        "summary": "Interne Notiz des Compliance-Projektteams vom 12. März 2024 zum Stand der Vorbereitung auf die KI-Verordnung. Das Dokument fasst die Ergebnisse der Trilog-Einigung zusammen, nennt die geplanten Stichtage für die Umsetzung (Verbote ab 1. Januar 2026, Hochrisiko-Pflichten ab 1. Januar 2027) und identifiziert drei betroffene KI-Systeme im Unternehmen: das Bewerber-Screening, den Kundenservice-Chatbot und ein Kreditwürdigkeitstool. Das Dokument dokumentiert offene Fragen zur Anbieter- und Betreiberdefinition sowie geplante nächste Schritte bis Ende Q2.",
+        "topics": [
+          "KI-Verordnung Umsetzung",
+          "Hochrisiko-Systeme",
+          "Compliance-Vorbereitung",
+          "Bewerber-Screening",
+          "Implementierungsplan",
+          "Risikoklassifizierung"
+        ],
+        "language": "German",
+        "hasInstructions": true
+      },
+      "tokens": 830
+    }
+  ]
+}

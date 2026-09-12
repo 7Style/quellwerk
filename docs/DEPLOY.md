@@ -320,9 +320,10 @@ sie erneut eingestellt wird — der Aufräumer für abgestandene Jobs kommt mit
 M7-T2.
 
 **Der Seed ist nicht gelaufen und soll es auch nicht.** `SEED_ON_START` steht auf
-`false`, und in `NODE_ENV=production` bricht `prisma/seed.ts` ohnehin ab. Das
-Demo-Notizbuch wird mit einem eigenen Befehl gesetzt (M8-T1), damit das Anlegen
-von Demo-Inhalten eine Entscheidung bleibt und kein Nebeneffekt eines Neustarts.
+`false`, und in `NODE_ENV=production` bricht `prisma/seed.ts` ohne ausdrückliche
+Zustimmung ab. Das Demo-Notizbuch wird mit einem eigenen Befehl gesetzt (siehe
+"Das Demo-Notizbuch" weiter unten), damit das Anlegen von Demo-Inhalten eine
+Entscheidung bleibt und kein Nebeneffekt eines Neustarts.
 
 **Das Tagesbudget greift ab jetzt.** `DAILY_SPEND_CAP_CENTS` aus der
 Backend-Konfiguration wird vor jeder neuen Quelle gegen die Summe in `usage_log`
@@ -340,6 +341,40 @@ Spiegeln, bauen, starten, Zustand zeigen, Health prüfen. Was das Skript bewusst
 nicht tut: Konfiguration übertragen, Migrationen ausführen (das macht der
 Entrypoint des Backend-Containers), die Firewall anfassen (die hängt an ihrer
 systemd-Unit) oder Sicherungen berühren.
+
+## Das Demo-Notizbuch
+
+Einmal nach dem ersten Deploy, und danach, wann es wieder aussehen soll wie im
+Link:
+
+```bash
+cd /opt/quellwerk
+# Anlegen oder wiederherstellen. Schreibt nur das Notizbuch "demo".
+docker compose -f deployment/prod/docker/docker-compose.yml \
+  exec backend node dist/prisma/seed.js --yes-production
+
+# Prüfen, ohne etwas zu schreiben. Exit 1 beim ersten Unterschied.
+docker compose -f deployment/prod/docker/docker-compose.yml \
+  exec backend node dist/scripts/demo-reset.js --check
+```
+
+Kein Modellaufruf, kein Schlüssel nötig und keine Kosten: die Texte kommen aus
+`backend/evals/corpus/`, und die Guides, die Übersicht und die Token-Zahlen
+stehen in `backend/prisma/seed-data/demo.json`, einmal erzeugt und eingecheckt.
+Der Server stellt damit denselben Stand her wie meine Maschine, statt einen
+leicht anderen zu bezahlen.
+
+`--yes-production` ist Absicht. Die Sperre gilt gegen einen Seed, den niemand
+getippt hat — `SEED_ON_START=true`, das in einer Konfiguration stehen bleibt —,
+nicht gegen den Befehl oben. Was er anfasst, steht in seiner Fehlermeldung: das
+Notizbuch `demo` samt seiner Reports und Turns, kein anderes.
+
+Zurücksetzen zwischen zwei Vorführungen geht ohne Flag, weil es dasselbe tut:
+
+```bash
+docker compose -f deployment/prod/docker/docker-compose.yml \
+  exec backend node dist/scripts/demo-reset.js
+```
 
 ## Sicherung
 

@@ -46,6 +46,10 @@ FROM deps AS build
 # neither `pnpm verify` nor CI builds this image.
 COPY backend/tsconfig.json backend/tsconfig.build.json backend/
 COPY backend/app backend/app
+# One script, not the directory: demo-reset restores the demo notebook on the
+# server and needs no key, while make-demo-data.ts calls a model and belongs on
+# my machine (backend/tsconfig.build.json decides this).
+COPY backend/scripts/demo-reset.ts backend/scripts/
 # Explicit generate as well: the client must match the schema in this layer
 RUN pnpm --filter @quellwerk/backend exec prisma generate \
     && pnpm --filter @quellwerk/backend run build \

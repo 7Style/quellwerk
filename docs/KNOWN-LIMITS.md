@@ -190,3 +190,19 @@ Feld nicht, und nach dem Log-Rotate ist die Zahl weg.
 docs/SPEC.md verlangt den Trace für die Antwort, nicht für den Report, also ist
 das keine gebrochene MUSS-Zeile. Es ist die Zahl, nach der ein Prüfer als
 zweites fragt, und sie kostet eine Spalte.
+
+## `hasInstructions` wird geschrieben und von nichts gelesen
+
+Der Source-Guide jeder Quelle trägt ein Feld `hasInstructions`: true, wenn im
+Dokument Text steht, der einen Assistenten anspricht. Es wird gespeichert und
+danach von keiner Zeile gelesen — kein Hinweis in der Oberfläche, kein Satz im
+Prompt. Der Schutz gegen solchen Text liegt woanders und liegt dort richtig:
+jede Quelle steht in einem Dokumentblock, jeder Prompt sagt, dass dessen Inhalt
+Daten sind, und die interne Notiz im Demo-Notizbuch enthält genau so eine Zeile,
+ohne dass eine Antwort ihr folgt.
+
+Dass das Feld unbenutzt ist, ist trotzdem der Grund, es hier zu nennen: beim
+Erzeugen von `seed-data/demo.json` haben zwei Läufe desselben Prompts über das
+Glossar verschiedene Antworten gegeben, einmal true und einmal false. Für ein
+Abzeichen in der Oberfläche wäre das zu wackelig, und wer es einbaut, braucht
+vorher eine Messung, nicht ein Feld.

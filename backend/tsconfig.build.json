@@ -1,10 +1,13 @@
 {
   // Was in das Produktions-Image geht. Die Basis-Konfiguration nimmt evals/ und
   // scripts/ mit auf, damit eslint und `tsc --noEmit` beide pruefen; gebaut
-  // wird keins von beiden. Der Backend-Container kopiert dist/ als Ganzes, und
-  // ein Harness, das Fragen an ein Modell stellt, hat in einem Produktions-Image
-  // nichts zu suchen. Braucht ein Skript spaeter einen Platz im Image (M8-T1,
-  // demo-reset), wird das hier entschieden und nicht nebenbei.
+  // wird davon nur, was hier steht. Ein Harness, das Fragen an ein Modell
+  // stellt, hat in einem Produktions-Image nichts zu suchen.
+  //
+  // Genau ein Skript hat dort einen Platz (M8-T1): demo-reset. Es stellt das
+  // Demo-Notizbuch auf dem Server wieder her und prueft mit --check, ob es noch
+  // der geseedete Stand ist, und beides braucht keinen Schluessel. Der
+  // Generator make-demo-data.ts bleibt draussen, denn er ruft ein Modell.
   "extends": "./tsconfig.json",
-  "include": ["app/**/*", "prisma/**/*", "prisma.config.ts"]
+  "include": ["app/**/*", "prisma/**/*", "prisma.config.ts", "scripts/demo-reset.ts"]
 }
