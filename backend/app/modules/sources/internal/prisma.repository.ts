@@ -31,6 +31,28 @@ export class PrismaSourcesRepository implements SourcesRepository {
     return this.prisma.source.count({ where: { notebookId } });
   }
 
+  async findWithText(notebookId: string, sourceId: string) {
+    // Both ids in the WHERE clause. A source id from another notebook has to
+    // miss, and missing is what a 404 is made of.
+    return this.prisma.source.findFirst({
+      where: { id: sourceId, notebookId },
+      select: {
+        id: true,
+        notebookId: true,
+        position: true,
+        title: true,
+        kind: true,
+        status: true,
+        step: true,
+        error: true,
+        charCount: true,
+        tokenCount: true,
+        createdAt: true,
+        text: true,
+      },
+    });
+  }
+
   async maxPosition(notebookId: string): Promise<number> {
     const highest = await this.prisma.source.findFirst({
       where: { notebookId },

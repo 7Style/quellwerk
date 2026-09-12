@@ -11,9 +11,12 @@ import type { Express, Request, RequestHandler } from 'express';
 import { ChatController } from './controllers/chat.controller.js';
 import { createChatRouter } from './routes/chat.routes.js';
 import { ChatService, type ChatServiceDeps } from './services/chat.service.js';
+import type { StoredMessage } from './dto/message.dto.js';
 
 export interface ChatModuleDeps extends ChatServiceDeps {
   sessionIdOf: (req: Request) => string | null;
+  /** The stored turns of a notebook, scoped to the session. */
+  loadMessages: (notebookId: string, sessionId: string) => Promise<StoredMessage[]>;
   limitPerSession: RequestHandler;
   limitPerIp: RequestHandler;
   budget: RequestHandler;
@@ -22,7 +25,7 @@ export interface ChatModuleDeps extends ChatServiceDeps {
 
 export function initChatModule(app: Express, deps: ChatModuleDeps): void {
   const service = new ChatService(deps);
-  const controller = new ChatController(service, deps.sessionIdOf);
+  const controller = new ChatController(service, deps.sessionIdOf, deps.loadMessages);
 
   app.use(
     deps.basePath ?? '/api',
@@ -39,6 +42,8 @@ export { ChatService } from './services/chat.service.js';
 export type { ChatServiceDeps, StreamEvent, TurnSources } from './services/chat.service.js';
 export { answerText, resolveAnswer, resolveCitations } from './internal/citations.js';
 export { beginsWithRefusal, REFUSALS } from './internal/refusal.js';
+export { toMessageResponse } from './dto/message.dto.js';
+export type { MessageResponse, MessageSegment, StoredMessage } from './dto/message.dto.js';
 export type { CitableSource, VerifiedCitation, DroppedCitation } from './internal/citations.js';
 export { sseFrom, SseStream, errorEvent, eventsForStopReason } from './internal/stream.js';
 export type { ChatEvent, TurnTrace, TurnUsage } from './internal/stream.js';

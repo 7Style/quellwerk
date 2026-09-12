@@ -58,6 +58,11 @@ class Store implements SourcesRepository {
     return [...this.rows.values()].filter((row) => row.notebookId === notebookId).length;
   }
 
+  async findWithText(notebookId: string, sourceId: string) {
+    const row = this.rows.get(sourceId);
+    return row && row.notebookId === notebookId ? row : null;
+  }
+
   async maxPosition(notebookId: string): Promise<number> {
     const positions = [...this.rows.values()]
       .filter((row) => row.notebookId === notebookId)
@@ -143,6 +148,7 @@ let store: Store;
 
 const notebooks: NotebookAccess = {
   writable: async () => ({ id: NOTEBOOK, tokenCount: store.notebookTokens }),
+  readable: async () => ({ id: NOTEBOOK, tokenCount: store.notebookTokens }),
 };
 
 /** Stands in for multer, so a file arrives without touching the disk. */

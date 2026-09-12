@@ -24,7 +24,7 @@ import { initSessionModule, sessionIdOf } from './session/index.js';
 import { initNotebooksModule } from './notebooks/index.js';
 import { initSourcesModule } from './sources/index.js';
 import { initChatModule } from './chat/index.js';
-import { budgetMiddleware, chatDeps } from '../wiring/chat.js';
+import { budgetMiddleware, chatDeps, loadMessages } from '../wiring/chat.js';
 import { initAdminModule } from './admin/index.js';
 
 // Cross-module communication without imports between modules.
@@ -84,6 +84,8 @@ export async function registerModules(app: Express): Promise<void> {
       notebooks: {
         writable: async (notebookId, sessionId) =>
           notebooks.service.writable(notebookId, sessionId),
+        readable: async (notebookId, sessionId) =>
+          notebooks.service.readable(notebookId, sessionId),
       },
       tokens: {
         // One source, counted as the API counts it. The notebook's total is
@@ -132,6 +134,7 @@ export async function registerModules(app: Express): Promise<void> {
       limitPerSession: createRateLimiter('chat-session', config.rateLimit.chatPerSession),
       limitPerIp: createRateLimiter('chat-ip', config.rateLimit.chatPerIp),
       budget: budgetMiddleware(),
+      loadMessages,
       ...chatDeps(llm),
     });
     startupStatus.moduleOk('Chat');

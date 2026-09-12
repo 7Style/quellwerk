@@ -7,6 +7,8 @@
  */
 import { describe, expect, it, beforeEach } from '@jest/globals';
 import express, { type Express, type RequestHandler } from 'express';
+import { randomUUID } from 'node:crypto';
+
 import request from 'supertest';
 
 import { errorMiddleware } from '../../../common/middleware/error.middleware.js';
@@ -23,6 +25,7 @@ import type {
 
 const NOTEBOOK = '00000000-0000-4000-8000-000000000001';
 const OTHER_NOTEBOOK = '00000000-0000-4000-8000-000000000002';
+const DEMO_NOTEBOOK = '00000000-0000-4000-8000-000000000009';
 
 class InMemorySources implements SourcesRepository {
   readonly rows: SourceRow[] = [];
@@ -39,10 +42,18 @@ class InMemorySources implements SourcesRepository {
     return positions.length > 0 ? Math.max(...positions) : 0;
   }
 
+  async findWithText(notebookId: string, sourceId: string) {
+    const row = this.rows.find((one) => one.id === sourceId && one.notebookId === notebookId);
+    return row ? { ...row, text: this.texts.get(row.id) ?? '' } : null;
+  }
+
   async create(data: CreateSourceData): Promise<SourceRow> {
     this.next += 1;
     const row: SourceRow = {
-      id: `src-${this.next}`,
+      // A real id is a uuid (prisma schema), and the route's param schema says
+      // so. A double that hands out "src-1" makes every id-shaped check pass
+      // here and fail in production.
+      id: randomUUID(),
       notebookId: data.notebookId,
       position: data.position,
       title: data.title,
@@ -80,6 +91,19 @@ let budgetSpent: boolean;
 /** Only NOTEBOOK belongs to session-a; anything else answers the way the real one does. */
 const notebooks: NotebookAccess = {
   writable: async (notebookId, sessionId) => {
+    if (notebookId !== NOTEBOOK || sessionId !== 'session-a') {
+      throw Object.assign(new Error('No such notebook.'), {
+        statusCode: 404,
+        errorCode: 'NOTEBOOK_NOT_FOUND',
+      });
+    }
+    return { id: notebookId, tokenCount: notebookTokenCount };
+  },
+  // The demo notebook is the one a stranger may read but not write, so the
+  // double has to answer the two questions differently or a test could not
+  // tell them apart.
+  readable: async (notebookId, sessionId) => {
+    if (notebookId === DEMO_NOTEBOOK) return { id: notebookId, tokenCount: 0 };
     if (notebookId !== NOTEBOOK || sessionId !== 'session-a') {
       throw Object.assign(new Error('No such notebook.'), {
         statusCode: 404,
@@ -157,7 +181,7 @@ describe('a valid pasted source', () => {
       .post(`/api/notebooks/${NOTEBOOK}/sources`)
       .send(paste({ text: 'Zeile\r\nzwei­drei   \n\n\n\nvier' }));
 
-    expect(repository.texts.get('src-1')).toBe('Zeile\nzweidrei\n\nvier');
+    expect(repository.texts.get(repository.rows[0].id)).toBe('Zeile\nzweidrei\n\nvier');
   });
 
   it('never returns the stored text in the response', async () => {
@@ -435,5 +459,93 @@ describe('GET sources', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.sources.map((s: { title: string }) => s.title)).toEqual(['Eins', 'Zwei']);
+  });
+});
+
+describe('GET the text of one source', () => {
+  /** The worker sets this in the real thing; here the test does. */
+  function markStatus(id: string, status: string): void {
+    const row = repository.rows.find((one) => one.id === id);
+    if (!row) throw new Error(`no source ${id} in the double`);
+    row.status = status;
+  }
+
+  /** Posts a source and returns its id, with the text the test wants stored. */
+  async function pasteInto(app: Express, text: string): Promise<string> {
+    const created = await request(app)
+      .post(`/api/notebooks/${NOTEBOOK}/sources`)
+      .send(paste({ text }));
+    // POST answers with the source itself; GET .../text wraps it, like the list.
+    return created.body.id as string;
+  }
+
+  it('returns exactly the stored text, byte for byte', async () => {
+    // The viewer marks character ranges in this string and a citation's offsets
+    // point into it. Trimming it, re-wrapping it or normalising it a second
+    // time here would move every citation in the notebook (ADR-0003).
+    const stored = '  Artikel 9\n\n  Ein Risikomanagementsystem wird eingerichtet.  \n';
+    const app = appFor();
+    const id = await pasteInto(app, stored);
+    markStatus(id, 'ready');
+
+    const response = await request(app).get(`/api/notebooks/${NOTEBOOK}/sources/${id}/text`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.source.text).toBe(repository.texts.get(id));
+  });
+
+  it('never lets a shared cache keep somebody else documents', async () => {
+    const app = appFor();
+    const id = await pasteInto(app, 'Ein Satz.');
+    markStatus(id, 'ready');
+
+    const response = await request(app).get(`/api/notebooks/${NOTEBOOK}/sources/${id}/text`);
+
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
+
+  it('does not know a source of another notebook', async () => {
+    // Both ids are in the query. A source id that is real but belongs
+    // elsewhere has to miss, not resolve and then be checked.
+    const app = appFor();
+    const id = await pasteInto(app, 'Ein Satz.');
+    markStatus(id, 'ready');
+
+    const response = await request(app).get(
+      `/api/notebooks/${OTHER_NOTEBOOK}/sources/${id}/text`
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it('does not know a notebook of another session', async () => {
+    const app = appFor();
+    const id = await pasteInto(app, 'Ein Satz.');
+    markStatus(id, 'ready');
+
+    currentSession = 'session-b';
+    const response = await request(app).get(`/api/notebooks/${NOTEBOOK}/sources/${id}/text`);
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe('NOTEBOOK_NOT_FOUND');
+  });
+
+  it('says a source is not ready rather than drawing an empty document', async () => {
+    const app = appFor();
+    const id = await pasteInto(app, 'Ein Satz.');
+    markStatus(id, 'queued');
+
+    const response = await request(app).get(`/api/notebooks/${NOTEBOOK}/sources/${id}/text`);
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe('SOURCE_NOT_READY');
+  });
+
+  it('refuses a source id that is not a uuid with 400', async () => {
+    const response = await request(appFor()).get(
+      `/api/notebooks/${NOTEBOOK}/sources/nope/text`
+    );
+
+    expect(response.status).toBe(400);
   });
 });

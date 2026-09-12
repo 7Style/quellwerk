@@ -40,5 +40,9 @@ export function createChatRouter(deps: ChatRouterDeps): Router {
     wrap(deps.controller.ask)
   );
 
+  // A read, so none of the three gates above it: a reader who is over the turn
+  // limit may still look at what was already answered.
+  router.get('/notebooks/:notebookId/messages', wrap(deps.controller.list));
+
   return router;
 }

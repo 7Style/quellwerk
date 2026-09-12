@@ -11,6 +11,7 @@ import request from 'supertest';
 
 import { errorMiddleware } from '../../../common/middleware/error.middleware.js';
 import { ChatController } from '../controllers/chat.controller.js';
+import type { StoredMessage } from '../dto/message.dto.js';
 import { createChatRouter } from '../routes/chat.routes.js';
 import { ChatService, type StreamEvent, type TurnSources } from '../services/chat.service.js';
 import type { CitableSource } from '../internal/citations.js';
@@ -47,6 +48,9 @@ function finished() {
     usage: { input_tokens: 1, output_tokens: 2 },
   } as never;
 }
+
+/** What GET messages answers with. Empty unless a test puts a turn in it. */
+let storedMessages: StoredMessage[] = [];
 
 function appFor(): Express {
   const app = express();
@@ -86,7 +90,7 @@ function appFor(): Express {
   app.use(
     '/api',
     createChatRouter({
-      controller: new ChatController(service, () => currentSession),
+      controller: new ChatController(service, () => currentSession, async () => storedMessages),
       limitPerSession: pass,
       limitPerIp: pass,
       budget: pass,
@@ -258,4 +262,75 @@ describe('the abort signal', () => {
 
     expect(aborted).toBe(true);
   }, 10_000);
+});
+
+describe('GET the stored turns', () => {
+  it('marks an answer that opens with a refusal sentence', async () => {
+    // The field exists so the interface does not need a third copy of the two
+    // sentences. The route owns them, enforces that a refusal carries no chip,
+    // and says so here.
+    storedMessages = [
+      {
+        id: 'm1',
+        role: 'assistant',
+        segments: [{ text: 'The sources do not cover this. They do describe what a provider owes.' }],
+        droppedCitations: 0,
+        createdAt: new Date('2026-09-12T08:00:00Z'),
+      },
+    ];
+
+    const response = await request(appFor()).get(`/api/notebooks/${NOTEBOOK}/messages`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.messages[0].refused).toBe(true);
+  });
+
+  it('does not mark an answer that only mentions the sentence', async () => {
+    storedMessages = [
+      {
+        id: 'm2',
+        role: 'assistant',
+        segments: [{ text: 'Article 9 applies. Nothing here says "The sources do not cover this."' }],
+        droppedCitations: 0,
+        createdAt: new Date('2026-09-12T08:00:00Z'),
+      },
+    ];
+
+    const response = await request(appFor()).get(`/api/notebooks/${NOTEBOOK}/messages`);
+
+    expect(response.body.messages[0].refused).toBe(false);
+  });
+
+  it('never marks a question, whatever it says', async () => {
+    storedMessages = [
+      {
+        id: 'm3',
+        role: 'user',
+        segments: [{ text: 'The sources do not cover this.' }],
+        droppedCitations: 0,
+        createdAt: new Date('2026-09-12T08:00:00Z'),
+      },
+    ];
+
+    const response = await request(appFor()).get(`/api/notebooks/${NOTEBOOK}/messages`);
+
+    expect(response.body.messages[0].refused).toBe(false);
+  });
+
+  it('refuses a request without a session with 400', async () => {
+    currentSession = null;
+
+    const response = await request(appFor()).get(`/api/notebooks/${NOTEBOOK}/messages`);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe('NO_SESSION');
+  });
+
+  it('never lets a shared cache keep somebody else conversation', async () => {
+    storedMessages = [];
+
+    const response = await request(appFor()).get(`/api/notebooks/${NOTEBOOK}/messages`);
+
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
 });

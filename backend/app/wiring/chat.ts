@@ -295,6 +295,36 @@ async function* streamTurn(
   yield* llm.streamChat(request, signal);
 }
 
+/**
+ * Every stored turn of a notebook, oldest first, for the history route.
+ *
+ * The same access decision as a turn (`chatAccess`), and the same answer when
+ * it says no: a notebook of another session does not exist. A shared notebook
+ * has no stored turns at all, so this returns nothing there rather than one
+ * visitor's conversation to the next.
+ */
+export async function loadMessages(notebookId: string, sessionId: string) {
+  const notebook = await prisma.notebook.findUnique({
+    where: { id: notebookId },
+    select: { id: true, sessionId: true, isDemo: true },
+  });
+
+  const access = chatAccess(notebook, sessionId);
+  if (!access.allowed) {
+    throw Object.assign(new Error('No such notebook.'), {
+      statusCode: 404,
+      errorCode: 'NOTEBOOK_NOT_FOUND',
+    });
+  }
+  if (access.shared) return [];
+
+  return prisma.message.findMany({
+    where: { notebookId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, role: true, segments: true, droppedCitations: true, createdAt: true },
+  });
+}
+
 /** The last turns of this notebook, oldest first, as the builder wants them. */
 async function loadHistory(
   notebookId: string

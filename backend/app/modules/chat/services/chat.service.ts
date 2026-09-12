@@ -222,12 +222,13 @@ export class ChatService {
 
       const answer = answerText(segments);
       const usage = usageOf(finished);
+      const refused = beginsWithRefusal(answer);
 
       // `done` first, then the follow-ups. They are a second model call on
       // MODEL_FAST, and a turn that holds `done` back until it returns is a turn
       // whose answer is complete on screen while the spinner keeps going. The
       // client treats `followups` as an event that may or may not arrive.
-      sink.send({ t: 'done', usage, trace });
+      sink.send({ t: 'done', usage, trace, refused });
 
       const questions = await this.followUpsOrNone(
         input.question,

@@ -25,6 +25,7 @@ import type {
   NotebookAccess,
   SourceRow,
   SourcesRepository,
+  SourceWithText,
 } from '../interfaces/sources.repository.js';
 
 /**
@@ -76,8 +77,42 @@ export class SourcesService {
   constructor(private readonly deps: SourcesServiceDeps) {}
 
   async list(notebookId: string, sessionId: string): Promise<SourceRow[]> {
-    await this.deps.notebooks.writable(notebookId, sessionId);
+    // `readable`, not `writable`. Listing is a read, and asking for write
+    // access here hid the demo notebook's own sources from every visitor who
+    // did not happen to own it.
+    await this.deps.notebooks.readable(notebookId, sessionId);
     return this.deps.repository.listByNotebook(notebookId);
+  }
+
+  /**
+   * The stored text of one source.
+   *
+   * Exactly the string that was normalised once at ingest, went to the model
+   * and has not been touched since (ADR-0003). The viewer marks character
+   * ranges in it, so anything done to it on the way out - trimming, re-wrapping,
+   * a different encoding - would move every citation in the notebook.
+   *
+   * A source that is not ready has no text worth showing and answers 409: the
+   * viewer should say "still being read", not draw an empty document.
+   */
+  async text(notebookId: string, sourceId: string, sessionId: string): Promise<SourceWithText> {
+    await this.deps.notebooks.readable(notebookId, sessionId);
+
+    const source = await this.deps.repository.findWithText(notebookId, sourceId);
+    if (!source) {
+      throw Object.assign(new Error('No such source.'), {
+        statusCode: 404,
+        errorCode: 'SOURCE_NOT_FOUND',
+      });
+    }
+    if (source.status !== 'ready') {
+      throw Object.assign(new Error('This source is not ready yet.'), {
+        statusCode: 409,
+        errorCode: 'SOURCE_NOT_READY',
+      });
+    }
+
+    return source;
   }
 
   async addPasted(

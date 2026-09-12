@@ -40,6 +40,9 @@ export function createSourcesRouter(deps: SourcesRouterDeps): Router {
     wrap(deps.controller.create)
   );
   router.get('/notebooks/:notebookId/sources', wrap(deps.controller.list));
+  // Not on the list response: sending every document to draw a row of titles
+  // would be a megabyte for a sidebar. The viewer asks for one by id.
+  router.get('/notebooks/:notebookId/sources/:sourceId/text', wrap(deps.controller.text));
 
   return router;
 }

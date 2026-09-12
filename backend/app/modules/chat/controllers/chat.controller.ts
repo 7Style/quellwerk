@@ -17,14 +17,41 @@ import { chatTurnSchema, notebookIdParamSchema } from '../dto/chat.dto.js';
 import { claimTurn } from '../internal/concurrency.js';
 import { sseFrom } from '../internal/stream.js';
 import type { ChatService } from '../services/chat.service.js';
+import { toMessageResponse, type StoredMessage } from '../dto/message.dto.js';
 
 export type SessionIdReader = (req: Request) => string | null;
 
 export class ChatController {
   constructor(
     private readonly service: ChatService,
-    private readonly sessionIdOf: SessionIdReader
+    private readonly sessionIdOf: SessionIdReader,
+    /** Reads the stored turns, already scoped to the session. */
+    private readonly loadMessages: (notebookId: string, sessionId: string) => Promise<StoredMessage[]>
   ) {}
+
+  /**
+   * The turns of a notebook, oldest first.
+   *
+   * A reload has to show the conversation that was there. It is a plain JSON
+   * route and not part of the stream: the stream is one turn, this is the
+   * history, and mixing them would mean a reader could only see the past by
+   * asking something.
+   */
+  list = async (req: Request, res: Response): Promise<void> => {
+    const sessionId = this.sessionIdOf(req);
+    if (!sessionId) {
+      throw Object.assign(new Error('No session. Enable cookies and reload.'), {
+        statusCode: 400,
+        errorCode: 'NO_SESSION',
+      });
+    }
+
+    const { notebookId } = notebookIdParamSchema.parse(req.params);
+    const messages = await this.loadMessages(notebookId, sessionId);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ messages: messages.map(toMessageResponse) });
+  };
 
   ask = async (req: Request, res: Response): Promise<void> => {
     const sessionId = this.sessionIdOf(req);

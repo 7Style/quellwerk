@@ -61,7 +61,11 @@ export type ChatEvent =
   | { t: 'followups'; q: string[] }
   | { t: 'truncated' }
   | { t: 'refused'; m: string }
-  | { t: 'done'; usage: TurnUsage; trace: TurnTrace }
+  /**
+   * `refused` so the client never needs the refusal sentences itself. The route
+   * owns them, enforces that a refusal carries no chip, and says which it was.
+   */
+  | { t: 'done'; usage: TurnUsage; trace: TurnTrace; refused: boolean }
   | { t: 'error'; m: string; retry: boolean };
 
 /** The part of a response this writer needs, so a test can hand it a fake. */

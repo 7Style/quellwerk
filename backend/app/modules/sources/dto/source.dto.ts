@@ -33,6 +33,26 @@ export const notebookIdParamSchema = z.object({
   notebookId: z.union([z.uuid(), z.literal('demo')], { error: 'Not a notebook id.' }),
 });
 
+export const sourceIdParamSchema = notebookIdParamSchema.extend({
+  sourceId: z.uuid({ error: 'Not a source id.' }),
+});
+
+/**
+ * One source with its text, for the viewer.
+ *
+ * `text` is the stored string, byte for byte. The viewer marks character ranges
+ * in it and a citation's offsets point into it, so this response is the one
+ * place where sending something almost right would be worse than sending
+ * nothing (ADR-0003).
+ */
+export interface SourceTextResponse extends SourceResponse {
+  text: string;
+}
+
+export function toSourceTextResponse(row: SourceRow & { text: string }): SourceTextResponse {
+  return { ...toSourceResponse(row), text: row.text };
+}
+
 export interface SourceResponse {
   id: string;
   position: number;

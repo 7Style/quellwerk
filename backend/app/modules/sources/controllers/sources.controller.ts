@@ -8,7 +8,9 @@ import type { Request, Response } from 'express';
 import {
   createPastedSourceSchema,
   notebookIdParamSchema,
+  sourceIdParamSchema,
   toSourceResponse,
+  toSourceTextResponse,
 } from '../dto/source.dto.js';
 import { UnsupportedSourceError } from '../internal/errors.js';
 import type { SourcesService } from '../services/sources.service.js';
@@ -92,6 +94,22 @@ export class SourcesController {
 
     const sources = await this.service.list(notebookId, sessionId);
     res.json({ sources: sources.map(toSourceResponse) });
+  };
+
+  /**
+   * The stored text of one source, for the viewer.
+   *
+   * No caching headers on purpose. The text is a document of the caller's own
+   * session; a shared cache in front of this would be a cache of somebody's
+   * documents keyed by a URL that says nothing about whose they are.
+   */
+  text = async (req: Request, res: Response): Promise<void> => {
+    const sessionId = this.requireSession(req);
+    const { notebookId, sourceId } = sourceIdParamSchema.parse(req.params);
+
+    const source = await this.service.text(notebookId, sourceId, sessionId);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ source: toSourceTextResponse(source) });
   };
 }
 
