@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { NotebookPage } from '../../pages/notebook.page';
 
@@ -38,6 +38,57 @@ Technische Dokumentation
 
 test.skip(!process.env.E2E_STACK, 'needs a running stack with a usable API key');
 
+/**
+ * A failing setup call has to say what the server said.
+ *
+ * `expect(response.ok()).toBeTruthy()` reports "false", which is every possible
+ * cause at once: no session, a full notebook, a rate limit, a key the backend
+ * could not use. The body names one of them.
+ */
+async function post(
+  request: APIRequestContext,
+  url: string,
+  data: unknown
+): Promise<Record<string, unknown>> {
+  const response = await request.post(url, { data });
+  const body = await response.text();
+  expect(response.status(), `POST ${url} answered ${response.status()}: ${body}`).toBeLessThan(300);
+  return JSON.parse(body) as Record<string, unknown>;
+}
+
+/**
+ * Sets a notebook up through the API and hands the session to the browser.
+ *
+ * The direction matters. `request` keeps its own cookie jar across calls, so
+ * the notebook and the source end up in one session; the browser then adopts
+ * that session and finds them. Doing it the other way - reading the page's
+ * cookies first - depends on the page having already spoken to the backend, and
+ * `goto` returns before the first query does. Each setup call then arrived
+ * without a session, express-session issued a fresh one for each, and the
+ * source was added to a notebook of a session that no longer existed: a 404
+ * that is really a race.
+ */
+async function notebookWith(
+  request: APIRequestContext,
+  page: Page,
+  apiBase: string,
+  title: string
+): Promise<string> {
+  const notebook = await post(request, `${apiBase}/api/notebooks`, { title });
+  const notebookId = notebook.id as string;
+
+  await post(request, `${apiBase}/api/notebooks/${notebookId}/sources`, {
+    kind: 'paste',
+    title: 'KI-Verordnung, Auszug',
+    text: DOCUMENT,
+  });
+
+  const { cookies } = await request.storageState();
+  await page.context().addCookies(cookies);
+
+  return notebookId;
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test('answers a question from a document it just read, and the chip opens it', async ({
@@ -46,25 +97,8 @@ test('answers a question from a document it just read, and the chip opens it', a
 }) => {
   test.setTimeout(180_000);
 
-  // The notebook and the source go in through the API, with the browser's
-  // session cookie: the page has to find them there, which is the point.
-  await page.goto('/');
-  const cookies = await page.context().cookies();
-  const cookie = cookies.map((one) => `${one.name}=${one.value}`).join('; ');
   const apiBase = process.env.API_URL ?? 'http://127.0.0.1:3011';
-
-  const created = await request.post(`${apiBase}/api/notebooks`, {
-    headers: { cookie },
-    data: { title: 'Stack test' },
-  });
-  expect(created.ok()).toBeTruthy();
-  const notebookId = (await created.json()).id as string;
-
-  const added = await request.post(`${apiBase}/api/notebooks/${notebookId}/sources`, {
-    headers: { cookie },
-    data: { kind: 'paste', title: 'KI-Verordnung, Auszug', text: DOCUMENT },
-  });
-  expect(added.ok()).toBeTruthy();
+  const notebookId = await notebookWith(request, page, apiBase, 'Stack test');
 
   await page.goto(`/n/${notebookId}`);
   const notebook = new NotebookPage(page);
@@ -101,6 +135,22 @@ test('answers a question from a document it just read, and the chip opens it', a
   expect(whole.slice(at, at + (marked?.length ?? 0))).toBe(marked);
 
   // A reload shows the conversation again: the turn was stored, not only drawn.
+  //
+  // Waiting for the row rather than for the screen. The route writes the turn
+  // after it has asked for follow-up questions, so reloading the moment the
+  // last chip appears aborts the turn instead of finishing it - and an aborted
+  // turn is deliberately not written. That is the product being right and the
+  // test being early.
+  await expect
+    .poll(
+      async () => {
+        const stored = await request.get(`${apiBase}/api/notebooks/${notebookId}/messages`);
+        return ((await stored.json()) as { messages: unknown[] }).messages.length;
+      },
+      { timeout: 60_000 }
+    )
+    .toBe(2);
+
   await page.reload();
   await expect(page.getByTestId('question')).toHaveCount(1);
   await expect(page.getByTestId('answer')).toHaveCount(1);
@@ -109,21 +159,8 @@ test('answers a question from a document it just read, and the chip opens it', a
 test('says the sources do not cover a question they do not cover', async ({ page, request }) => {
   test.setTimeout(180_000);
 
-  await page.goto('/');
-  const cookies = await page.context().cookies();
-  const cookie = cookies.map((one) => `${one.name}=${one.value}`).join('; ');
   const apiBase = process.env.API_URL ?? 'http://127.0.0.1:3011';
-
-  const created = await request.post(`${apiBase}/api/notebooks`, {
-    headers: { cookie },
-    data: { title: 'Refusal test' },
-  });
-  const notebookId = (await created.json()).id as string;
-
-  await request.post(`${apiBase}/api/notebooks/${notebookId}/sources`, {
-    headers: { cookie },
-    data: { kind: 'paste', title: 'KI-Verordnung, Auszug', text: DOCUMENT },
-  });
+  const notebookId = await notebookWith(request, page, apiBase, 'Refusal test');
 
   await page.goto(`/n/${notebookId}`);
   const notebook = new NotebookPage(page);

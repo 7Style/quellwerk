@@ -144,7 +144,11 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
             busy={chat.state === 'thinking' || chat.state === 'streaming'}
             onAsk={chat.ask}
             onStop={chat.stop}
-            meta={`${ready.length} of ${rows.length} sources ready`}
+            meta={
+              rows.length === 1
+                ? `${ready.length} of 1 source ready`
+                : `${ready.length} of ${rows.length} sources ready`
+            }
           />
         }
         studio={

@@ -76,7 +76,14 @@ export function Thread({
 
             {message.stopped ? (
               <div className="flex items-center gap-3 text-small text-ink-faint">
-                <span>Stopped. The part above is kept and can be cited.</span>
+                {/* Precise on purpose. Every chip above was checked like any
+                    other, so the passages can be opened - but a turn that was
+                    stopped is never written to the notebook, and saying "kept"
+                    would promise it back after a reload. */}
+                <span>
+                  Stopped. What arrived stays on screen and its passages can be opened; it is not
+                  saved to this notebook.
+                </span>
               </div>
             ) : null}
           </div>

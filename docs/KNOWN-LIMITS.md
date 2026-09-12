@@ -139,3 +139,22 @@ Das ist bewusst so, solange der Eval von Hand gestartet wird: eine Zeile in
 Zahl unbrauchbar machen, an der das Panel hängt. Was fehlt, ist eine eigene
 Obergrenze für den Eval selbst. Bis dahin ist die Grenze, dass ich den Befehl
 tippe.
+
+## Ein abgebrochener Turn wird nicht gespeichert und nicht abgerechnet
+
+Wer auf Stopp drückt oder die Seite verlässt, bricht den Turn ab. Was schon
+angekommen ist, bleibt auf dem Schirm, und jeder Chip darin wurde geprüft wie
+jeder andere — aber die Antwort wird nicht ins Notizbuch geschrieben. Nach einem
+Reload ist sie weg. Die Zeile unter der Antwort sagt das auch so.
+
+Teurer ist die zweite Hälfte: es entsteht auch keine `usage_log`-Zeile. Der
+Abbruch stoppt den Stream, aber die bis dahin erzeugten Token sind bei Anthropic
+bereits angefallen. Ein Notizbuch, in dem jemand zwanzig Antworten abbricht,
+kostet Geld, das im Tagesbudget nicht auftaucht.
+
+Der Grund ist, dass die Abrechnung an der fertigen Nachricht hängt: erst sie
+trägt die Token-Zahlen, und bei einem Abbruch gibt es sie nicht. Die saubere
+Lösung ist, die Deltas mitzuzählen und beim Abbruch eine Zeile mit dem
+geschätzten Stand zu schreiben — eine Schätzung in einer Tabelle, in der sonst
+nur gemessene Zahlen stehen. Das ist eine eigene Entscheidung und keine, die in
+den Meilenstein gehört, der die Oberfläche anschließt.

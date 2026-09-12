@@ -362,7 +362,7 @@ Files: frontend/src/lib/api.ts, frontend/src/modules/*/services/*.api.ts, fronte
 Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/e2e/notebook.spec.ts`
 Expected: against the running stack a question produces a streamed answer whose chips open the real source.
 Box: 60
-Status: [ ]
+Status: [x]
 
 Milestone end: deploy.
 

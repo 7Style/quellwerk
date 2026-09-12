@@ -98,7 +98,11 @@ export function Answer({ message, onOpenCitation, streaming = false }: AnswerPro
           ) : (
             <span>No citations</span>
           )}
-          {citations.length > 0 ? <span>{sourceCountOf(message)} sources</span> : null}
+          {citations.length > 0 ? (
+            <span>
+              {sourceCountOf(message)} {sourceCountOf(message) === 1 ? 'source' : 'sources'}
+            </span>
+          ) : null}
           <span className="flex-1" />
           <Button
             variant="ghost"
