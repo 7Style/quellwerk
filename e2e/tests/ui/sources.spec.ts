@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { stubApi } from '../../fixtures/api';
+
 /**
  * The sources column and the Add sources dialog.
  *
@@ -10,7 +12,12 @@ import { expect, test } from '@playwright/test';
  */
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/n/eu-ai-act-obligations');
+  // No backend: the responses come from e2e/fixtures/api.ts.
+  await stubApi(page);
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.goto('/n/3f1b0a3c-1f2e-4c3a-9a1b-000000000001');
 });
 
 test.describe('the source list', () => {

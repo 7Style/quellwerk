@@ -1,5 +1,9 @@
 /**
- * The stored text of two sources, as the viewer receives it.
+ * The stored text of two sources, for the state catalogue.
+ *
+ * The product fetches its documents (M4-T6); what is left of the fixtures is
+ * this one, because /dev/states draws a real answer with a real citation in it
+ * and a citation needs a document to point into.
  *
  * Normalised text, not markup: this is what a document looks like after
  * `modules/sources/internal/normalize.ts` has run once at ingest, and it is the

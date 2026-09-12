@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { stubApi } from '../../fixtures/api';
+
 /**
  * The shell: the home grid and the three column layout.
  *
@@ -40,6 +42,11 @@ async function scrollInside(page: Page, testId: string): Promise<{ top: number; 
     return result;
   });
 }
+
+test.beforeEach(async ({ page }) => {
+  // No backend: the responses come from e2e/fixtures/api.ts.
+  await stubApi(page);
+});
 
 test.describe('home', () => {
   test('renders the notebook grid', async ({ page }) => {
@@ -83,14 +90,14 @@ test.describe('home', () => {
     await page.goto('/');
     await page.getByRole('link', { name: /EU AI Act obligations/ }).click();
 
-    await expect(page).toHaveURL(/\/n\/eu-ai-act-obligations$/);
+    await expect(page).toHaveURL(/\/n\/3f1b0a3c-1f2e-4c3a-9a1b-000000000001$/);
     await expect(page.getByRole('heading', { name: 'EU AI Act obligations' })).toBeVisible();
   });
 });
 
 test.describe('a notebook', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/n/eu-ai-act-obligations');
+    await page.goto('/n/3f1b0a3c-1f2e-4c3a-9a1b-000000000001');
   });
 
   test('renders three columns under the topbar', async ({ page }) => {
@@ -156,9 +163,15 @@ test.describe('a notebook', () => {
     expect(await pageScrolls(page)).toBe(false);
   });
 
-  test('is a 404 for a notebook that does not exist', async ({ page }) => {
-    const response = await page.goto('/n/not-a-notebook');
+  test('says so when a notebook is not this session', async ({ page }) => {
+    // Not an HTTP 404. Whether a notebook exists is a question only the session
+    // cookie can answer, and the cookie is the browser's, so the server that
+    // renders the route cannot know. The screen says the same thing for a
+    // notebook that never existed and one that belongs elsewhere, because
+    // telling them apart is the information the rule withholds.
+    await page.goto('/n/3f1b0a3c-1f2e-4c3a-9a1b-00000000ffff');
 
-    expect(response?.status()).toBe(404);
+    await expect(page.getByTestId('notebook-missing')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to your notebooks' })).toBeVisible();
   });
 });

@@ -26,40 +26,41 @@ function resolveApiBaseUrl(): string {
   return '';
 }
 
-const API_BASE_URL = resolveApiBaseUrl();
+export const API_BASE_URL = resolveApiBaseUrl();
 
 /**
- * Get access token from localStorage
- */
-function getAccessToken(): string | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  return localStorage.getItem('accessToken');
-}
-
-/**
- * Base API configuration for RTK Query
- * All module-specific APIs should inject endpoints into this base API
+ * The one API client, and the one place that knows how a request identifies
+ * itself.
+ *
+ * There is no token. A visitor of Quellwerk is an anonymous session and nothing
+ * more (ADR-0005): the backend sets a signed cookie, every route is scoped to
+ * it, and there is no account to hold a bearer token for. The template's
+ * `Authorization` header read a value from localStorage that nothing in this
+ * product ever writes.
+ *
+ * `credentials: 'include'` is what actually carries the session. The frontend
+ * and the backend are different origins (3010 and 3011 locally, and two
+ * locations behind one host in production), so without it the browser sends no
+ * cookie at all and every request would arrive as a new visitor with an empty
+ * notebook. The backend's CORS allowlist is what makes that safe: credentials
+ * are only granted to a listed Origin, never to a wildcard.
  */
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
     baseUrl: API_BASE_URL,
-    prepareHeaders: (headers) => {
-      // Always read fresh token from localStorage
-      const token = getAccessToken();
-
-      if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
+    credentials: 'include',
+    prepareHeaders: (headers, { endpoint }) => {
+      // Not for an upload. A multipart body needs the boundary the browser
+      // generates, and a Content-Type set here would replace it with one that
+      // has no boundary in it, which multer rejects as a malformed body.
+      if (!headers.has('Content-Type') && endpoint !== 'uploadSource') {
+        headers.set('Content-Type', 'application/json');
       }
-
-      headers.set('Content-Type', 'application/json');
       return headers;
     },
   }),
-  // Refetch on reconnect and focus
   refetchOnReconnect: true,
-  tagTypes: ['User', 'Role', 'Metadata', 'Project'],
+  tagTypes: ['Notebook', 'Source', 'Message'],
   endpoints: () => ({}),
 });

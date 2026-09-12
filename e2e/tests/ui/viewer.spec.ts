@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { stubApi } from '../../fixtures/api';
+
 /**
  * The source viewer and its mark.
  *
@@ -31,7 +33,12 @@ async function isInView(page: Page, testId: string): Promise<boolean> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/n/eu-ai-act-obligations');
+  // No backend: the responses come from e2e/fixtures/api.ts.
+  await stubApi(page);
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.goto('/n/3f1b0a3c-1f2e-4c3a-9a1b-000000000001');
 });
 
 test('a chip opens the source and marks exactly what was cited', async ({ page }) => {
@@ -106,7 +113,7 @@ test('opens a source from the list with nothing marked', async ({ page }) => {
 
   await expect(page.getByTestId('source-viewer')).toBeVisible();
   await expect(page.getByTestId('passage-mark')).toHaveCount(0);
-  await expect(page.getByTestId('source-text')).toContainText('Who counts as a provider?');
+  await expect(page.getByTestId('source-text')).toContainText('Navigating the AI Act');
 });
 
 test('goes back to the list and keeps the column scrolling for itself', async ({ page }) => {

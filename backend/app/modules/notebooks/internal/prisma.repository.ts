@@ -9,24 +9,42 @@ import type {
   NotebooksRepository,
 } from '../interfaces/notebooks.repository.js';
 
+/** Counted in the same query; see NotebookRow.sourceCount for why not a column. */
+const WITH_SOURCE_COUNT = { _count: { select: { sources: true } } } as const;
+
+function withCount<T extends { _count: { sources: number } }>(row: T): Omit<T, '_count'> & {
+  sourceCount: number;
+} {
+  const { _count, ...rest } = row;
+  return { ...rest, sourceCount: _count.sources };
+}
+
 export class PrismaNotebooksRepository implements NotebooksRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async create(data: CreateNotebookData): Promise<NotebookRow> {
-    return this.prisma.notebook.create({
+    const row = await this.prisma.notebook.create({
       data: { sessionId: data.sessionId, title: data.title },
+      include: WITH_SOURCE_COUNT,
     });
+    return withCount(row);
   }
 
   async findById(id: string): Promise<NotebookRow | null> {
-    return this.prisma.notebook.findUnique({ where: { id } });
+    const row = await this.prisma.notebook.findUnique({
+      where: { id },
+      include: WITH_SOURCE_COUNT,
+    });
+    return row ? withCount(row) : null;
   }
 
   async listBySession(sessionId: string): Promise<NotebookRow[]> {
-    return this.prisma.notebook.findMany({
+    const rows = await this.prisma.notebook.findMany({
       where: { sessionId },
       orderBy: { lastUsedAt: 'desc' },
+      include: WITH_SOURCE_COUNT,
     });
+    return rows.map(withCount);
   }
 
   async touch(id: string): Promise<void> {

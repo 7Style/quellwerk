@@ -86,6 +86,7 @@ function answer(extra: Partial<AssistantMessage> = {}): AssistantMessage {
     id: 'a1',
     role: 'assistant',
     droppedCitations: 0,
+    refused: false,
     segments: [
       {
         text: 'Providers have to plan for what happens after the system is in use, not only before it ships. The risk management system runs ',
@@ -101,6 +102,7 @@ const REFUSAL: AssistantMessage = {
   id: 'r1',
   role: 'assistant',
   droppedCitations: 0,
+  refused: true,
   segments: [
     {
       text: 'The sources do not cover this. What they do cover is what providers owe before and after a high-risk system reaches the market, and the readiness gaps recorded in your internal memo.',

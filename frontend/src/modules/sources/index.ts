@@ -7,7 +7,14 @@ export type { SourceViewerProps, ViewerSource } from './components/SourceViewer'
 export { SourcePassage } from './components/SourcePassage';
 export { useSourceViewer } from './hooks/useSourceViewer';
 export type { UseSourceViewerResult, ViewerTarget } from './hooks/useSourceViewer';
-export { sourceFixtures } from './fixtures/sources';
+export {
+  sourcesApi,
+  useListSourcesQuery,
+  useSourceTextQuery,
+  useAddPastedSourceMutation,
+  useUploadSourceMutation,
+  WHILE_READING_MS,
+} from './services/sources.api';
 export { sourceTextFixtures } from './fixtures/source-texts';
 export { isUsable, INGEST_STEPS, SOURCE_KINDS } from './types/source';
 export type {

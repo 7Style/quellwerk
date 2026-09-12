@@ -15,6 +15,9 @@ export interface SourcesPanelProps {
   onOpen?: (id: string) => void;
   currentSourceId?: string;
   onRetry?: () => void;
+  /** Handed to the dialog. Absent means the dialog validates but sends nothing. */
+  onAddPaste?: (input: { title: string; text: string }) => void;
+  onAddFiles?: (files: File[]) => void;
 }
 
 /**
@@ -36,6 +39,8 @@ export function SourcesPanel({
   onOpen,
   currentSourceId,
   onRetry,
+  onAddPaste,
+  onAddFiles,
 }: SourcesPanelProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -102,7 +107,12 @@ export function SourcesPanel({
       </div>
 
       <div className="flex-none border-t border-rule p-3">
-        <AddSourcesDialog sourceCount={sources.length} maxSources={MAX_SOURCES} />
+        <AddSourcesDialog
+          sourceCount={sources.length}
+          maxSources={MAX_SOURCES}
+          onAddPaste={onAddPaste}
+          onAddFiles={onAddFiles}
+        />
       </div>
     </div>
   );

@@ -3,7 +3,6 @@
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/icon';
 import type { Citation } from '@/lib/citation';
-import { refusalLead } from '@/lib/refusal';
 import { CitationChip } from './CitationChip';
 import { answerText, citationsOf, sourceCountOf, type AssistantMessage } from '../types/message';
 
@@ -23,10 +22,20 @@ export interface AnswerProps {
  * a refusal with a chip cannot arrive - and if one ever did, the reader would be
  * invited to check a claim nobody made.
  */
+/** Up to and including the first full stop, or nothing when there is none. */
+function leadSentence(text: string): string | null {
+  const stop = text.indexOf('. ');
+  if (stop === -1) return text.trimEnd().endsWith('.') ? text : null;
+  return text.slice(0, stop + 1);
+}
+
 export function Answer({ message, onOpenCitation, streaming = false }: AnswerProps) {
   const citations = citationsOf(message);
-  const lead = refusalLead(answerText(message));
-  const refusal = lead !== null;
+  const refusal = message.refused;
+  // The refusal sentence is the first sentence, which the frozen system prompt
+  // guarantees, so the first full stop is where it ends. Reading that out of
+  // the text is what keeps the two sentences themselves on the server.
+  const lead = refusal ? leadSentence(message.segments[0]?.text ?? '') : null;
 
   // The number each segment's first chip carries, worked out before anything
   // renders. Counting up inside the JSX would be a variable reassigned during

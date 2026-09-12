@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { gatedBaseUrl } from '../../playwright.config';
+import { stubApi } from '../../fixtures/api';
 import { NotebookPage } from '../../pages/notebook.page';
 
 /**
@@ -12,6 +13,11 @@ import { NotebookPage } from '../../pages/notebook.page';
  *
  * It runs at 1440 and 1280, light and dark (e2e/playwright.config.ts).
  */
+
+test.beforeEach(async ({ page }) => {
+  // No backend: the responses come from e2e/fixtures/api.ts.
+  await stubApi(page);
+});
 
 test('walks from the notebook grid to a cited passage and back', async ({ page }) => {
   const notebook = new NotebookPage(page);
@@ -47,7 +53,7 @@ test('walks from the notebook grid to a cited passage and back', async ({ page }
 
 test('gives the answer the room when both panels are folded away', async ({ page }) => {
   const notebook = new NotebookPage(page);
-  await page.goto('/n/eu-ai-act-obligations');
+  await page.goto('/n/3f1b0a3c-1f2e-4c3a-9a1b-000000000001');
 
   const before = (await notebook.chat.boundingBox())?.width ?? 0;
 

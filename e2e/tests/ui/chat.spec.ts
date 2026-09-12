@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 
+import { stubApi } from '../../fixtures/api';
 import { NotebookPage } from '../../pages/notebook.page';
 
 /**
@@ -15,7 +16,12 @@ import { NotebookPage } from '../../pages/notebook.page';
  */
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/n/eu-ai-act-obligations');
+  // No backend: the responses come from e2e/fixtures/api.ts.
+  await stubApi(page);
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.goto('/n/3f1b0a3c-1f2e-4c3a-9a1b-000000000001');
 });
 
 test('numbers every citation in the answer, once, in reading order', async ({ page }) => {
@@ -101,15 +107,49 @@ test('the composer sends nothing while the box is empty', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Send' })).toBeEnabled();
 });
 
-test('a suggestion fills the box instead of asking straight away', async ({ page }) => {
+test('streams an answer and offers follow-ups afterwards', async ({ page }) => {
+  const notebook = new NotebookPage(page);
+
+  // No follow-ups before a turn: they come from the answer that was just given
+  // (the route asks MODEL_FAST for them), not from a list somebody wrote down.
+  await expect(page.getByTestId('suggestions')).toHaveCount(0);
+
+  await notebook.composer.fill('What happens after the system is in use?');
+  await notebook.composer.press('Enter');
+
+  await expect(page.getByTestId('question')).toHaveCount(3);
+  await expect(page.getByTestId('answer').last()).toContainText(
+    'Providers have to plan for what happens after the system is in use, not only before it ships'
+  );
+  // The citation arrived mid-stream and landed in the segment it belongs to.
+  await expect(page.getByTestId('answer').last().getByTestId('cite-1')).toBeVisible();
+  await expect(page.getByTestId('suggestions')).toBeVisible();
+});
+
+test('a follow-up fills the box instead of asking straight away', async ({ page }) => {
   const notebook = new NotebookPage(page);
   const suggestion = 'Who counts as a provider under the Act?';
+
+  await notebook.composer.fill('What happens after the system is in use?');
+  await notebook.composer.press('Enter');
+  await expect(page.getByTestId('suggestions')).toBeVisible();
 
   await page.getByRole('button', { name: suggestion }).click();
 
   await expect(notebook.composer).toHaveValue(suggestion);
   // Filling the box and sending are two decisions; a reader may want to edit it.
-  await expect(page.getByTestId('question')).toHaveCount(2);
+  await expect(page.getByTestId('question')).toHaveCount(3);
+});
+
+test('draws a streamed refusal as a refusal, with nothing under it', async ({ page }) => {
+  const notebook = new NotebookPage(page);
+
+  await notebook.composer.fill('Which fine did the Munich court impose?');
+  await notebook.composer.press('Enter');
+
+  const answer = page.getByTestId('answer').last();
+  await expect(answer).toHaveAttribute('data-refusal', 'true');
+  await expect(answer.locator('[data-testid^="cite-"]')).toHaveCount(0);
 });
 
 test('Enter asks and Shift+Enter breaks the line', async ({ page }) => {

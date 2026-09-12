@@ -28,6 +28,15 @@ export interface AssistantMessage {
   segments: AnswerSegment[];
   /** Citations that failed the server's check and were never rendered. */
   droppedCitations: number;
+  /**
+   * Whether the answer is the refusal.
+   *
+   * It comes from the server, on the message and in the `done` event. The two
+   * refusal sentences are fixed in the frozen system prompt and the route
+   * already owns them, enforces that such an answer carries no chip, and says
+   * which it was. A copy here would be the fourth, and the first one to drift.
+   */
+  refused: boolean;
   /** Set when the turn ended early. */
   stopped?: boolean;
   truncated?: boolean;

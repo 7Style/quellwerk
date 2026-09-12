@@ -23,6 +23,16 @@ export interface NotebookRow {
   isDemo: boolean;
   createdAt: Date;
   lastUsedAt: Date;
+  /**
+   * How many sources the notebook holds.
+   *
+   * Counted by the database in the same query, not carried as a column: a
+   * column would be a number that has to be kept right on every add, every
+   * failed ingest and every delete, and the first one missed makes the card
+   * lie. Prisma's `_count` is a join, and a notebook list is at most a few
+   * dozen rows per session.
+   */
+  sourceCount: number;
 }
 
 export interface CreateNotebookData {

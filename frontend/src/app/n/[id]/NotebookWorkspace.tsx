@@ -1,114 +1,198 @@
 'use client';
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { useEffect, useMemo } from 'react';
 
-import { citeQuote, highlightOf, type Citation } from '@/lib/citation';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/icon';
+import { highlightOf } from '@/lib/citation';
+import { relativeTime } from '@/lib/relative-time';
+import { Composer, Thread, useChatStream, useListMessagesQuery } from '@/modules/chat';
+import { useGetNotebookQuery } from '@/modules/notebooks';
+import { Topbar, Workspace } from '@/modules/shell';
 import {
-  Composer,
-  Thread,
-  suggestionFixtures,
-  threadFixture,
-  type Message,
-  type TurnState,
-} from '@/modules/chat';
-import { Workspace } from '@/modules/shell';
-import { SourcesPanel, SourceViewer, useSourceViewer, type SourceSummary } from '@/modules/sources';
+  SourcesPanel,
+  SourceViewer,
+  useAddPastedSourceMutation,
+  useListSourcesQuery,
+  useSourceTextQuery,
+  useSourceViewer,
+  useUploadSourceMutation,
+  WHILE_READING_MS,
+} from '@/modules/sources';
 
 export interface NotebookWorkspaceProps {
-  sources: SourceSummary[];
-  /** Source id to stored text. M4-T6 fetches it by id instead. */
-  texts: Record<string, string>;
-  studio: ReactNode;
+  notebookId: string;
 }
 
 /**
- * The client half of a notebook: which source is open, what is marked in it,
- * and the conversation.
+ * A notebook, with everything it shows fetched in the browser.
  *
- * The state sits here because the columns share it. A citation chip in the chat
- * opens a source at a passage, a row in the list opens it at the top, and both
- * end up in the same viewer. Sources and chat are separate modules that may not
- * import each other, so the place that knows about both is the route, and this
- * is the client part of it.
+ * Every read is scoped to the anonymous session in the cookie (ADR-0005), so
+ * the data cannot be fetched while the page is rendered on the server without
+ * forwarding that cookie over a second address for the API. One way to reach
+ * the backend is enough, and this is it.
+ *
+ * The state that two columns share lives here: which source is open and what is
+ * marked in it. A chip in the chat opens a source at a passage, a row in the
+ * list opens it at the top, and both end in the same viewer. Sources and chat
+ * are separate modules that may not import each other, so the route knows about
+ * both and neither knows about the other.
  */
-export function NotebookWorkspace({ sources, texts, studio }: NotebookWorkspaceProps) {
-  const viewer = useSourceViewer();
+export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
+  const notebook = useGetNotebookQuery(notebookId);
+  const sources = useListSourcesQuery(notebookId);
+  const history = useListMessagesQuery(notebookId);
 
-  /** Resolves a fixture quote against the real document (lib/citation.ts). */
-  const cite = useCallback(
-    (sourceId: string, quote: string): Citation => {
-      const source = sources.find((candidate) => candidate.id === sourceId);
-      const text = texts[sourceId] ?? '';
-      return citeQuote({ id: sourceId, title: source?.title ?? sourceId, text }, quote);
-    },
-    [sources, texts]
+  const rows = useMemo(() => sources.data ?? [], [sources.data]);
+  const ready = useMemo(() => rows.filter((source) => source.status === 'ready'), [rows]);
+  const working = rows.some((source) => source.status === 'queued');
+
+  // Ingest runs in the worker and the list does not push, so while a document
+  // is being read the panel asks again. It stops the moment nothing is queued:
+  // a poll that never ends is a request every two seconds for as long as the
+  // tab is open.
+  useListSourcesQuery(notebookId, {
+    pollingInterval: working ? WHILE_READING_MS : 0,
+    skip: !working,
+  });
+
+  const viewer = useSourceViewer();
+  const openId = viewer.target?.sourceId ?? null;
+  const openSource = openId ? rows.find((source) => source.id === openId) : undefined;
+
+  const text = useSourceTextQuery(
+    { notebookId, sourceId: openId ?? '' },
+    { skip: openId === null }
   );
 
-  const [messages, setMessages] = useState<Message[]>(() => threadFixture(cite));
-  const [state, setState] = useState<TurnState>('idle');
-  const [error, setError] = useState<string | null>(null);
+  const chat = useChatStream({ notebookId, initial: history.data });
 
-  const ready = useMemo(() => sources.filter((source) => source.status === 'ready'), [sources]);
+  const [addPaste] = useAddPastedSourceMutation();
+  const [uploadSource] = useUploadSourceMutation();
 
-  const ask = useCallback((question: string) => {
-    // The question is kept in the thread so the reader sees what was asked, and
-    // the turn ends at once in a state that says what happened. M4-T6 replaces
-    // this with the SSE client; until then nothing is sent, and the interface
-    // says so rather than turning a spinner.
-    setMessages((current) => [
-      ...current,
-      { id: `q-${current.length}`, role: 'user', text: question },
-    ]);
-    setState('error');
-    setError(
-      'Nothing was sent. This build draws the conversation from fixtures; asking reaches the server in the next step.'
-    );
-  }, []);
+  // The tab, once the notebook has arrived. Metadata is built on the server and
+  // a notebook is only readable with the session cookie, so the name cannot be
+  // there; a reader with six tabs open still needs to tell them apart.
+  const title = notebook.data?.title;
+  useEffect(() => {
+    if (title) document.title = `${title} - Quellwerk`;
+  }, [title]);
 
-  const open = viewer.target
-    ? sources.find((source) => source.id === viewer.target?.sourceId)
-    : null;
+  if (notebook.isError) {
+    return <MissingNotebook />;
+  }
 
   return (
-    <Workspace
-      sourceCount={sources.length}
-      sourcesFill
-      sources={
-        viewer.target && open ? (
-          <SourceViewer
-            source={{ id: open.id, title: open.title, text: texts[open.id] ?? '' }}
-            highlight={viewer.target.highlight}
-            onClose={viewer.close}
+    <div className="flex h-dvh flex-col">
+      <Topbar meta={notebook.data ? `Saved ${relativeTime(notebook.data.updatedAt)}` : undefined}>
+        {notebook.data ? (
+          <>
+            <span className="h-[20px] w-px flex-none bg-rule" aria-hidden="true" />
+            <span className="text-base leading-none">{notebook.data.emoji}</span>
+            <h1 className="m-0 truncate text-ui-lg font-medium">{notebook.data.title}</h1>
+          </>
+        ) : null}
+      </Topbar>
+
+      <Workspace
+        sourceCount={rows.length}
+        sourcesFill
+        sources={
+          viewer.target ? (
+            <SourceViewer
+              source={
+                text.data
+                  ? text.data
+                  : openSource
+                    ? { id: openSource.id, title: openSource.title, text: '' }
+                    : null
+              }
+              highlight={viewer.target.highlight}
+              onClose={viewer.close}
+              loading={text.isFetching}
+              error={text.isError ? 'The document could not be loaded.' : null}
+              onRetry={() => void text.refetch()}
+            />
+          ) : (
+            <SourcesPanel
+              sources={rows}
+              state={sources.isLoading ? 'loading' : sources.isError ? 'error' : 'ready'}
+              onOpen={(id) => viewer.open(id)}
+              currentSourceId={openId ?? undefined}
+              onRetry={() => void sources.refetch()}
+              onAddPaste={(input) => void addPaste({ notebookId, ...input })}
+              onAddFiles={(files) => {
+                for (const file of files) void uploadSource({ notebookId, file });
+              }}
+            />
+          )
+        }
+        chat={
+          <Thread
+            messages={chat.messages}
+            state={chat.state}
+            sourceCount={ready.length}
+            onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
+            error={chat.error}
+            onRetry={chat.retryable ? chat.dismissError : undefined}
           />
-        ) : (
-          <SourcesPanel
-            sources={sources}
-            onOpen={(id) => viewer.open(id)}
-            currentSourceId={viewer.target?.sourceId}
+        }
+        composer={
+          <Composer
+            suggestions={chat.suggestions}
+            busy={chat.state === 'thinking' || chat.state === 'streaming'}
+            onAsk={chat.ask}
+            onStop={chat.stop}
+            meta={`${ready.length} of ${rows.length} sources ready`}
           />
-        )
-      }
-      chat={
-        <Thread
-          messages={messages}
-          state={state}
-          sourceCount={ready.length}
-          onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
-          error={error}
-          onRetry={() => {
-            setState('idle');
-            setError(null);
-          }}
-        />
-      }
-      composer={
-        <Composer
-          suggestions={suggestionFixtures}
-          onAsk={ask}
-          meta={`${ready.length} of ${sources.length} sources ready`}
-        />
-      }
-      studio={studio}
-    />
+        }
+        studio={
+          <div className="flex flex-col gap-5 p-3">
+            <section>
+              <h3 className="m-0 mb-2 text-small font-semibold text-ink-muted">Reports</h3>
+              <p className="m-0 text-ink-faint">
+                A Briefing Doc, a Study Guide, an FAQ or a Timeline, written from the sources.
+              </p>
+            </section>
+            <section>
+              <h3 className="m-0 mb-2 text-small font-semibold text-ink-muted">Notes</h3>
+              <p className="m-0 text-ink-faint">
+                Save an answer here, or write your own and turn it into a source.
+              </p>
+            </section>
+          </div>
+        }
+      />
+    </div>
+  );
+}
+
+/**
+ * A notebook of another session does not exist as far as this session is
+ * concerned (SECURITY.md 7.2), and neither does one that was never created. The
+ * screen says the same thing for both, because telling them apart would be the
+ * information the rule exists to withhold.
+ */
+function MissingNotebook() {
+  return (
+    <div className="flex h-dvh flex-col">
+      <Topbar />
+      <main className="grid flex-1 place-items-center px-5" data-testid="notebook-missing">
+        <div className="grid max-w-[46ch] justify-items-center gap-3 text-center">
+          <h1 className="m-0 text-h2 font-semibold">This notebook is not here.</h1>
+          <p className="m-0 text-ink-muted">
+            It may belong to another browser, or it may never have existed. Notebooks live in the
+            browser that made them; there is no account to sign in to.
+          </p>
+          <Button variant="outline" asChild>
+            <Link href="/">
+              <Icon name="chevronLeft" />
+              Back to your notebooks
+            </Link>
+          </Button>
+        </div>
+      </main>
+    </div>
   );
 }

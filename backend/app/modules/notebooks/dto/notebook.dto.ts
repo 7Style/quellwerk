@@ -51,6 +51,7 @@ export interface NotebookResponse {
   summary: string | null;
   suggestedQuestions: unknown;
   tokenCount: number;
+  sourceCount: number;
   isDemo: boolean;
   createdAt: string;
   lastUsedAt: string;
@@ -64,6 +65,7 @@ export function toNotebookResponse(row: NotebookRow): NotebookResponse {
     summary: row.summary,
     suggestedQuestions: row.suggestedQuestions ?? null,
     tokenCount: row.tokenCount,
+    sourceCount: row.sourceCount,
     isDemo: row.isDemo,
     createdAt: row.createdAt.toISOString(),
     lastUsedAt: row.lastUsedAt.toISOString(),
