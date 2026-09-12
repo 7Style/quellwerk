@@ -32,38 +32,3 @@ export interface Highlight {
 export function highlightOf(citation: Citation): Highlight {
   return { start: citation.start, end: citation.end };
 }
-
-/**
- * Builds a citation the way the server would: by finding the quote in the text
- * and taking its offsets, never by writing numbers down.
- *
- * For fixtures only, and in lib/ because the fixtures of two modules need it -
- * chat's chips and the source viewer - and a module may not import another one.
- * Offsets typed by hand into a fixture are offsets that drift the first time
- * someone fixes a typo in the text, and a viewer test that marks the wrong
- * range would still be green.
- *
- * Throws on a quote that is not there, or that is there twice: both mean the
- * fixture is asking for something it cannot point at unambiguously.
- */
-export function citeQuote(
-  source: { id: string; title: string; text: string },
-  quote: string,
-  page: number | null = null
-): Citation {
-  const start = source.text.indexOf(quote);
-  if (start === -1)
-    throw new Error(`fixture quote not found in ${source.id}: ${quote.slice(0, 40)}`);
-  if (source.text.indexOf(quote, start + 1) !== -1) {
-    throw new Error(`fixture quote occurs twice in ${source.id}: ${quote.slice(0, 40)}`);
-  }
-
-  return {
-    sourceId: source.id,
-    sourceTitle: source.title,
-    start,
-    end: start + quote.length,
-    text: source.text.slice(start, start + quote.length),
-    page,
-  };
-}

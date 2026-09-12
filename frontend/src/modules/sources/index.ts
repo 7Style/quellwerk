@@ -16,7 +16,6 @@ export {
   STUCK_AFTER_MS,
   WHILE_READING_MS,
 } from './services/sources.api';
-export { sourceTextFixtures } from './fixtures/source-texts';
 export { isUsable, INGEST_STEPS, SOURCE_KINDS } from './types/source';
 export type {
   IngestStep,

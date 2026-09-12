@@ -21,5 +21,7 @@ export const metadata: Metadata = { title: APP_NAME };
 export default async function NotebookPage({ params }: NotebookRouteProps) {
   const { id } = await params;
 
-  return <NotebookWorkspace notebookId={id} />;
+  // key: ein Wechsel von /n/A nach /n/B haengt die Komponente neu ein. Ohne das
+  // koennte der Verlauf von A unter der Adresse von B stehen bleiben.
+  return <NotebookWorkspace key={id} notebookId={id} />;
 }

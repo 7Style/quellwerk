@@ -450,7 +450,7 @@ Status: [ ]
 Goal: Rate limits and the daily budget hold, and the UI can show why.
 Files: backend/app/services/quota/*, backend/app/config/rate-limit.config.ts
 Test: `pnpm --filter @quellwerk/backend test -- quota rate-limit`
-Expected: the 31st chat request in an hour returns 429 with a readable message; above the cap every model route returns 503 with the banner text.
+Expected: the 31st chat request in an hour returns 429 with a readable message; above the cap every model route returns 503 with the banner text. The abandoned-turn row is already in (M4 hardening, `chat.service.ts`): a turn that is cut off writes a `usage_log` row with the input tokens `message_start` reported, so the budget sees what was spent on it. What is left here is the output side, which is understated at zero and only fixable by counting deltas - a number that would be estimated in a table of measured ones (docs/KNOWN-LIMITS.md).
 Box: 45
 Status: [ ]
 
@@ -458,7 +458,7 @@ Status: [ ]
 Goal: Uploads, URLs and headers match section 7 of SECURITY.md.
 Files: backend/app/modules/sources/internal/{mime.ts,ssrf.ts}, backend/app/app.ts, frontend/next.config.ts
 Test: `pnpm --filter @quellwerk/backend test -- mime ssrf headers`
-Expected: a renamed executable is refused on content, 169.254.169.254 is refused before and after a redirect, the CSP and `X-Robots-Tag: noindex` are present.
+Expected: a renamed executable is refused on content, 169.254.169.254 is refused before and after a redirect, the CSP and `X-Robots-Tag: noindex` are present. The frontend carries its own headers from here on, `frame-ancestors 'none'` first: since M4 whole documents sit in the DOM, and helmet only ever ran on the API.
 Box: 45
 Status: [ ]
 

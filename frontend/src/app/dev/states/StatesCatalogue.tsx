@@ -3,16 +3,11 @@
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/icon';
-import { citeQuote } from '@/lib/citation';
 import { Answer, Banner, Thinking, type AssistantMessage } from '@/modules/chat';
 import { NotebookGrid } from '@/modules/notebooks';
 import { Topbar } from '@/modules/shell';
-import {
-  SourceItem,
-  SourcesPanel,
-  sourceTextFixtures,
-  type SourceSummary,
-} from '@/modules/sources';
+import { SourceItem, SourcesPanel, type SourceSummary } from '@/modules/sources';
+import { citeQuote, sourceTextFixtures } from './fixtures';
 
 /**
  * Every state a person can land in, on one page.

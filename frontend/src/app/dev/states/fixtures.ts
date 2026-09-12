@@ -1,17 +1,13 @@
 /**
- * The stored text of two sources, for the state catalogue.
+ * Fixtures for the state catalogue, and nothing else imports them.
  *
- * The product fetches its documents (M4-T6); what is left of the fixtures is
- * this one, because /dev/states draws a real answer with a real citation in it
- * and a citation needs a document to point into.
- *
- * Normalised text, not markup: this is what a document looks like after
- * `modules/sources/internal/normalize.ts` has run once at ingest, and it is the
- * exact string a citation's offsets point into. The blank lines are part of it.
- *
- * Long enough that a mark near the end sits below the fold, because "the
- * passage is scrolled into view" is one of the things M4-T3 has to show.
+ * They sat in the sources module and in lib/ until the interface fetched its
+ * own data (M4-T6). Leaving them in a barrel that the product imports makes
+ * whether they ship an assumption about the bundler; here the question does not
+ * come up, because only /dev/states reaches this file and /dev/states answers
+ * 404 without DEV_STATES.
  */
+import type { Citation } from '@/lib/citation';
 
 const REGULATION = `Article 9
 Risk management system
@@ -70,3 +66,35 @@ export const sourceTextFixtures: Record<string, string> = {
   s1: REGULATION,
   s2: FAQ,
 };
+
+/**
+ * Builds a citation the way the server would: by finding the quote in the text
+ * and taking its offsets, never by writing numbers down.
+ *
+ * Offsets typed into a fixture drift the first time somebody fixes a typo in
+ * the text, and a specimen that then marks the wrong range still looks right.
+ * Throws on a quote that is missing or that occurs twice: both mean the fixture
+ * is asking for something it cannot point at unambiguously.
+ */
+export function citeQuote(
+  source: { id: string; title: string; text: string },
+  quote: string,
+  page: number | null = null
+): Citation {
+  const start = source.text.indexOf(quote);
+  if (start === -1) {
+    throw new Error(`fixture quote not found in ${source.id}: ${quote.slice(0, 40)}`);
+  }
+  if (source.text.indexOf(quote, start + 1) !== -1) {
+    throw new Error(`fixture quote occurs twice in ${source.id}: ${quote.slice(0, 40)}`);
+  }
+
+  return {
+    sourceId: source.id,
+    sourceTitle: source.title,
+    start,
+    end: start + quote.length,
+    text: source.text.slice(start, start + quote.length),
+    page,
+  };
+}
