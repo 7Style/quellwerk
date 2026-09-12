@@ -11,6 +11,45 @@ leaves the word out will be quoted as if it were the better of the two.
 
 Why a revision moved a number belongs in `HILLCLIMB.md`, not here.
 
+## 2026-09-12, M6 close: unchanged, and the first run from the real golden set
+
+**From `golden.jsonl`**, not from the draft. M1-T3 took the set over by hand
+(3f3aee9), so this is the first close whose numbers come from the file the
+reviewer reads.
+
+| Metric | M4 close | M6 close | |
+|---|---|---|---|
+| Citation validity | 100.0% (103/103) | 100.0% (97/97) | unchanged |
+| Abstention accuracy | 100.0% (5/5) | 100.0% (5/5) | unchanged |
+| False refusals | 0 of 15 | 0 of 15 | unchanged |
+| Citations on a refusal | 0 | 0 | unchanged |
+| Correctness | 100.0% | 100.0% | unchanged |
+| Faithfulness | 1.00 | 1.00 | unchanged |
+
+`pnpm eval --dev`, twenty items, 287.7s, live answerer on claude-opus-5 at
+effort low. The held-out split was not touched and stays closed until M9-T1.
+
+Measured at 51b7ca8, before the two hardening commits that close the milestone.
+They do not touch the chat path: no prompt, no request builder and no line of
+`chat.service.ts` changed in them, so re-running would have reproduced these
+numbers at the price of twenty turns.
+
+Unchanged is the answer the run was for. M6 added six prompts and a second
+caller of `buildChatRequest`, and the risk was never that a report would be
+graded badly - no golden item produces one - but that the report path would
+change the chat path on its way in. It shares the system block, the documents
+and the effort with every answer; a number that had moved here would have meant
+the reports were writing into the conversation's cache namespace or its prompt.
+
+What no number here covers is the report itself. Correctness and faithfulness
+are judged on golden items, and a report is a page rather than an answer to a
+question somebody wrote an expected answer for. What guards a report today is
+the chat's own resolver - every chip is checked against the stored text before
+it is stored - and the structure blocks that ask for the two sections a smoothed
+report would drop: where the sources disagree, and what is not in them.
+
+Results file: `evals/results/2026-09-12T11-17-57-248Z-dev.json`.
+
 ## 2026-09-12, M6-T1: the cache is read, including by a report
 
 `pnpm eval --cache-check`, four calls against the real API.
