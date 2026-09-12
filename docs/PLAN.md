@@ -414,7 +414,7 @@ Files: prompts/report-common.md, prompts/report-{briefing,study-guide,faq,timeli
 Test: `pnpm --filter @quellwerk/backend test -- report-prompts`
 Expected: the structure block renders raw through `{{{structure}}}`, the focus value renders escaped, no schema constraint appears in any file.
 Box: 30
-Status: [ ]
+Status: [x]
 
 ### M6-T1 Artifact queue, reports job and the cache assertion
 Goal: A report is written by a job that always ends in a terminal status, stores its chips, and demonstrably reads the cache.
