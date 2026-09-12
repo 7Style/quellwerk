@@ -11,6 +11,32 @@ leaves the word out will be quoted as if it were the better of the two.
 
 Why a revision moved a number belongs in `HILLCLIMB.md`, not here.
 
+## 2026-09-12, M4 close: unchanged, which is the result
+
+**From `golden.draft.jsonl` again**; the golden set is still written by hand
+(ADR-0008).
+
+| Metric | M3 close | M4 close | |
+|---|---|---|---|
+| Citation validity | 100.0% (94/94) | 100.0% (103/103) | unchanged |
+| Abstention accuracy | 100.0% (5/5) | 100.0% (5/5) | unchanged |
+| False refusals | 0 of 15 | 0 of 15 | unchanged |
+| Citations on a refusal | 0 | 0 | unchanged |
+| Correctness | 100.0% | 100.0% | unchanged |
+| Faithfulness | 1.00 | 1.00 | unchanged |
+
+Run because the milestone routine says so, and worth the four minutes for what
+it rules out rather than for what it shows. M4 is the interface: it added two
+read routes, a computed `refused` field and a streaming client, and it changed
+`chat.service.ts` in one place that the eval does not reach - the answerer goes
+through `buildChatRequest` directly, not through the route. A number that had
+moved here would have meant something changed that nobody intended.
+
+The citation count differs between runs because the model cites as much as it
+needs to. It is not a metric; the share is.
+
+Results file: `evals/results/2026-09-12T09-13-27-449Z-dev.json`.
+
 ## 2026-09-11, M3-T5: the first live run on the dev split
 
 **These numbers come from `golden.draft.jsonl`.** The golden set is written by

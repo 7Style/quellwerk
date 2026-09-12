@@ -180,7 +180,7 @@ Files: backend/evals/golden.jsonl, backend/evals/corpus/*, backend/evals/README.
 Test: `pnpm --filter @quellwerk/backend exec tsx evals/validate-golden.ts`
 Expected: `30 items, 20 dev / 10 heldout` with the type counts, and every evidence quote found verbatim in its corpus file after that file has gone through the same `normalize` from M1-T1. The quotes are checked against the NORMALISED text, because that is what a citation will point into. `backend/evals/corpus/` is at the same time the source of the demo seed in M2-T5: one tree of files, not two with the same text in them.
 Box: 60
-Status: [ ]
+Status: [x]
 
 ### M1-T3 backend/evals/run.ts with its modes
 Goal: The runner reads the golden set, calls an answerer and writes a results file, with the modes the commands promise.
@@ -466,7 +466,7 @@ Status: [ ]
 Goal: `/datenschutz` exists and notebooks are deleted after seven days.
 Files: frontend/src/app/datenschutz/page.tsx, backend/app/modules/notebooks/internal/cleanup.job.ts, frontend/public/robots.txt
 Test: `pnpm --filter @quellwerk/backend test -- cleanup`
-Expected: a notebook untouched for eight days is deleted with its files; one touched yesterday survives.
+Expected: a notebook untouched for eight days is deleted with its files; one touched yesterday survives; robots.txt disallows everything (the template's says `Allow: /`, and the X-Robots-Tag header is a second line of defence, not the first).
 Box: 45
 Status: [ ]
 
