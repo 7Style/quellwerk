@@ -187,6 +187,31 @@ else
 fi
 
 # ------------------------------------------------------------------------------
+# 6b. Dev-Oberflächen in der Produktions-Compose
+# ------------------------------------------------------------------------------
+# /dev/states zeigt jeden Zustand der Oberfläche und ist kein Teil des Produkts.
+# Die Route antwortet 404, solange DEV_STATES nicht gesetzt ist; gesetzt wird es
+# von der lokalen Compose und von Playwright, nie von deployment/prod.
+echo ""
+echo "--- Compose: Dev-Oberflächen in Produktion ---"
+PROD_COMPOSE=$(printf '%s\n' $COMPOSE_FILES | grep -E '^deployment/prod/' || true)
+if [ -z "$PROD_COMPOSE" ]; then
+  ok "keine Produktions-Compose im Umfang"
+else
+  DEV_HITS=""
+  for f in $PROD_COMPOSE; do
+    H=$(content "$f" | grep -n -E 'DEV_STATES' | grep -v -E '^[0-9]+:[[:space:]]*#' || true)
+    [ -n "$H" ] && DEV_HITS="${DEV_HITS}${f}:"$'\n'"${H}"$'\n'
+  done
+  if [ -n "$DEV_HITS" ]; then
+    fail "DEV_STATES in der Produktions-Compose (oeffnet /dev/states):"
+    detail "$DEV_HITS"
+  else
+    ok "kein DEV_STATES in deployment/prod"
+  fi
+fi
+
+# ------------------------------------------------------------------------------
 # 7. Workflows: Inline-Interpolation von PR-Daten in run:-Blöcken
 # ------------------------------------------------------------------------------
 echo ""

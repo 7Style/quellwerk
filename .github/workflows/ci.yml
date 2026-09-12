@@ -252,6 +252,9 @@ jobs:
           APP_DESCRIPTION=
           NEXT_PUBLIC_API_URL=http://127.0.0.1:3011
           SEED_ON_START=false
+          # Oeffnet /dev/states im Frontend-Container; die UI-Specs laufen den
+          # Zustandskatalog ab. deployment/prod setzt es nicht.
+          DEV_STATES=1
           EOF
           cat > backend/.env <<EOF
           SESSION_SECRET=${SESSION_SECRET}
@@ -326,7 +329,9 @@ jobs:
             echo "no specs yet, skipping (they arrive in M4-T4)"
             exit 0
           fi
-          pnpm --filter @quellwerk/e2e exec playwright test --project=chromium
+          # Alle Projekte: 1440 und 1280, hell und dunkel. Alle vier fahren
+          # Chromium, also reicht der eine Browser oben.
+          pnpm --filter @quellwerk/e2e exec playwright test
 
       - name: Upload Playwright report
         if: failure()

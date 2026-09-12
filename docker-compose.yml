@@ -187,6 +187,10 @@ services:
       - "127.0.0.1:3010:3000"
     environment:
       NODE_ENV: production
+      # Oeffnet /dev/states, den Zustandskatalog der Oberflaeche. Lokal und in
+      # CI erwuenscht, in deployment/prod nicht gesetzt und von
+      # scripts/security-check.sh dort auch verboten.
+      DEV_STATES: ${DEV_STATES:-}
       PORT: 3000
       HOSTNAME: 0.0.0.0
     healthcheck:

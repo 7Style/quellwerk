@@ -283,3 +283,18 @@ body {
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
 }
+
+/* The two animations the chat uses. Both are decoration that carries meaning -
+   a caret says the answer is still arriving, a spinner says something is
+   running - so both are wrapped in motion-safe: at the call site. */
+@keyframes qw-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@keyframes qw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -354,7 +354,7 @@ Files: frontend/src/modules/chat/{components,fixtures,types}/*, frontend/src/app
 Test: `pnpm --filter @quellwerk/e2e exec playwright test`
 Expected: five chips on the answer fixture, hovering shows the passage with source title and offsets, the refusal fixture has zero chips and no accent colour; every state from design/states.html is reachable on `/dev/states`, which is 404 in a production build; the whole run is green at 1440 and 1280, light and dark.
 Box: 105
-Status: [ ]
+Status: [x]
 
 ### M4-T6 Wire the UI to the backend
 Goal: The fixtures are replaced by RTK Query endpoints and an SSE client.

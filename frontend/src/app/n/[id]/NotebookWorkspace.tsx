@@ -1,8 +1,16 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 
 import { citeQuote, highlightOf, type Citation } from '@/lib/citation';
+import {
+  Composer,
+  Thread,
+  suggestionFixtures,
+  threadFixture,
+  type Message,
+  type TurnState,
+} from '@/modules/chat';
 import { Workspace } from '@/modules/shell';
 import { SourcesPanel, SourceViewer, useSourceViewer, type SourceSummary } from '@/modules/sources';
 
@@ -14,9 +22,10 @@ export interface NotebookWorkspaceProps {
 }
 
 /**
- * The client half of a notebook: which source is open and what is marked in it.
+ * The client half of a notebook: which source is open, what is marked in it,
+ * and the conversation.
  *
- * The state sits here because two columns share it. A citation chip in the chat
+ * The state sits here because the columns share it. A citation chip in the chat
  * opens a source at a passage, a row in the list opens it at the top, and both
  * end up in the same viewer. Sources and chat are separate modules that may not
  * import each other, so the place that knows about both is the route, and this
@@ -25,10 +34,36 @@ export interface NotebookWorkspaceProps {
 export function NotebookWorkspace({ sources, texts, studio }: NotebookWorkspaceProps) {
   const viewer = useSourceViewer();
 
-  // The temporary stand-in for the thread. M4-T4 replaces it with the real
-  // answer and its chips; both call `viewer.open` with the same citation, so
-  // what is being built here is the wiring and not a throwaway.
-  const citations = useMemo(() => passageFixtures(sources, texts), [sources, texts]);
+  /** Resolves a fixture quote against the real document (lib/citation.ts). */
+  const cite = useCallback(
+    (sourceId: string, quote: string): Citation => {
+      const source = sources.find((candidate) => candidate.id === sourceId);
+      const text = texts[sourceId] ?? '';
+      return citeQuote({ id: sourceId, title: source?.title ?? sourceId, text }, quote);
+    },
+    [sources, texts]
+  );
+
+  const [messages, setMessages] = useState<Message[]>(() => threadFixture(cite));
+  const [state, setState] = useState<TurnState>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  const ready = useMemo(() => sources.filter((source) => source.status === 'ready'), [sources]);
+
+  const ask = useCallback((question: string) => {
+    // The question is kept in the thread so the reader sees what was asked, and
+    // the turn ends at once in a state that says what happened. M4-T6 replaces
+    // this with the SSE client; until then nothing is sent, and the interface
+    // says so rather than turning a spinner.
+    setMessages((current) => [
+      ...current,
+      { id: `q-${current.length}`, role: 'user', text: question },
+    ]);
+    setState('error');
+    setError(
+      'Nothing was sent. This build draws the conversation from fixtures; asking reaches the server in the next step.'
+    );
+  }, []);
 
   const open = viewer.target
     ? sources.find((source) => source.id === viewer.target?.sourceId)
@@ -54,50 +89,26 @@ export function NotebookWorkspace({ sources, texts, studio }: NotebookWorkspaceP
         )
       }
       chat={
-        <div className="mx-auto max-w-[var(--measure)] px-6 py-8">
-          <p className="m-0 font-read text-read leading-read text-ink-muted">
-            Ask a question about your sources. Every sentence of the answer carries the passage it
-            came from.
-          </p>
-
-          <ul className="mt-5 grid list-none gap-2 p-0">
-            {citations.map((citation, index) => (
-              <li key={`${citation.sourceId}-${citation.start}`}>
-                <button
-                  type="button"
-                  data-testid={`chip-${index + 1}`}
-                  onClick={() => viewer.open(citation.sourceId, highlightOf(citation))}
-                  className="w-full rounded-chip border border-cite-wash-strong bg-cite-wash px-2 py-1 text-left text-ui text-cite-ink hover:border-cite"
-                >
-                  {citation.sourceTitle}: {citation.text.slice(0, 60)}
-                  {citation.text.length > 60 ? '…' : ''}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Thread
+          messages={messages}
+          state={state}
+          sourceCount={ready.length}
+          onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
+          error={error}
+          onRetry={() => {
+            setState('idle');
+            setError(null);
+          }}
+        />
+      }
+      composer={
+        <Composer
+          suggestions={suggestionFixtures}
+          onAsk={ask}
+          meta={`${ready.length} of ${sources.length} sources ready`}
+        />
       }
       studio={studio}
     />
   );
-}
-
-/** Four passages across two sources, with offsets taken from the text itself. */
-function passageFixtures(sources: SourceSummary[], texts: Record<string, string>): Citation[] {
-  const quotes: Array<[string, string]> = [
-    ['s1', 'throughout the entire lifecycle of the high-risk AI system'],
-    [
-      's1',
-      'Training, validation and testing data sets shall be relevant, sufficiently representative',
-    ],
-    ['s1', 'shall be drawn up before that system is placed on the market'],
-    ['s2', 'The rules for high-risk AI systems will apply starting 2 December 2027.'],
-  ];
-
-  return quotes.flatMap(([sourceId, quote]) => {
-    const source = sources.find((candidate) => candidate.id === sourceId);
-    const text = texts[sourceId];
-    if (!source || !text) return [];
-    return [citeQuote({ id: source.id, title: source.title, text }, quote)];
-  });
 }

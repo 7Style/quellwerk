@@ -37,7 +37,7 @@ test.beforeEach(async ({ page }) => {
 test('a chip opens the source and marks exactly what was cited', async ({ page }) => {
   await expect(page.getByTestId('source-viewer')).toHaveCount(0);
 
-  await page.getByTestId('chip-1').click();
+  await page.getByTestId('cite-2').click();
 
   await expect(page.getByTestId('source-viewer')).toBeVisible();
   await expect(page.getByTestId('viewer-title')).toHaveText(
@@ -51,17 +51,17 @@ test('a chip opens the source and marks exactly what was cited', async ({ page }
 test('scrolls the passage into view', async ({ page }) => {
   // The quote sits well down the document, so a viewer that simply rendered the
   // text would leave it off screen.
-  await page.getByTestId('chip-3').click();
+  await page.getByTestId('cite-4').click();
 
   await expect(page.getByTestId('passage-mark')).toBeVisible();
   expect(await isInView(page, 'passage-mark')).toBe(true);
 });
 
 test('a second chip moves the mark, and there is only ever one', async ({ page }) => {
-  await page.getByTestId('chip-1').click();
+  await page.getByTestId('cite-2').click();
   expect(await page.getByTestId('passage-mark').textContent()).toBe(CITED[0]);
 
-  await page.getByTestId('chip-2').click();
+  await page.getByTestId('cite-3').click();
 
   await expect(page.getByTestId('passage-mark')).toHaveCount(1);
   expect(await page.getByTestId('passage-mark').textContent()).toBe(CITED[1]);
@@ -69,10 +69,10 @@ test('a second chip moves the mark, and there is only ever one', async ({ page }
 });
 
 test('follows a chip into a different source', async ({ page }) => {
-  await page.getByTestId('chip-1').click();
+  await page.getByTestId('cite-2').click();
   await expect(page.getByTestId('viewer-title')).toHaveText(/Regulation/);
 
-  await page.getByTestId('chip-4').click();
+  await page.getByTestId('cite-5').click();
 
   await expect(page.getByTestId('viewer-title')).toHaveText(
     'Commission Q&A on high-risk AI systems'
@@ -84,14 +84,12 @@ test('the marked text really stands at those offsets in the document', async ({ 
   // The mark is a slice of the rendered text. Cutting the document at the same
   // place has to produce the same characters, or the offsets and the mark have
   // drifted apart.
-  await page.getByTestId('chip-2').click();
+  await page.getByTestId('cite-3').click();
 
-  const { document: whole, marked } = await page
-    .getByTestId('source-text')
-    .evaluate((article) => ({
-      document: article.textContent ?? '',
-      marked: article.querySelector('mark')?.textContent ?? '',
-    }));
+  const { document: whole, marked } = await page.getByTestId('source-text').evaluate((article) => ({
+    document: article.textContent ?? '',
+    marked: article.querySelector('mark')?.textContent ?? '',
+  }));
 
   const at = whole.indexOf(marked);
   expect(at).toBeGreaterThan(-1);
@@ -101,7 +99,10 @@ test('the marked text really stands at those offsets in the document', async ({ 
 
 test('opens a source from the list with nothing marked', async ({ page }) => {
   // Scoped to the column: the stand-in chip in the chat names the same source.
-  await page.getByTestId('scroll-sources').getByRole('button', { name: /Commission Q&A/ }).click();
+  await page
+    .getByTestId('scroll-sources')
+    .getByRole('button', { name: /Commission Q&A/ })
+    .click();
 
   await expect(page.getByTestId('source-viewer')).toBeVisible();
   await expect(page.getByTestId('passage-mark')).toHaveCount(0);
@@ -109,7 +110,7 @@ test('opens a source from the list with nothing marked', async ({ page }) => {
 });
 
 test('goes back to the list and keeps the column scrolling for itself', async ({ page }) => {
-  await page.getByTestId('chip-1').click();
+  await page.getByTestId('cite-2').click();
   await expect(page.getByTestId('source-viewer')).toBeVisible();
 
   await page.getByTestId('viewer-close').click();

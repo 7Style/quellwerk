@@ -28,6 +28,17 @@ const externalBaseUrl = process.env.BASE_URL;
 const uiPort = Number(process.env.UI_PORT ?? 3015);
 const baseURL = externalBaseUrl ?? `http://127.0.0.1:${uiPort}`;
 
+/**
+ * The same build, once with the state catalogue open and once without.
+ *
+ * `/dev/states` is gated on DEV_STATES at request time, and both halves of that
+ * claim are worth a test: the catalogue is reachable, and the server that does
+ * not set the variable answers 404. One server cannot show both, so there are
+ * two. The second is only started when Playwright starts servers at all.
+ */
+export const gatedPort = uiPort + 1;
+export const gatedBaseUrl = `http://127.0.0.1:${gatedPort}`;
+
 export default defineConfig({
   testDir: './tests',
 
@@ -58,32 +69,68 @@ export default defineConfig({
   },
 
   /*
-   * Chromium only, and the project keeps that name because CI selects it by
-   * name. Firefox and WebKit were in the template's config and were never
-   * installed by the workflow, so they were a promise the pipeline did not keep.
-   * The matrix that does matter here is viewport and theme, and M4-T4 adds it.
+   * Chromium at two widths and in both themes.
+   *
+   * Firefox and WebKit were in the template's config and the workflow never
+   * installed them, so they were a promise the pipeline did not keep. The
+   * matrix that does matter is this one: 1440 is the design width, 1280 is
+   * where the token media query narrows both side panels, and the theme is the
+   * thing a token mistake breaks in exactly one of the two.
+   *
+   * `colorScheme` sets prefers-color-scheme, which is what the theme follows
+   * when the reader has made no choice (styles/global.css).
    */
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
+    {
+      name: 'chromium-dark',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+        colorScheme: 'dark',
+      },
+    },
+    {
+      name: 'chromium-1280',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: 'chromium-1280-dark',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+        colorScheme: 'dark',
+      },
+    },
   ],
 
   webServer: externalBaseUrl
     ? undefined
-    : {
-        // The standalone server, which is exactly what the image runs
-        // (frontend/Dockerfile). `next start` also serves the build but warns
-        // that it is the wrong entry point for `output: standalone`, and a
-        // warning in every test run is a warning nobody reads.
-        command: `pnpm --filter @quellwerk/frontend run start:standalone`,
-        env: { PORT: String(uiPort), HOSTNAME: '127.0.0.1' },
-        url: baseURL,
-        cwd: path.resolve(__dirname, '..'),
-        reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
-      },
+    : [
+        {
+          // The standalone server, which is exactly what the image runs
+          // (frontend/Dockerfile). `next start` also serves the build but warns
+          // that it is the wrong entry point for `output: standalone`, and a
+          // warning in every test run is a warning nobody reads.
+          command: `pnpm --filter @quellwerk/frontend run start:standalone`,
+          env: { PORT: String(uiPort), HOSTNAME: '127.0.0.1', DEV_STATES: '1' },
+          url: baseURL,
+          cwd: path.resolve(__dirname, '..'),
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+        },
+        {
+          command: `pnpm --filter @quellwerk/frontend run start:standalone`,
+          env: { PORT: String(gatedPort), HOSTNAME: '127.0.0.1' },
+          url: `${gatedBaseUrl}/`,
+          cwd: path.resolve(__dirname, '..'),
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+        },
+      ],
 
   /* Timeout settings */
   timeout: 30 * 1000,
