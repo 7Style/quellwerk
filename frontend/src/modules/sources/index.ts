@@ -13,6 +13,7 @@ export {
   useSourceTextQuery,
   useAddPastedSourceMutation,
   useUploadSourceMutation,
+  STUCK_AFTER_MS,
   WHILE_READING_MS,
 } from './services/sources.api';
 export { sourceTextFixtures } from './fixtures/source-texts';

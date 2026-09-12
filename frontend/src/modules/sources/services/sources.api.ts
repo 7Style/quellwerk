@@ -39,6 +39,17 @@ function toSummary(row: SourceApiRow): SourceSummary {
 /** Ingest runs in the worker, so the list has to be asked again while it works. */
 const WHILE_READING_MS = 2_000;
 
+/**
+ * How long the panel keeps asking before it says something is wrong.
+ *
+ * Reading a 25 page PDF takes seconds, not minutes. A source still queued after
+ * three minutes is not slow, it is stuck - the worker was down when the job was
+ * enqueued, or the job was lost - and the sweeper that would make such a row
+ * terminal arrives in M7-T5. Until it does, the interface stops polling and
+ * says so, because docs/SPEC.md rules out a spinner that never ends.
+ */
+const STUCK_AFTER_MS = 180_000;
+
 export const sourcesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     listSources: build.query<SourceSummary[], string>({
@@ -104,4 +115,4 @@ export const {
   useUploadSourceMutation,
 } = sourcesApi;
 
-export { WHILE_READING_MS };
+export { STUCK_AFTER_MS, WHILE_READING_MS };

@@ -333,10 +333,10 @@ Box: 60
 Status: [x]
 
 ### M4-T2 Sources panel (parallelisable)
-Goal: The source list with status, selection and the Add sources dialog matches the prototype.
+Goal: The source list with status and the Add sources dialog matches the prototype.
 Files: frontend/src/modules/sources/{components,fixtures,types}/*
 Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/sources.spec.ts`
-Expected: four fixture sources with their status dots, select all toggles all, the dialog opens on Add source and closes on Escape.
+Expected: four sources with their status dots, no checkbox anywhere (an answer sees every ready source, docs/KNOWN-LIMITS.md), the dialog opens on Add source and closes on Escape, and a refusal from the server is shown instead of closing over it.
 Box: 45
 Status: [x]
 
@@ -359,7 +359,7 @@ Status: [x]
 ### M4-T6 Wire the UI to the backend
 Goal: The fixtures are replaced by RTK Query endpoints and an SSE client.
 Files: frontend/src/lib/api.ts, frontend/src/modules/*/services/*.api.ts, frontend/src/modules/chat/hooks/useChatStream.ts
-Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/e2e/notebook.spec.ts`
+Test: `E2E_STACK=1 BASE_URL=http://127.0.0.1:3010 API_URL=http://127.0.0.1:3011 pnpm --filter @quellwerk/e2e exec playwright test tests/e2e/notebook.spec.ts` (the spec skips itself without E2E_STACK: it costs a model call, and CI has no usable key)
 Expected: against the running stack a question produces a streamed answer whose chips open the real source.
 Box: 60
 Status: [x]

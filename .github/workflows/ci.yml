@@ -252,9 +252,6 @@ jobs:
           APP_DESCRIPTION=
           NEXT_PUBLIC_API_URL=http://127.0.0.1:3011
           SEED_ON_START=false
-          # Oeffnet /dev/states im Frontend-Container; die UI-Specs laufen den
-          # Zustandskatalog ab. deployment/prod setzt es nicht.
-          DEV_STATES=1
           EOF
           cat > backend/.env <<EOF
           SESSION_SECRET=${SESSION_SECRET}
@@ -310,6 +307,20 @@ jobs:
             exit 1
           fi
           echo "worker running"
+
+      # Der Zustandskatalog ist keine Produktseite. Hier laeuft das Image, wie es
+      # deployt wird - ohne DEV_STATES -, also ist die Route ein 404. Die andere
+      # Haelfte der Zusage, dass sie mit dem Flag erreichbar ist, prueft der
+      # lokale Lauf gegen zwei Server derselben Build (e2e/playwright.config.ts).
+      - name: /dev/states is not served by the deployed image
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3010/dev/states)
+          if [ "${code}" != "404" ]; then
+            echo "/dev/states answered ${code}, expected 404"
+            exit 1
+          fi
+          echo "/dev/states: 404"
 
       - name: Install Chromium
         run: pnpm --filter @quellwerk/e2e exec playwright install --with-deps chromium

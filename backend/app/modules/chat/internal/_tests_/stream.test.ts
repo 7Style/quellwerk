@@ -246,6 +246,7 @@ function serviceWith(
   const saved: unknown[] = [];
   const errors: unknown[] = [];
   const droppedLog: unknown[] = [];
+  const billed: Anthropic.Message[] = [];
 
   const service = new ChatService({
     loadSources: async () => sources,
@@ -255,14 +256,17 @@ function serviceWith(
           for (const event of stream) yield event;
         },
     followUps: async () => ['Und dann?', 'Warum?', 'Fuer wen?'],
-    recordUsage: async () => ({
-      model: 'claude-opus-5',
-      effort: 'low',
-      latencyMs: 1_234,
-      costMicroCents: 5_000,
-      droppedCitations: 0,
-      stopReason: 'end_turn',
-    }),
+    recordUsage: async (message) => {
+      billed.push(message);
+      return {
+        model: 'claude-opus-5',
+        effort: 'low',
+        latencyMs: 1_234,
+        costMicroCents: 5_000,
+        droppedCitations: 0,
+        stopReason: 'end_turn',
+      };
+    },
     saveTurn: async (_id, turn) => {
       saved.push(turn);
     },
@@ -275,7 +279,7 @@ function serviceWith(
     ...overrides,
   });
 
-  return { service, saved, errors, droppedLog };
+  return { service, saved, errors, droppedLog, billed };
 }
 
 const request = { notebookId: 'nb-1', sessionId: 'session-a', question: 'Ab wann?' };
@@ -431,6 +435,45 @@ describe('an aborted request', () => {
     expect(result.status).toBe('aborted');
     expect(events.some((event) => event.t === 'done')).toBe(false);
     expect(saved).toHaveLength(0);
+  });
+
+  it('is still billed for what the model already read', async () => {
+    // The prefix - up to 150,000 tokens of documents - is paid the moment the
+    // model starts. A turn that walks away without a usage_log row is money the
+    // daily budget never sees, and sixty of those an hour is a counter that
+    // does not move while the bill does (SECURITY.md 7.3).
+    const controller = new AbortController();
+    const { service, billed } = serviceWith(async function* () {
+      yield { type: 'started', usage: { input_tokens: 76_000, output_tokens: 0 } } as never;
+      yield { type: 'segment', segment: 0 };
+      yield { type: 'text', segment: 0, text: 'Sie gilt' };
+      controller.abort();
+      yield { type: 'text', segment: 0, text: ' ab 2026.' };
+    });
+
+    const { sink } = collector();
+    const result = await service.run(request, sink, controller.signal);
+
+    expect(result.status).toBe('aborted');
+    expect(billed).toHaveLength(1);
+    expect(billed[0].usage.input_tokens).toBe(76_000);
+  });
+
+  it('bills nothing when the model never started', async () => {
+    // No first frame, nothing read, nothing owed. A row here would be a charge
+    // invented by the client.
+    const controller = new AbortController();
+    const { service, billed } = serviceWith(
+      failingStream(() => {
+        controller.abort();
+        return Object.assign(new Error('Request was aborted.'), { name: 'AbortError' });
+      })
+    );
+
+    const { sink } = collector();
+    await service.run(request, sink, controller.signal);
+
+    expect(billed).toHaveLength(0);
   });
 
   it('is not reported as an error', async () => {

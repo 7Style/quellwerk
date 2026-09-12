@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/icon';
@@ -18,6 +18,7 @@ import {
   useSourceTextQuery,
   useSourceViewer,
   useUploadSourceMutation,
+  STUCK_AFTER_MS,
   WHILE_READING_MS,
 } from '@/modules/sources';
 
@@ -46,12 +47,34 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
 
   const rows = useMemo(() => sources.data ?? [], [sources.data]);
   const ready = useMemo(() => rows.filter((source) => source.status === 'ready'), [rows]);
-  const working = rows.some((source) => source.status === 'queued');
+
+  // A source that has been queued longer than the worker could plausibly need
+  // is stuck, not slow. The panel stops asking then and says so; polling on
+  // would be a request every two seconds for as long as the tab is open, under
+  // a line that never changes.
+  //
+  // The clock is state and not a `Date.now()` in the body: reading it while
+  // rendering makes the render depend on when it happened, and two renders in
+  // the same second would disagree. The interval runs only while something is
+  // queued, and 0 before the first tick simply means "not yet stuck".
+  const queued = rows.some((source) => source.status === 'queued');
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    if (!queued) return;
+    // Only the interval. Setting the clock straight away would be a state write
+    // inside the effect body, and the first tick is two seconds away against a
+    // three minute threshold.
+    const tick = setInterval(() => setNow(Date.now()), WHILE_READING_MS);
+    return () => clearInterval(tick);
+  }, [queued]);
+
+  const stuck = rows.filter(
+    (source) => source.status === 'queued' && now - Date.parse(source.createdAt) > STUCK_AFTER_MS
+  );
+  const working = queued && stuck.length === 0;
 
   // Ingest runs in the worker and the list does not push, so while a document
-  // is being read the panel asks again. It stops the moment nothing is queued:
-  // a poll that never ends is a request every two seconds for as long as the
-  // tab is open.
+  // is being read the panel asks again.
   useListSourcesQuery(notebookId, {
     pollingInterval: working ? WHILE_READING_MS : 0,
     skip: !working,
@@ -118,12 +141,25 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
             <SourcesPanel
               sources={rows}
               state={sources.isLoading ? 'loading' : sources.isError ? 'error' : 'ready'}
+              stuck={stuck.length}
+              onRecheck={() => void sources.refetch()}
               onOpen={(id) => viewer.open(id)}
               currentSourceId={openId ?? undefined}
               onRetry={() => void sources.refetch()}
-              onAddPaste={(input) => void addPaste({ notebookId, ...input })}
-              onAddFiles={(files) => {
-                for (const file of files) void uploadSource({ notebookId, file });
+              // `unwrap` on purpose: without it RTK Query resolves with an
+              // `{ error }` object and a refusal from the server looks exactly
+              // like a success to the caller.
+              onAddPaste={(input) =>
+                addPaste({ notebookId, ...input })
+                  .unwrap()
+                  .then(() => undefined)
+              }
+              onAddFiles={async (files) => {
+                // One after another, so the first refusal is the one shown and
+                // the rest are not queued behind a full notebook.
+                for (const file of files) {
+                  await uploadSource({ notebookId, file }).unwrap();
+                }
               }}
             />
           )
@@ -141,7 +177,7 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
         composer={
           <Composer
             suggestions={chat.suggestions}
-            busy={chat.state === 'thinking' || chat.state === 'streaming'}
+            busy={chat.busy}
             onAsk={chat.ask}
             onStop={chat.stop}
             meta={

@@ -100,6 +100,7 @@ export interface ChatServiceDeps {
 export type StreamEvent =
   | { type: 'segment'; segment: number }
   | { type: 'text'; segment: number; text: string }
+  | { type: 'started'; usage: Anthropic.MessageStartEvent['message']['usage'] }
   | { type: 'citation'; segment: number; citation: Anthropic.TextCitation }
   | { type: 'done'; message: Anthropic.Message };
 
@@ -119,7 +120,18 @@ export class ChatService {
     sink: EventSink,
     signal: AbortSignal
   ): Promise<{ status: 'done' | 'error' | 'aborted' }> {
-    const started = Date.now();
+    const started_at = Date.now();
+
+    /**
+     * What the first frame said the request cost to read.
+     *
+     * Declared out here so the catch can see it. Kept so an abandoned turn can
+     * still be billed: the prefix - up to 150,000 tokens of documents - is paid
+     * for the moment the model starts, and a turn that writes no `usage_log`
+     * row is a turn the daily budget never sees. Sixty of those an hour is
+     * money spent against a counter that does not move (SECURITY.md 7.3).
+     */
+    let started: Anthropic.MessageStartEvent['message']['usage'] | null = null;
 
     try {
       const sources = await this.deps.loadSources(input.notebookId, input.sessionId);
@@ -138,9 +150,16 @@ export class ChatService {
         // Checked before every write. A client that closed the tab is the
         // reason the abort signal exists, and writing into a dead socket is
         // how a turn turns into an unhandled error.
-        if (signal.aborted || sink.isClosed) return { status: 'aborted' };
+        if (signal.aborted || sink.isClosed) {
+          await this.recordAbandoned(started, input.notebookId, Date.now() - started_at);
+          return { status: 'aborted' };
+        }
 
         switch (event.type) {
+          case 'started':
+            started = event.usage;
+            break;
+
           case 'segment':
             segments[event.segment] = { text: '', citations: [] };
             sink.send({ t: 'open', i: event.segment });
@@ -202,6 +221,7 @@ export class ChatService {
       }
 
       if (!finished) {
+        await this.recordAbandoned(started, input.notebookId, Date.now() - started_at);
         // The upstream ended without a final message. Something has to reach the
         // client here: SPEC rules out a spinner that never stops, and a socket
         // that simply closes is exactly that if the reader's connection is fine.
@@ -215,7 +235,7 @@ export class ChatService {
 
       const trace = await this.deps.recordUsage(
         finished,
-        Date.now() - started,
+        Date.now() - started_at,
         input.notebookId
       );
       trace.droppedCitations = dropped.length;
@@ -252,13 +272,46 @@ export class ChatService {
 
       return { status: 'done' };
     } catch (error) {
-      if (signal.aborted) return { status: 'aborted' };
+      if (signal.aborted) {
+        await this.recordAbandoned(started, input.notebookId, Date.now() - started_at);
+        return { status: 'aborted' };
+      }
 
       // The real error goes to the log with its stack; the client gets one
       // sentence and a flag saying whether trying again could help.
       this.deps.onError(error, { notebookId: input.notebookId });
       sink.send(errorEvent(error));
       return { status: 'error' };
+    }
+  }
+
+  /**
+   * Writes the row for a turn nobody will read.
+   *
+   * The input side is measured, not estimated: it is what `message_start`
+   * reported, and the prefix is fixed before the first token. The output side
+   * is left at zero, which understates the bill - the deltas that did arrive
+   * were generated and billed. Understating by the small half is the honest
+   * shape here; the alternative is a guessed number in a table that otherwise
+   * holds only measured ones (docs/KNOWN-LIMITS.md).
+   *
+   * A failure here must not turn an abandoned turn into an error: nobody is
+   * waiting for it.
+   */
+  private async recordAbandoned(
+    started: Anthropic.MessageStartEvent['message']['usage'] | null,
+    notebookId: string,
+    latencyMs: number
+  ): Promise<void> {
+    if (!started) return;
+    try {
+      await this.deps.recordUsage(
+        { usage: started, stop_reason: 'aborted' } as unknown as Anthropic.Message,
+        latencyMs,
+        notebookId
+      );
+    } catch (error) {
+      this.deps.onError(error, { notebookId });
     }
   }
 

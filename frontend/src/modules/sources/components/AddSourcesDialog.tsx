@@ -15,12 +15,32 @@ import { Icon } from '@/components/icon';
 /** docs/SPEC.md, "Zahlen": 20 MB per upload, 50 sources per notebook. */
 const MAX_UPLOAD_MB = 20;
 
+/**
+ * The server's sentence, or a plain one.
+ *
+ * RTK Query hands back `{ error }` rather than throwing, so the caller unwraps
+ * it; what arrives here is the parsed body. Only the message is shown, never a
+ * status or a code: a reader can act on "that file is larger than 20 MB" and on
+ * nothing that has the word 413 in it.
+ */
+function messageOf(cause: unknown): string {
+  const body = (cause as { data?: { error?: { message?: string } } } | null)?.data?.error;
+  return body?.message ?? 'That did not work. Nothing was added.';
+}
+
 export interface AddSourcesDialogProps {
   sourceCount: number;
   maxSources: number;
-  /** Wired in M4-T6. Until then the dialog opens, closes and validates only. */
-  onAddPaste?: (input: { title: string; text: string }) => void;
-  onAddFiles?: (files: File[]) => void;
+  /**
+   * Both may reject, and the message they reject with is shown here.
+   *
+   * The server already writes these sentences: "That file is larger than 20 MB",
+   * a type it does not take, the twentieth source this hour, a notebook that is
+   * full. Every one of them is a thing the reader can act on, and swallowing
+   * them leaves a dialog that closes over a list that did not change.
+   */
+  onAddPaste?: (input: { title: string; text: string }) => Promise<void>;
+  onAddFiles?: (files: File[]) => Promise<void>;
 }
 
 type Tab = 'upload' | 'paste';
@@ -50,6 +70,8 @@ export function AddSourcesDialog({
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
   const [dragging, setDragging] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const titleId = useId();
   const textId = useId();
 
@@ -61,19 +83,37 @@ export function AddSourcesDialog({
     setTitle('');
     setText('');
     setDragging(false);
+    setFailure(null);
+    setSending(false);
+  }
+
+  /**
+   * Closes on success and stays open on failure, with what the reader typed
+   * still in the box. A dialog that closes either way makes a refusal look like
+   * an acceptance that has not shown up yet.
+   */
+  async function send(work: () => Promise<void>) {
+    setFailure(null);
+    setSending(true);
+    try {
+      await work();
+      setOpen(false);
+      reset();
+    } catch (cause) {
+      setFailure(messageOf(cause));
+    } finally {
+      setSending(false);
+    }
   }
 
   function submit() {
-    if (tab === 'paste' && canAdd) onAddPaste?.({ title: title.trim(), text });
-    setOpen(false);
-    reset();
+    if (tab !== 'paste' || !canAdd || !onAddPaste) return;
+    void send(() => onAddPaste({ title: title.trim(), text }));
   }
 
   function takeFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    onAddFiles?.([...files]);
-    setOpen(false);
-    reset();
+    if (!files || files.length === 0 || !onAddFiles) return;
+    void send(() => onAddFiles([...files]));
   }
 
   return (
@@ -223,6 +263,11 @@ export function AddSourcesDialog({
           <span className="text-small text-ink-faint tabular-nums">
             {sourceCount} of {maxSources} sources used
           </span>
+          {failure ? (
+            <span className="text-small text-danger" role="alert" data-testid="add-source-error">
+              {failure}
+            </span>
+          ) : null}
           <span className="flex-1" />
           <Button variant="outline" type="button" onClick={() => setOpen(false)}>
             Cancel
@@ -231,7 +276,7 @@ export function AddSourcesDialog({
               by choosing a file, and a button that is disabled whatever the
               reader does is a dead end in the corner of the panel. */}
           {tab === 'paste' ? (
-            <Button type="button" onClick={submit} disabled={!canAdd}>
+            <Button type="button" onClick={submit} disabled={!canAdd || sending}>
               Add
             </Button>
           ) : null}

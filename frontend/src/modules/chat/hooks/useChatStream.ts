@@ -30,6 +30,16 @@ export interface UseChatStreamOptions {
 export interface UseChatStreamResult {
   messages: Message[];
   state: TurnState;
+  /**
+   * A turn is open, which is not the same as `state !== 'idle'`.
+   *
+   * The route sends `done` before it asks for follow-up questions, so for the
+   * second or two that second call takes, the answer is complete and the stream
+   * is still open. Reading `state` there let the composer send a question that
+   * `ask` then dropped on the floor, textarea already cleared: the reader typed
+   * something and it vanished without a word.
+   */
+  busy: boolean;
   error: string | null;
   /** Whether trying the same question again could work. From the server. */
   retryable: boolean;
@@ -65,6 +75,7 @@ export function useChatStream({ notebookId, initial }: UseChatStreamOptions): Us
   const [error, setError] = useState<string | null>(null);
   const [retryable, setRetryable] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
   const running = useRef<AbortController | null>(null);
 
   // The stored turns arrive after the first render, and they go in front of
@@ -75,7 +86,13 @@ export function useChatStream({ notebookId, initial }: UseChatStreamOptions): Us
   useEffect(() => {
     if (!initial || historyApplied.current) return;
     historyApplied.current = true;
-    setMessages((current) => [...initial, ...current]);
+    setMessages((current) => {
+      // By id, because a turn that finished while the history was being
+      // refetched is in both lists, and the same answer twice in a thread is
+      // worse than a missing one: a reader cannot tell which is the real one.
+      const known = new Set(current.map((message) => message.id));
+      return [...initial.filter((message) => !known.has(message.id)), ...current];
+    });
   }, [initial]);
 
   // A turn that is still open when the reader leaves the notebook is a turn
@@ -96,6 +113,7 @@ export function useChatStream({ notebookId, initial }: UseChatStreamOptions): Us
   const stop = useCallback(() => {
     running.current?.abort();
     running.current = null;
+    setBusy(false);
   }, []);
 
   const ask = useCallback(
@@ -104,6 +122,7 @@ export function useChatStream({ notebookId, initial }: UseChatStreamOptions): Us
 
       const controller = new AbortController();
       running.current = controller;
+      setBusy(true);
 
       const turn = Date.now();
       const answerId = `a-${turn}`;
@@ -156,13 +175,20 @@ export function useChatStream({ notebookId, initial }: UseChatStreamOptions): Us
             for (const frame of frames) {
               for (const line of frame.split('\n')) {
                 if (!line.startsWith('data:')) continue;
-                apply(JSON.parse(line.slice(5).trim()) as ChatEvent);
+                try {
+                  apply(JSON.parse(line.slice(5).trim()) as ChatEvent);
+                } catch {
+                  // One frame nobody can read is one frame lost. Letting it
+                  // throw would leave the loop and report a lost connection
+                  // over an answer that is ninety percent on the screen and
+                  // still arriving.
+                }
               }
             }
           }
 
           setState((current) => (current === 'error' ? current : 'idle'));
-        } catch (cause) {
+        } catch {
           if (controller.signal.aborted) {
             // The reader pressed stop, or left. What arrived stays on screen
             // and is marked, because those sentences were checked like any
@@ -175,7 +201,12 @@ export function useChatStream({ notebookId, initial }: UseChatStreamOptions): Us
           setRetryable(true);
           setState('error');
         } finally {
-          if (running.current === controller) running.current = null;
+          // Here and nowhere else. The turn is over when the stream closes, not
+          // when `done` arrives: the follow-up call runs in between.
+          if (running.current === controller) {
+            running.current = null;
+            setBusy(false);
+          }
         }
       })();
 
@@ -248,7 +279,7 @@ export function useChatStream({ notebookId, initial }: UseChatStreamOptions): Us
     setState('idle');
   }, []);
 
-  return { messages, state, error, retryable, suggestions, ask, stop, dismissError };
+  return { messages, state, busy, error, retryable, suggestions, ask, stop, dismissError };
 }
 
 /** Grows the segment list so index `i` exists, without touching what is there. */

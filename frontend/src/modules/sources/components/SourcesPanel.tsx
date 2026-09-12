@@ -15,9 +15,13 @@ export interface SourcesPanelProps {
   onOpen?: (id: string) => void;
   currentSourceId?: string;
   onRetry?: () => void;
-  /** Handed to the dialog. Absent means the dialog validates but sends nothing. */
-  onAddPaste?: (input: { title: string; text: string }) => void;
-  onAddFiles?: (files: File[]) => void;
+  /** How many sources have been queued far too long (services/sources.api.ts). */
+  stuck?: number;
+  /** Asks the list once more, for a reader who thinks it has moved on. */
+  onRecheck?: () => void;
+  /** Handed to the dialog. Rejecting is how a refusal reaches the reader. */
+  onAddPaste?: (input: { title: string; text: string }) => Promise<void>;
+  onAddFiles?: (files: File[]) => Promise<void>;
 }
 
 /**
@@ -39,6 +43,8 @@ export function SourcesPanel({
   onOpen,
   currentSourceId,
   onRetry,
+  stuck = 0,
+  onRecheck,
   onAddPaste,
   onAddFiles,
 }: SourcesPanelProps) {
@@ -89,6 +95,34 @@ export function SourcesPanel({
           <p className="m-0 p-4 text-ink-muted">
             No sources yet. Add a document and Quellwerk will read it before you ask anything.
           </p>
+        ) : null}
+
+        {state === 'ready' && stuck > 0 ? (
+          <div
+            className="m-2 grid gap-2 rounded-control border border-notice bg-notice-wash p-3"
+            role="status"
+          >
+            <span className="text-ui font-medium">
+              {stuck === 1
+                ? 'One source is taking too long'
+                : `${stuck} sources are taking too long`}
+            </span>
+            <span className="text-ui text-ink-muted">
+              Reading a document takes seconds. These have been waiting for minutes, which means the
+              reader on the server did not pick them up. The rest of the notebook works.
+            </span>
+            {onRecheck ? (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={onRecheck}
+                className="justify-self-start"
+              >
+                <Icon name="refresh" />
+                Check again
+              </Button>
+            ) : null}
+          </div>
         ) : null}
 
         {state === 'ready' && sources.length > 0 ? (

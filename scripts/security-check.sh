@@ -194,21 +194,29 @@ fi
 # von der lokalen Compose und von Playwright, nie von deployment/prod.
 echo ""
 echo "--- Compose: Dev-Oberflächen in Produktion ---"
-PROD_COMPOSE=$(printf '%s\n' $COMPOSE_FILES | grep -E '^deployment/prod/' || true)
-if [ -z "$PROD_COMPOSE" ]; then
-  ok "keine Produktions-Compose im Umfang"
+# Geprueft wird jede Compose-Datei, nicht nur die unter deployment/prod: die
+# Wurzel-Compose reicht DEV_STATES fuer die lokale Arbeit und fuer CI durch, und
+# genau so eine Zeile wandert beim Kopieren in die Produktionsdatei.
+DEV_HITS=""
+for f in $COMPOSE_FILES; do
+  H=$(content "$f" | grep -n -E 'DEV_STATES' | grep -v -E '^[0-9]+:[[:space:]]*#' || true)
+  [ -z "$H" ] && continue
+  case "$f" in
+    deployment/prod/*)
+      DEV_HITS="${DEV_HITS}${f}:"$'\n'"${H}"$'\n' ;;
+    *)
+      # Ausserhalb der Produktion erlaubt, aber nur als durchgereichte Variable
+      # mit leerem Standard. Ein fest gesetztes DEV_STATES: '1' waere eine
+      # Vorlage, die beim Kopieren scharf ist.
+      LIT=$(printf '%s\n' "$H" | grep -E "DEV_STATES:[[:space:]]*['\"]?1" || true)
+      [ -n "$LIT" ] && DEV_HITS="${DEV_HITS}${f} (fest gesetzt):"$'\n'"${LIT}"$'\n' ;;
+  esac
+done
+if [ -n "$DEV_HITS" ]; then
+  fail "DEV_STATES oeffnet /dev/states:"
+  detail "$DEV_HITS"
 else
-  DEV_HITS=""
-  for f in $PROD_COMPOSE; do
-    H=$(content "$f" | grep -n -E 'DEV_STATES' | grep -v -E '^[0-9]+:[[:space:]]*#' || true)
-    [ -n "$H" ] && DEV_HITS="${DEV_HITS}${f}:"$'\n'"${H}"$'\n'
-  done
-  if [ -n "$DEV_HITS" ]; then
-    fail "DEV_STATES in der Produktions-Compose (oeffnet /dev/states):"
-    detail "$DEV_HITS"
-  else
-    ok "kein DEV_STATES in deployment/prod"
-  fi
+  ok "kein DEV_STATES in deployment/prod, keines fest gesetzt"
 fi
 
 # ------------------------------------------------------------------------------

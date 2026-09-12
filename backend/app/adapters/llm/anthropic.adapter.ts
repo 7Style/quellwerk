@@ -50,6 +50,11 @@ export class AnthropicLlmAdapter implements ILlmProvider {
     let segments = 0;
 
     for await (const event of stream) {
+      if (event.type === 'message_start') {
+        yield { type: 'started', usage: event.message.usage };
+        continue;
+      }
+
       if (event.type === 'content_block_start' && event.content_block.type === 'text') {
         segmentOf.set(event.index, segments);
         yield { type: 'segment', segment: segments };

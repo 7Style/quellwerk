@@ -32,6 +32,15 @@ export type LlmStreamEvent =
   | { type: 'segment'; segment: number }
   | { type: 'text'; segment: number; text: string }
   | { type: 'citation'; segment: number; citation: Anthropic.TextCitation }
+  /**
+   * What the first frame of the stream already knows: how much was read.
+   *
+   * `message_start` carries the input, cache read and cache write counts before
+   * a single token of the answer exists, because the prefix is fixed by then.
+   * The expensive half of a turn is therefore known from its first moment, and
+   * a turn that is abandoned can still be billed for what it actually cost.
+   */
+  | { type: 'started'; usage: Anthropic.MessageStartEvent['message']['usage'] }
   | { type: 'done'; message: Anthropic.Message };
 
 export interface ILlmProvider {

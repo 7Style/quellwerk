@@ -66,6 +66,12 @@ test('gives the answer the room when both panels are folded away', async ({ page
 });
 
 test.describe('the state catalogue', () => {
+  // Only where Playwright started the servers. With BASE_URL somebody else
+  // decided what that server serves, and in CI that is the deployed image,
+  // which does not serve the catalogue at all - the workflow asserts the 404
+  // there instead.
+  test.skip(!!process.env.BASE_URL, 'runs against an external server');
+
   test('shows every state the product has', async ({ page }) => {
     await page.goto('/dev/states');
 
@@ -101,11 +107,7 @@ test.describe('the state catalogue', () => {
 
   test('is a 404 on a server that does not set DEV_STATES', async ({ request }) => {
     // The other half of the claim, and the half that matters on the server: the
-    // same build refuses the catalogue when the variable is absent. Only
-    // meaningful when Playwright started the servers; with BASE_URL there is
-    // one server and somebody else decided what it serves.
-    test.skip(!!process.env.BASE_URL, 'runs against an external server');
-
+    // same build refuses the catalogue when the variable is absent.
     const response = await request.get(`${gatedBaseUrl}/dev/states`);
 
     expect(response.status()).toBe(404);
