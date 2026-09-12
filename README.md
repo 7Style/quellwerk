@@ -42,6 +42,31 @@ Die zehn Held-out-Items sind bis zum Abschlusslauf ungemessen. Ein
 Held-out-Split, der jeden Tag gemessen wird, ist ein Dev-Split mit
 Zusatzschritten.
 
+### Am laufenden Server gemessen
+
+Eine Frage über das Demo-Notizbuch auf <https://quellwerk.7style.net>, von Hand
+gemessen, nicht geschätzt:
+
+> Was zählt laut Anhang III im Bereich Beschäftigung als Hochrisiko-System?
+
+| | |
+|---|---|
+| Erste Token beim Leser | nach 2,3 s |
+| Ereignisse im Stream | 118, verteilt über 11,4 s |
+| Geprüfte Zitate in der Antwort | 4 |
+
+Die mittlere Zeile ist die, auf die es ankommt. Kämen die 118 Ereignisse als ein
+Klumpen am Ende an, sammelt etwas zwischen dem Backend und dem Browser. Zwei
+Stellen tun das, wenn man sie lässt: `proxy_buffering` und gzip. Deshalb stehen
+im Vhost `proxy_buffering off` und `gzip off`, schickt das Backend zusätzlich
+`X-Accel-Buffering: no` und nimmt `text/event-stream` aus seiner eigenen
+Kompression heraus — vier Zeilen an zwei Orten für eine Eigenschaft, die man nur
+am laufenden Server sieht. Eine Antwort, die fertig geschrieben ist, bevor das
+erste Wort erscheint, fühlt sich langsamer an als eine, die tippt.
+
+Ein Lauf, von Hand, auf der Produktions-URL. Das Skript, das daraus einen
+wiederholbaren Rauchtest macht, ist M8-T4 und offen.
+
 ### Was ein Notizbuch kostet
 
 Gemessen an vier echten Aufrufen über dieselben vier Quellen, aus denen das
