@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,15 @@ export function HomePage() {
         onCreate={() => void create()}
         onRetry={() => void refetch()}
       />
+
+      {/* Die Seite muss erreichbar sein, nicht nur existieren (SECURITY.md 7.6).
+          Hier unten und nicht in der Topbar: sie wird einmal gelesen und nicht
+          im Arbeitsfluss gebraucht. */}
+      <footer className="mt-8 border-t border-rule pt-4 text-small text-ink-faint">
+        <Link href="/datenschutz" className="text-ink-muted no-underline hover:underline">
+          Datenschutz
+        </Link>
+      </footer>
     </div>
   );
 }

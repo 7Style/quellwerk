@@ -72,6 +72,20 @@ test.describe('home', () => {
     await expect(page.getByTestId('demo-badge')).toHaveCount(1);
   });
 
+  test('links the privacy page, and it says what this installation does', async ({ page }) => {
+    // A page that exists and is reachable from nowhere is half of the
+    // requirement (SECURITY.md 7.6).
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Datenschutz' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Datenschutz', level: 1 })).toBeVisible();
+    // The two sentences a reviewer will look for: the one processor, and the
+    // deletion that is not automatic yet.
+    await expect(page.getByRole('heading', { name: /Wer die Daten außerdem/ })).toBeVisible();
+    await expect(page.getByText(/Aufräumer, der das automatisch tut, ist noch nicht gebaut/))
+      .toBeVisible();
+  });
+
   test('scrolls the grid and not the page', async ({ page }) => {
     await page.goto('/');
 

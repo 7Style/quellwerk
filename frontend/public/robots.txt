@@ -1,2 +1,9 @@
+# Eine Bewerbungsdemo, kein Angebot, das gefunden werden will. Die Notizbücher
+# hängen an einem Cookie, also sieht ein Crawler ohnehin nur eine leere
+# Startseite und das Demo-Notizbuch - indexiert werden soll auch das nicht.
+#
+# Die Vorlage sagte hier "Allow: /". Der X-Robots-Tag für die ganze Anwendung
+# ist die zweite Linie und kommt mit M7-T3; robots.txt ist die erste und höflich,
+# nicht wirksam: sie bittet, sie hindert nicht.
 User-agent: *
-Allow: /
+Disallow: /
