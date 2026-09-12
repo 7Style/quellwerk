@@ -10,6 +10,7 @@
 import { describe, expect, it, beforeEach } from '@jest/globals';
 
 import { runReportJob, type ReportDeps, type ReportSource } from '../internal/report.job.js';
+import { dedupeKey, enqueue, enqueueReplacing } from '../../../services/queue/index.js';
 import { reportKey } from '../internal/formats.js';
 import { StudioService } from '../services/studio.service.js';
 import type {
@@ -79,21 +80,29 @@ class InMemoryArtifacts implements StudioRepository {
   }
 }
 
+function notFound(): never {
+  throw Object.assign(new Error('No such notebook.'), {
+    statusCode: 404,
+    errorCode: 'NOTEBOOK_NOT_FOUND',
+  });
+}
+
+/**
+ * Only `session-a` owns this notebook, for reading as well as for writing.
+ *
+ * The demo notebook is the one case where `readable` says yes to everyone, and
+ * it is the notebooks module that decides that. Here both answers are scoped,
+ * so a test that forgets to pass the session cannot pass by accident.
+ */
 const notebooks: NotebookAccess = {
-  readable: async (notebookId) => ({ id: notebookId }),
-  writable: async (notebookId, sessionId) => {
-    if (sessionId !== 'session-a') {
-      throw Object.assign(new Error('No such notebook.'), {
-        statusCode: 404,
-        errorCode: 'NOTEBOOK_NOT_FOUND',
-      });
-    }
-    return { id: notebookId };
-  },
+  readable: async (notebookId, sessionId) =>
+    sessionId === 'session-a' ? { id: notebookId } : notFound(),
+  writable: async (notebookId, sessionId) =>
+    sessionId === 'session-a' ? { id: notebookId } : notFound(),
 };
 
 let repository: InMemoryArtifacts;
-let enqueued: Array<{ artifactId: string; notebookId: string }>;
+let enqueued: Array<{ artifactId: string; notebookId: string; replace?: boolean }>;
 let budgetSpent: boolean;
 
 function serviceFor(): StudioService {
@@ -184,6 +193,29 @@ describe('asking for a report', () => {
     ).rejects.toMatchObject({ errorCode: 'NOTEBOOK_NOT_FOUND' });
   });
 
+  it('does not list another session\'s reports', async () => {
+    const service = serviceFor();
+    await service.request(NOTEBOOK, 'session-a', { format: 'faq', focus: '' });
+
+    await expect(service.list(NOTEBOOK, 'session-b')).rejects.toMatchObject({
+      errorCode: 'NOTEBOOK_NOT_FOUND',
+    });
+  });
+
+  it('does not hand a report to another session, even with its id', async () => {
+    // 404 and not 403: a 403 would confirm the id exists (SECURITY.md 7.2).
+    const service = serviceFor();
+    const { artifact } = await service.request(NOTEBOOK, 'session-a', {
+      format: 'faq',
+      focus: '',
+    });
+
+    await expect(service.get(NOTEBOOK, artifact.id, 'session-b')).rejects.toMatchObject({
+      statusCode: 404,
+      errorCode: 'NOTEBOOK_NOT_FOUND',
+    });
+  });
+
   it('reuses the row when a failed report is asked for again', async () => {
     const service = serviceFor();
     const { artifact } = await service.request(NOTEBOOK, 'session-a', {
@@ -201,6 +233,10 @@ describe('asking for a report', () => {
     expect(retried.status).toBe('queued');
     expect(repository.rows[0].error).toBeNull();
     expect(enqueued).toHaveLength(2);
+    // And it must say so: the failed job still holds the id, so a plain add is
+    // dropped and the row would sit on `queued` for ever.
+    expect(enqueued[1].replace).toBe(true);
+    expect(enqueued[0].replace).toBeUndefined();
   });
 
   it('does not retry a report that did not fail', async () => {
@@ -243,6 +279,7 @@ function jobDeps(overrides: Partial<ReportDeps> = {}) {
   const deps: ReportDeps = {
     getArtifact: async () => row,
     readySources: async () => [SOURCE],
+    assertBudget: async () => undefined,
     start: async () => {
       row.status = 'running';
     },
@@ -329,6 +366,32 @@ describe('writing a report', () => {
     expect(failed[0]).toBe('This notebook has no readable sources yet.');
   });
 
+  it('stops at the budget it is about to spend, not the one it was queued with', async () => {
+    // Twenty reports asked for in one second all pass the route's check and
+    // then run one after another. This is the check that sees what the ones
+    // before it spent.
+    const written: unknown[] = [];
+    const { deps, failed, row } = jobDeps({
+      assertBudget: async () => {
+        throw Object.assign(new Error('Tagesbudget erreicht'), {
+          statusCode: 503,
+          errorCode: 'BUDGET_SPENT',
+        });
+      },
+      write: async () => {
+        written.push('called');
+        throw new Error('the model must not be called');
+      },
+    });
+
+    const result = await runReportJob(deps, { artifactId: 'a1', notebookId: NOTEBOOK });
+
+    expect(written).toHaveLength(0);
+    expect(result.status).toBe('failed');
+    expect(row.status).toBe('failed');
+    expect(failed[0]).toBe('The daily budget for this demo is spent. Try again tomorrow.');
+  });
+
   it('does nothing for an artifact that is gone', async () => {
     const { deps, written, failed } = jobDeps({ getArtifact: async () => null });
 
@@ -337,5 +400,89 @@ describe('writing a report', () => {
     expect(result).toEqual({ status: 'skipped', reason: 'artifact no longer exists' });
     expect(written).toHaveLength(0);
     expect(failed).toHaveLength(0);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* The enqueue behind "Try again"                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A queue with the states BullMQ reports, and its rule about job ids.
+ *
+ * The rule is the point: an add whose id already exists is dropped in silence.
+ * A report job that fails is caught inside the processor and returns, so BullMQ
+ * files it as completed and `removeOnComplete: {count: 50}` keeps it under its
+ * id - which is why "Try again" needs to remove it first. Measured against the
+ * real Redis before it was written down here.
+ */
+class FakeQueue {
+  readonly jobs = new Map<string, { data: unknown; state: string }>();
+  readonly adds: string[] = [];
+  readonly removes: string[] = [];
+
+  async getJob(jobId: string) {
+    const job = this.jobs.get(jobId);
+    if (!job) return undefined;
+    return {
+      getState: async () => job.state,
+      remove: async () => {
+        this.removes.push(jobId);
+        this.jobs.delete(jobId);
+      },
+    };
+  }
+
+  async add(_name: string, data: unknown, options: { jobId: string }) {
+    if (this.jobs.has(options.jobId)) return;
+    this.adds.push(options.jobId);
+    this.jobs.set(options.jobId, { data, state: 'waiting' });
+  }
+
+  /** What BullMQ would have done to the job while nobody was looking. */
+  moveTo(jobId: string, state: string): void {
+    const job = this.jobs.get(jobId);
+    if (!job) throw new Error(`no job ${jobId}`);
+    job.state = state;
+  }
+}
+
+describe('asking again for a report that failed', () => {
+  const jobId = dedupeKey(NOTEBOOK, 'report', 'a1');
+  let queue: FakeQueue;
+
+  beforeEach(() => {
+    queue = new FakeQueue();
+  });
+
+  it('runs, although the finished job still holds the id', async () => {
+    await enqueue('artifact', jobId, { kind: 'report' }, queue as never);
+    queue.moveTo(jobId, 'completed');
+
+    await enqueueReplacing('artifact', jobId, { kind: 'report' }, queue as never);
+
+    expect(queue.removes).toEqual([jobId]);
+    expect(queue.adds).toHaveLength(2);
+  });
+
+  it('does not queue a second run of work that is already running', async () => {
+    await enqueue('artifact', jobId, { kind: 'report' }, queue as never);
+    queue.moveTo(jobId, 'active');
+
+    await enqueueReplacing('artifact', jobId, { kind: 'report' }, queue as never);
+
+    // Removing it would not stop it, and a second job behind it would be a
+    // second call over the whole notebook for the report being written.
+    expect(queue.removes).toHaveLength(0);
+    expect(queue.adds).toHaveLength(1);
+  });
+
+  it('is the plain add that a first ask uses, and that one dedupes', async () => {
+    await enqueue('artifact', jobId, { kind: 'report' }, queue as never);
+    queue.moveTo(jobId, 'completed');
+
+    await enqueue('artifact', jobId, { kind: 'report' }, queue as never);
+
+    expect(queue.adds).toHaveLength(1);
   });
 });

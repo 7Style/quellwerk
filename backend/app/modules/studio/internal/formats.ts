@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /**
  * The five report formats (docs/SPEC.md, "UI-Vokabular").
  *
@@ -33,10 +35,6 @@ export const FORMATS: Record<ReportFormat, FormatSpec> = {
   custom: { label: 'Create your own', prompt: 'report-custom', needsFocus: true },
 };
 
-export function isReportFormat(value: string): value is ReportFormat {
-  return (REPORT_FORMATS as readonly string[]).includes(value);
-}
-
 /**
  * The key that makes a report idempotent.
  *
@@ -50,12 +48,14 @@ export function reportKey(format: ReportFormat, focus: string): string {
   return trimmed.length > 0 ? `${format}.${hash(trimmed)}` : format;
 }
 
-/** Short, stable, and not meant to be reversed; it only has to differ. */
+/**
+ * Short, stable, and not meant to be reversed; it only has to differ.
+ *
+ * Sixty-four bits of SHA-256 rather than a 32-bit FNV: a collision does not
+ * produce a wrong key, it hands the reader somebody's other report of this
+ * notebook under a description they did not write. Within one notebook that is
+ * improbable either way, and the wider hash costs nothing.
+ */
 function hash(value: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    h ^= value.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0).toString(36);
+  return createHash('sha256').update(value, 'utf8').digest('hex').slice(0, 16);
 }

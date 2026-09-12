@@ -18,7 +18,13 @@ import { prisma } from '../lib/prisma.js';
 import { AnthropicLlmAdapter, buildCountTokensRequest } from '../adapters/llm/index.js';
 import { models } from '../config/models.js';
 import { createUploadMiddleware } from '../common/middleware/upload.middleware.js';
-import { dedupeKey, enqueue, type ArtifactJob, type QueuedJob } from '../services/queue/index.js';
+import {
+  dedupeKey,
+  enqueue,
+  enqueueReplacing,
+  type ArtifactJob,
+  type QueuedJob,
+} from '../services/queue/index.js';
 import { assertBudgetLeft } from '../services/quota/index.js';
 import { initSessionModule, sessionIdOf } from './session/index.js';
 import { initNotebooksModule } from './notebooks/index.js';
@@ -162,15 +168,20 @@ export async function registerModules(app: Express): Promise<void> {
       // The API never waits for a report; the worker writes it (ADR-0009).
       // One job id per (notebook, report, key), so a second enqueue for a
       // report already queued is dropped by BullMQ rather than run twice.
-      enqueueReport: ({ artifactId, notebookId }) =>
-        enqueue('artifact', dedupeKey(notebookId, 'report', artifactId), {
-          kind: 'report',
-          artifactId,
-          notebookId,
-        } satisfies ArtifactJob),
-      // A report is one model call over the whole notebook, so it sits behind
-      // the same per-session ceiling as an upload (SECURITY.md 7.3).
-      limit: createRateLimiter('sources', config.rateLimit.sources),
+      enqueueReport: ({ artifactId, notebookId, replace }) => {
+        const jobId = dedupeKey(notebookId, 'report', artifactId);
+        const data = { kind: 'report', artifactId, notebookId } satisfies ArtifactJob;
+        // "Try again" has to get past the finished job that still holds the id;
+        // a first ask must not (that is the dedupe).
+        return replace
+          ? enqueueReplacing('artifact', jobId, data)
+          : enqueue('artifact', jobId, data);
+      },
+      // A report is the most expensive call in the product, and it has its own
+      // ceiling for that reason (SECURITY.md 7.3). Its own bucket, too: on the
+      // sources limiter, twenty uploads would block every report for the rest
+      // of the hour.
+      limit: createRateLimiter('artifacts', config.rateLimit.artifacts),
     });
     startupStatus.moduleOk('Studio');
   } catch (error) {

@@ -16,7 +16,11 @@ export interface StudioModuleDeps {
   sessionIdOf: (req: Request) => string | null;
   notebooks: NotebookAccess;
   assertBudgetLeft: () => Promise<void>;
-  enqueueReport: (job: { artifactId: string; notebookId: string }) => Promise<void>;
+  enqueueReport: (job: {
+    artifactId: string;
+    notebookId: string;
+    replace?: boolean;
+  }) => Promise<void>;
   limit: RequestHandler;
   basePath?: string;
 }
@@ -37,7 +41,7 @@ export { StudioService } from './services/studio.service.js';
 export { StudioController } from './controllers/studio.controller.js';
 export { createStudioRouter } from './routes/studio.routes.js';
 export { PrismaStudioRepository } from './internal/prisma.repository.js';
-export { FORMATS, REPORT_FORMATS, isReportFormat, reportKey } from './internal/formats.js';
+export { FORMATS, REPORT_FORMATS, reportKey } from './internal/formats.js';
 export type { FormatSpec, ReportFormat } from './internal/formats.js';
 export { runReportJob } from './internal/report.job.js';
 export type {

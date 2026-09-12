@@ -18,8 +18,17 @@ export interface StudioServiceDeps {
   notebooks: NotebookAccess;
   /** Refuses once the daily budget is spent (SECURITY.md 7.3). */
   assertBudgetLeft: () => Promise<void>;
-  /** Puts the job on the artifact queue. The API never waits for it. */
-  enqueueReport: (job: { artifactId: string; notebookId: string }) => Promise<void>;
+  /**
+   * Puts the job on the artifact queue. The API never waits for it.
+   *
+   * `replace` is what makes "Try again" work: the failed job is still filed
+   * under its id, and BullMQ drops an add that collides with one.
+   */
+  enqueueReport: (job: {
+    artifactId: string;
+    notebookId: string;
+    replace?: boolean;
+  }) => Promise<void>;
 }
 
 export class StudioService {
@@ -110,7 +119,7 @@ export class StudioService {
     }
 
     await this.deps.repository.requeue(artifactId);
-    await this.deps.enqueueReport({ artifactId, notebookId });
+    await this.deps.enqueueReport({ artifactId, notebookId, replace: true });
 
     return { ...artifact, status: 'queued', error: null };
   }

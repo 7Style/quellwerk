@@ -117,6 +117,13 @@ Die saubere Lösung wäre eine Reservierung vor dem Aufruf und eine Abrechnung
 danach. Das ist ein zweiter Schreibpfad für Geld und gehört nicht in einen
 Meilenstein, der den Chat fertig macht.
 
+Seit M6 fragt der Report-Job unmittelbar vor seinem Modellaufruf noch einmal
+(`report.job.ts`, `assertBudget`). Das schließt die Lücke für den teuersten
+Aufruf des Produkts: zwanzig in einer Sekunde bestellte Reports kommen alle
+durch die Prüfung der Route, laufen dann aber nacheinander, und jeder von ihnen
+sieht, was die vorherigen ausgegeben haben. Für den Ingest gilt das nicht; dort
+ist ein Job ein kleiner Aufruf und die Quellen-Schranke greift davor.
+
 ## Die Kontextgrenze zählt Turns, noch nicht Token
 
 docs/SPEC.md nennt für den Verlauf „20 Turns oder 60.000 Token". Umgesetzt sind
@@ -158,3 +165,28 @@ Lösung ist, die Deltas mitzuzählen und beim Abbruch eine Zeile mit dem
 geschätzten Stand zu schreiben — eine Schätzung in einer Tabelle, in der sonst
 nur gemessene Zahlen stehen. Das ist eine eigene Entscheidung und keine, die in
 den Meilenstein gehört, der die Oberfläche anschließt.
+
+## Ein hängender Report wird nicht von selbst terminal
+
+Ein Report-Job schreibt `heartbeatAt` einmal beim Start und danach nicht mehr.
+Stirbt der Worker während des Modellaufrufs, bleibt die Zeile auf `running`
+stehen, und es gibt keinen Sweeper, der sie abschließt — der gehört zur
+Wartungsschlange, die in M7 dazukommt.
+
+Was es gibt, ist die ehrliche Anzeige: nach fünf Minuten hört das Panel auf zu
+fragen und schreibt an die Zeile, dass der Verfasser auf dem Server sie nicht
+aufgenommen hat (`REPORT_STUCK_AFTER_MS`). Dieselbe Regel wie bei einer Quelle,
+die nie gelesen wurde. Was fehlt, ist der Weg zurück: „Try again" nimmt nur
+einen Report, der wirklich `failed` ist, und eine hängende Zeile ist das nicht.
+Das Format bleibt damit bis zum Sweeper blockiert, weil die Zeile existiert.
+
+## Verworfene Belege eines Reports stehen nur im Log
+
+Fällt ein Beleg bei der Prüfung gegen den gespeicherten Text durch, zählt der
+Job ihn und schreibt die Zahl mit Offsets ins Log — aber nicht an die Zeile. Eine
+Chat-Nachricht trägt `droppedCitations` und zeigt es im Trace; ein Report hat das
+Feld nicht, und nach dem Log-Rotate ist die Zahl weg.
+
+docs/SPEC.md verlangt den Trace für die Antwort, nicht für den Report, also ist
+das keine gebrochene MUSS-Zeile. Es ist die Zahl, nach der ein Prüfer als
+zweites fragt, und sie kostet eine Spalte.

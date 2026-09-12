@@ -76,7 +76,9 @@ export class PrismaStudioRepository implements StudioRepository {
 
   async listByNotebook(notebookId: string): Promise<ArtifactRow[]> {
     const rows = await this.prisma.artifact.findMany({
-      where: { notebookId },
+      // Reports only. The table also takes the audio overview in M10, and an
+      // audio row read as a report would come back as a Briefing Doc.
+      where: { notebookId, type: 'report' },
       orderBy: { createdAt: 'desc' },
       select: ROW_FIELDS,
     });
@@ -87,7 +89,7 @@ export class PrismaStudioRepository implements StudioRepository {
     // Both ids in the WHERE clause: a report id from another notebook has to
     // miss rather than resolve and then be checked.
     const row = await this.prisma.artifact.findFirst({
-      where: { id: artifactId, notebookId },
+      where: { id: artifactId, notebookId, type: 'report' },
       select: { ...ROW_FIELDS, segments: true, promptUsed: true },
     });
     return row ? { ...toRow(row), segments: row.segments, promptUsed: row.promptUsed } : null;

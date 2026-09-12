@@ -64,6 +64,16 @@ export interface WrittenReport {
 export interface ReportDeps {
   getArtifact(id: string): Promise<ReportRow | null>;
   readySources(notebookId: string): Promise<ReportSource[]>;
+  /**
+   * Throws when today's budget is spent. Asked again here, in the worker.
+   *
+   * The route checks it too, but a check before the row is written only says
+   * what was true when the reader clicked. Twenty reports asked for inside a
+   * second all pass that check and then run one after another, each of them a
+   * call over the whole notebook; this is the one that sees what the ones
+   * before it spent.
+   */
+  assertBudget(): Promise<void>;
   /** Writes `heartbeatAt` and `startedAt`. Called before the model, not after. */
   start(artifactId: string): Promise<void>;
   /** Runs the model and verifies every citation. Throws on a model failure. */
@@ -86,6 +96,13 @@ export type ReportResult =
  * the same rule for `artifact.error`.
  */
 function reasonFor(error: unknown): string {
+  // Not a model failure and not one a retry in the next minute fixes. It says
+  // what happened rather than "could not be written", because the reader can
+  // do something about the wait but nothing about the sentence.
+  if ((error as { errorCode?: string } | null)?.errorCode === 'BUDGET_SPENT') {
+    return 'The daily budget for this demo is spent. Try again tomorrow.';
+  }
+
   const status = (error as { status?: number } | null)?.status;
   if (status === 429 || status === 529) return 'The model was busy. Try again in a moment.';
   if (typeof status === 'number' && status >= 500) {
@@ -125,6 +142,10 @@ export async function runReportJob(
       await deps.fail(payload.artifactId, 'This notebook has no readable sources yet.');
       return { status: 'failed', reason: 'no ready sources' };
     }
+
+    // Immediately before the call, not at the top of the job: what matters is
+    // what has been spent by the time the money is about to be spent.
+    await deps.assertBudget();
 
     const report = await deps.write(params.format, params.focus, sources);
 

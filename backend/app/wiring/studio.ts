@@ -15,8 +15,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { buildChatRequest } from '../adapters/llm/index.js';
 import { effortChat, models } from '../config/models.js';
 import { loadPrompt, renderPrompt } from '../services/prompt-loader/index.js';
-import { FORMATS, type ReportFormat } from '../modules/studio/index.js';
-import type { ReportSource } from '../modules/studio/index.js';
+import { FORMATS, type ReportFormat, type ReportSource } from '../modules/studio/index.js';
 
 /**
  * Room for a report. Four times a chat answer: a study guide with ten questions

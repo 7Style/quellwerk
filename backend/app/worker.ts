@@ -57,6 +57,8 @@ import { buildReportRequest } from './wiring/studio.js';
 import { runReportJob, type ReportDeps, type ReportFormat } from './modules/studio/index.js';
 import { resolveAnswer } from './modules/chat/index.js';
 import { pageAt, type PageSpan } from './modules/sources/internal/pages.js';
+import { safeCause } from './common/utils/error-cause.util.js';
+import { assertBudgetLeft } from './services/quota/index.js';
 import { recordUsage } from './services/usage-log/index.js';
 
 const llm = new AnthropicLlmAdapter();
@@ -331,11 +333,16 @@ function ingestDeps(notebookId: string): IngestDeps {
 
     maxTokensPerNotebook: env.MAX_TOKENS_PER_NOTEBOOK,
 
-    // The real error, with its stack, goes here. What reaches the source row is
-    // a sentence from a fixed list; a library message can carry the statement it
-    // failed on, and for Prisma that statement holds the source text.
+    // The cause goes here, the sentence goes on the row. Without its message,
+    // for the reason the old comment here already named and did not act on: a
+    // library message can carry the statement it failed on, and for Prisma that
+    // statement holds the source text (error-cause.util.ts).
     onError: (error, sourceId) => {
-      logger.error('[Worker] ingest failed', error, { sourceId, notebookId });
+      logger.error('[Worker] ingest failed', undefined, {
+        sourceId,
+        notebookId,
+        cause: safeCause(error),
+      });
     },
   };
 }
@@ -401,6 +408,10 @@ async function reportLanguage(notebookId: string): Promise<string> {
 }
 
 function reportDeps(notebookId: string): ReportDeps {
+  // Filled by `readySources` and read by `write`, which runs right after it in
+  // the same job. It lives here because the deps are built once per job.
+  let pages = new Map<string, PageSpan[]>();
+
   return {
     getArtifact: async (id) => {
       const row = await prisma.artifact.findUnique({
@@ -429,17 +440,25 @@ function reportDeps(notebookId: string): ReportDeps {
       // Sorted with the builder's comparator, not with orderBy: the index in
       // this array is what a citation's document_index resolves against, so it
       // has to be the order the document blocks go out in, tie for tie.
-      return [...rows]
-        .sort(byDocumentOrder)
-        .map((row) => ({
-          id: row.id,
-          position: row.position,
-          title: row.title,
-          kind: row.kind,
-          text: row.text,
-          pageCount: Array.isArray(row.pages) ? row.pages.length : null,
-        }));
+      const ordered = [...rows].sort(byDocumentOrder);
+
+      // The spans are kept beside the sources rather than thrown away with the
+      // count. Without them every chip in a report says "characters 1,234" where
+      // the same chip in an answer says "page 12", and a page is what a reader
+      // takes to a colleague.
+      pages = new Map(ordered.map((row) => [row.id, (row.pages as PageSpan[] | null) ?? []]));
+
+      return ordered.map((row) => ({
+        id: row.id,
+        position: row.position,
+        title: row.title,
+        kind: row.kind,
+        text: row.text,
+        pageCount: Array.isArray(row.pages) ? row.pages.length : null,
+      }));
     },
+
+    assertBudget: () => assertBudgetLeft(),
 
     start: async (artifactId) => {
       await prisma.artifact.update({
@@ -471,12 +490,11 @@ function reportDeps(notebookId: string): ReportDeps {
       });
 
       const byId = new Map(sources.map((source) => [source.id, source]));
-      const pagesById = new Map<string, PageSpan[]>();
 
       const answer = resolveAnswer(message.content, {
         sourceIds,
         sources: byId,
-        pageAt: (sourceId, offset) => pageAt(pagesById.get(sourceId) ?? [], offset),
+        pageAt: (sourceId, offset) => pageAt(pages.get(sourceId) ?? [], offset),
       });
 
       if (answer.droppedCitations.length > 0) {
@@ -517,7 +535,13 @@ function reportDeps(notebookId: string): ReportDeps {
     },
 
     onError: (error, artifactId) => {
-      logger.error('[Worker] report failed', error, { artifactId, notebookId });
+      // The cause without its message: an upstream 400 quotes the block it
+      // rejected, and the blocks are the documents (error-cause.util.ts).
+      logger.error('[Worker] report failed', undefined, {
+        artifactId,
+        notebookId,
+        cause: safeCause(error),
+      });
     },
   };
 }

@@ -90,9 +90,42 @@ export function getQueue(name: QueueName): Queue {
 export async function enqueue<T extends object>(
   name: QueueName,
   jobId: string,
-  data: T
+  data: T,
+  queue: Pick<Queue, 'add'> = getQueue(name)
 ): Promise<void> {
-  await getQueue(name).add(jobId, data, { jobId });
+  await queue.add(jobId, data, { jobId });
+}
+
+/**
+ * Adds a job under a fixed id and runs it even if that id has run before.
+ *
+ * This is "Try again" on a failed report, and it is the other half of the
+ * dedupe above rather than an exception to it. A report job that fails is
+ * caught inside the processor and returns, so BullMQ files it as completed, and
+ * `removeOnComplete: {count: 50}` keeps the finished job under its id. A plain
+ * add is then dropped in silence: the row goes back to `queued`, the panel
+ * shows "Waiting for the writer" and nothing ever runs. Measured against the
+ * real Redis, not reasoned about - a second add ran zero times, a remove
+ * followed by an add ran once.
+ *
+ * A job that is currently active is left alone and no new one is queued: the
+ * work the reader is asking for is already happening.
+ */
+export async function enqueueReplacing<T extends object>(
+  name: QueueName,
+  jobId: string,
+  data: T,
+  queue: Pick<Queue, 'getJob' | 'add'> = getQueue(name)
+): Promise<void> {
+  const existing = await queue.getJob(jobId);
+
+  if (existing) {
+    const state = await existing.getState();
+    if (state === 'active') return;
+    await existing.remove();
+  }
+
+  await queue.add(jobId, data, { jobId });
 }
 
 /**
