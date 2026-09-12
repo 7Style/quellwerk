@@ -118,7 +118,7 @@ let repository: InMemoryArtifacts;
 let enqueued: Array<{
   artifactId: string;
   notebookId: string;
-  kind: 'report' | 'mindmap';
+  kind: 'report' | 'mindmap' | 'flashcards';
   replace?: boolean;
 }>;
 let budgetSpent: boolean;

@@ -7,6 +7,16 @@ export { CustomReportDialog } from './components/CustomReportDialog';
 export { NoteDialog } from './components/NoteDialog';
 export { NoteView } from './components/NoteView';
 export { MindMapView } from './components/MindMapView';
+export { FlashcardsView } from './components/FlashcardsView';
+export type { FlashcardsViewProps } from './components/FlashcardsView';
+export {
+  flashcardsApi,
+  useFlashcardsQuery,
+  useRequestFlashcardsMutation,
+  WHILE_WRITING_CARDS_MS,
+} from './services/flashcards.api';
+export { citationsOnCard, isWritingCards } from './types/flashcards';
+export type { Flashcard, Flashcards } from './types/flashcards';
 export type { MindMapViewProps } from './components/MindMapView';
 export {
   mindMapApi,

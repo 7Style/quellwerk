@@ -19,7 +19,7 @@ export interface StudioModuleDeps {
   enqueueArtifact: (job: {
     artifactId: string;
     notebookId: string;
-    kind: 'report' | 'mindmap';
+    kind: 'report' | 'mindmap' | 'flashcards';
     replace?: boolean;
   }) => Promise<void>;
   limit: RequestHandler;

@@ -561,6 +561,14 @@ Nicht gebaut: eine zweite Ansicht mit Kanten und Positionen (M11-T2). Die
 flache Liste mit Ebenen ist das, was die Karte lesbar macht; ein Layout-Graph
 ist eine Bibliothek und ein Tag.
 
+### M11-T3 Flashcards
+Goal: Karten mit Frage, Antwort und Beleg, aus denselben Quellen und ueber denselben Job-Pfad wie ein Report.
+Files: backend/app/modules/studio/internal/flashcards.ts, backend/app/worker.ts, prompts/flashcards.md, frontend/src/modules/studio/components/Flashcards*.tsx
+Test: `pnpm --filter @quellwerk/backend test -- flashcards && pnpm --filter @quellwerk/e2e exec playwright test tests/ui/flashcards.spec.ts`
+Expected: **nicht** Structured Outputs, und das ist der Kern der Aufgabe. Belege und Structured Outputs gehen im selben Aufruf nicht zusammen (CLAUDE.md, HTTP 400), und eine Karte ohne Beleg waere in diesem Produkt eine Behauptung. Also derselbe Aufruf wie ein Report -- `buildChatRequest`, Belege an, Text heraus, jeder Chip serverseitig gegen den gespeicherten Text geprueft -- und danach `splitCards`, das den Segmentstrom an den Kartengrenzen schneidet und jeden Beleg bei der Karte laesst, in der er stand. Die Regeln stehen dort im Code: hoechstens zwanzig Karten, eine Karte ohne Frage oder ohne Antwort faellt weg, Text ausserhalb einer Karte faellt weg. Die Ansicht dreht eine Karte um und oeffnet aus der Rueckseite die Stelle in der Quelle. Als Nebenwirkung liest der Aufruf den Cache-Praefix des Chats, anders als die Mind Map.
+Box: 60
+Status: [x]
+
 ---
 
 ## M12 Loom preparation

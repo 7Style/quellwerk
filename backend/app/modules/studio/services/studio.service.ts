@@ -15,6 +15,8 @@ import type {
 
 /** Der Typ und zugleich der Idempotenzschluessel: eine Karte je Notizbuch. */
 export const MINDMAP_TYPE = 'mindmap';
+/** Dasselbe fuer die Karten: ein Stapel je Notizbuch, der neu geschrieben wird. */
+export const FLASHCARDS_TYPE = 'flashcards';
 
 export interface StudioServiceDeps {
   repository: StudioRepository;
@@ -34,7 +36,7 @@ export interface StudioServiceDeps {
   enqueueArtifact: (job: {
     artifactId: string;
     notebookId: string;
-    kind: 'report' | 'mindmap';
+    kind: 'report' | 'mindmap' | 'flashcards';
     replace?: boolean;
   }) => Promise<void>;
 }
@@ -149,6 +151,20 @@ export class StudioService {
     return this.deps.repository.findByType(notebookId, MINDMAP_TYPE);
   }
 
+  /** Der Kartenstapel des Notizbuchs, oder null. */
+  async flashcards(notebookId: string, sessionId: string): Promise<ArtifactWithBody | null> {
+    await this.deps.notebooks.readable(notebookId, sessionId);
+    return this.deps.repository.findByType(notebookId, FLASHCARDS_TYPE);
+  }
+
+  /** Wie `requestMindMap`, fuer die Karten. */
+  async requestFlashcards(
+    notebookId: string,
+    sessionId: string
+  ): Promise<{ artifact: ArtifactRow; created: boolean }> {
+    return this.requestSingleton(notebookId, sessionId, FLASHCARDS_TYPE);
+  }
+
   /**
    * Bestellt die Mind Map, oder schreibt sie neu.
    *
@@ -165,6 +181,21 @@ export class StudioService {
     notebookId: string,
     sessionId: string
   ): Promise<{ artifact: ArtifactRow; created: boolean }> {
+    return this.requestSingleton(notebookId, sessionId, MINDMAP_TYPE);
+  }
+
+  /**
+   * Der gemeinsame Weg fuer die Artefakte, die es je Notizbuch nur einmal gibt.
+   *
+   * Mind Map und Karten unterscheiden sich im Aufruf, nicht in der Buchhaltung:
+   * ein fester Schluessel, eine Zeile, und ein zweiter Klick schreibt dieselbe
+   * neu, statt eine zweite danebenzustellen.
+   */
+  private async requestSingleton(
+    notebookId: string,
+    sessionId: string,
+    type: typeof MINDMAP_TYPE | typeof FLASHCARDS_TYPE
+  ): Promise<{ artifact: ArtifactRow; created: boolean }> {
     const { id: target } = await this.deps.notebooks.writableOrCopy(notebookId, sessionId);
 
     // Vor der Zeile, nicht danach: eine abgelehnte Bestellung darf keine
@@ -173,17 +204,13 @@ export class StudioService {
 
     const result = await this.deps.repository.createOrGet({
       notebookId: target,
-      type: MINDMAP_TYPE,
-      idempotencyKey: MINDMAP_TYPE,
+      type,
+      idempotencyKey: type,
       params: null,
     });
 
     if (result.created) {
-      await this.deps.enqueueArtifact({
-        artifactId: result.artifact.id,
-        notebookId: target,
-        kind: MINDMAP_TYPE,
-      });
+      await this.deps.enqueueArtifact({ artifactId: result.artifact.id, notebookId: target, kind: type });
       return result;
     }
 
@@ -192,7 +219,7 @@ export class StudioService {
       await this.deps.enqueueArtifact({
         artifactId: result.artifact.id,
         notebookId: target,
-        kind: MINDMAP_TYPE,
+        kind: type,
         replace: true,
       });
       return { artifact: { ...result.artifact, status: 'queued', error: null }, created: false };

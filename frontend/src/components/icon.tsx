@@ -87,6 +87,13 @@ const PATHS = {
       <path d="M12.6 9.8h-2.8v3.6" />
     </>
   ),
+  cards: (
+    <>
+      <path d="M5.4 4.6h7.2v8.2H5.4z" />
+      <path d="M3.4 3h6.8" />
+      <path d="M2.6 5.2v6.2" />
+    </>
+  ),
   mindmap: (
     <>
       <circle cx="4" cy="8" r="1.6" />

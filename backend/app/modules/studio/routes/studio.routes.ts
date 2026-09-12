@@ -40,5 +40,14 @@ export function createStudioRouter(deps: StudioRouterDeps): Router {
   router.get('/notebooks/:notebookId/mindmap', wrap(deps.controller.mindMap));
   router.post('/notebooks/:notebookId/mindmap', deps.limit, wrap(deps.controller.createMindMap));
 
+  // Ein Stapel je Notizbuch, aus demselben Grund wie die Karte: er wird neu
+  // geschrieben, nicht neben den alten gestellt.
+  router.get('/notebooks/:notebookId/flashcards', wrap(deps.controller.flashcards));
+  router.post(
+    '/notebooks/:notebookId/flashcards',
+    deps.limit,
+    wrap(deps.controller.createFlashcards)
+  );
+
   return router;
 }

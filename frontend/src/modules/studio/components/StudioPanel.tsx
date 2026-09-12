@@ -9,6 +9,7 @@ import { CustomReportDialog } from './CustomReportDialog';
 import { NoteDialog } from './NoteDialog';
 import { citationCount, type Note } from '../types/note';
 import type { MindMap } from '../types/mindmap';
+import type { Flashcards } from '../types/flashcards';
 import {
   FORMAT_BLURBS,
   FORMAT_LABELS,
@@ -45,6 +46,11 @@ export interface StudioPanelProps {
   mindMap: MindMap | null;
   onOpenMindMap: () => void;
   mindMapOpen?: boolean;
+
+  /* Flashcards (M11-T3). Ein Stapel je Notizbuch. */
+  flashcards: Flashcards | null;
+  onOpenFlashcards: () => void;
+  flashcardsOpen?: boolean;
   onAddNote: (input: { title: string; markdown: string }) => Promise<boolean>;
   onOpenNote: (noteId: string) => void;
   openNoteId?: string;
@@ -72,6 +78,9 @@ export function StudioPanel({
   mindMap,
   onOpenMindMap,
   mindMapOpen = false,
+  flashcards,
+  onOpenFlashcards,
+  flashcardsOpen = false,
   onAddNote,
   onOpenNote,
   openNoteId,
@@ -129,6 +138,30 @@ export function StudioPanel({
             </span>
           </span>
           <Icon name={mindMap ? 'chevronRight' : 'plus'} className="text-ink-muted" />
+        </button>
+      </section>
+
+      <section className="grid gap-2">
+        <h3 className="m-0 text-ui font-semibold text-ink-muted">Flashcards</h3>
+        <button
+          type="button"
+          data-testid="open-flashcards"
+          disabled={!hasSources && !flashcards}
+          onClick={onOpenFlashcards}
+          className={`grid w-full grid-cols-[20px_1fr_auto] items-center gap-3 rounded-control border p-3 text-left disabled:opacity-45 ${
+            flashcardsOpen
+              ? 'border-rule-strong bg-surface-sunken shadow-[inset_2px_0_0_var(--ink)]'
+              : 'border-rule bg-surface hover:border-rule-strong hover:bg-surface-sunken'
+          }`}
+        >
+          <Icon name="cards" className="text-ink-muted" />
+          <span>
+            <span className="block text-ui font-medium">Flashcards</span>
+            <span className="mt-px block text-micro text-ink-faint" data-testid="flashcards-line">
+              {flashcardsLine(flashcards)}
+            </span>
+          </span>
+          <Icon name={flashcards ? 'chevronRight' : 'plus'} className="text-ink-muted" />
         </button>
       </section>
 
@@ -261,6 +294,15 @@ export function StudioPanel({
       <NoteDialog open={noteOpen} onOpenChange={setNoteOpen} onSubmit={onAddNote} />
     </div>
   );
+}
+
+/** Was der Stapel gerade ist. */
+function flashcardsLine(deck: Flashcards | null): string {
+  if (!deck) return 'Question, answer and the passage it rests on.';
+  if (deck.status === 'queued') return 'Waiting for the writer';
+  if (deck.status === 'running') return 'Reading the sources and writing';
+  if (deck.status === 'failed') return 'Could not be written';
+  return `${deck.cards.length} ${deck.cards.length === 1 ? 'card' : 'cards'}`;
 }
 
 /** Was die Karte gerade ist: keine, im Entstehen, fertig, gescheitert. */

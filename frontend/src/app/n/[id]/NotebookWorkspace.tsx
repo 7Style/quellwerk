@@ -12,6 +12,7 @@ import { Composer, Thread, useChatStream, useListMessagesQuery } from '@/modules
 import { OverviewHeader, useGetNotebookQuery } from '@/modules/notebooks';
 import { Topbar, Workspace } from '@/modules/shell';
 import {
+  FlashcardsView,
   MindMapView,
   NoteView,
   ReportView,
@@ -22,8 +23,12 @@ import {
   useConvertNoteToSourceMutation,
   useDeleteNoteMutation,
   useListNotesQuery,
+  useFlashcardsQuery,
   useMindMapQuery,
+  useRequestFlashcardsMutation,
   useRequestMindMapMutation,
+  isWritingCards,
+  WHILE_WRITING_CARDS_MS,
   useSaveAnswerToNoteMutation,
   isDrawing,
   WHILE_DRAWING_MS,
@@ -184,6 +189,16 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
     skip: !drawing,
   });
 
+  const flashcards = useFlashcardsQuery(notebookId);
+  const [requestFlashcards] = useRequestFlashcardsMutation();
+  const [flashcardsOpen, setFlashcardsOpen] = useState(false);
+
+  const writingCards = isWritingCards(flashcards.data ?? null);
+  useFlashcardsQuery(notebookId, {
+    pollingInterval: writingCards ? WHILE_WRITING_CARDS_MS : 0,
+    skip: !writingCards,
+  });
+
   // One box, filled from three places: the reader typing, a follow-up of the
   // last turn, and a suggested question from the overview.
   const [question, setQuestion] = useState('');
@@ -279,6 +294,16 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
               onClose={() => setOpenReportId(null)}
               onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
             />
+          ) : flashcardsOpen ? (
+            <FlashcardsView
+              deck={flashcards.data ?? null}
+              loading={flashcards.isLoading}
+              onClose={() => setFlashcardsOpen(false)}
+              onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
+              onRebuild={async () => {
+                await requestFlashcards(notebookId).unwrap();
+              }}
+            />
           ) : mindMapOpen ? (
             <MindMapView
               map={mindMap.data ?? null}
@@ -346,7 +371,7 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
         composer={
           // The composer belongs to the conversation. A report has taken the
           // column; the way back is the chevron at its top.
-          openReportId || openNoteId || mindMapOpen ? null : (
+          openReportId || openNoteId || mindMapOpen || flashcardsOpen ? null : (
             <Composer
               value={question}
               onValueChange={setQuestion}
@@ -378,11 +403,24 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
                   followCopy(report.notebookId);
                 })
             }
+            flashcards={flashcards.data ?? null}
+            flashcardsOpen={flashcardsOpen}
+            onOpenFlashcards={async () => {
+              setOpenReportId(null);
+              setOpenNoteId(null);
+              setMindMapOpen(false);
+              setFlashcardsOpen(true);
+              if (!flashcards.data) {
+                const created = await requestFlashcards(notebookId).unwrap();
+                followCopy(created.notebookId);
+              }
+            }}
             mindMap={mindMap.data ?? null}
             mindMapOpen={mindMapOpen}
             onOpenMindMap={async () => {
               setOpenReportId(null);
               setOpenNoteId(null);
+              setFlashcardsOpen(false);
               setMindMapOpen(true);
               // Noch keine Karte: bestellen, und die Ansicht zeigt beim
               // Zeichnen zu. Eine vorhandene wird nur geoeffnet - neu
@@ -406,12 +444,14 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
             onOpenNote={(noteId) => {
               setOpenReportId(null);
               setMindMapOpen(false);
+              setFlashcardsOpen(false);
               setOpenNoteId(noteId);
             }}
             openNoteId={openNoteId ?? undefined}
             onOpen={(reportId) => {
               setOpenNoteId(null);
               setMindMapOpen(false);
+              setFlashcardsOpen(false);
               setOpenReportId(reportId);
             }}
             onRetry={(reportId) =>

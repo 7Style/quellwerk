@@ -85,6 +85,33 @@ Knoten mit einem Chip, der nie geprüft wurde, wäre schlimmer als einer ohne.
 Deshalb ist jeder Knoten ein Knopf: er schreibt die Frage ins Eingabefeld, und
 die Antwort darauf trägt die Belege.
 
+## Eine Karte kann ohne Beleg durchkommen
+
+Der Prompt der Flashcards verlangt für jede Antwort die Passage, auf der sie
+ruht, und der Resolver prüft jeden Beleg gegen den gespeicherten Text, bevor er
+abgelegt wird. Was er nicht kann, ist einen Beleg erfinden, den das Modell nicht
+geschrieben hat: schreibt es eine Antwort ohne Zitat, steht die Karte ohne
+Beleg im Stapel, und die Rückseite sagt "No citation on this card".
+
+Eine Karte deshalb wegzuwerfen wäre die schlechtere Antwort. Sie ist nicht
+falsch, sie ist unbelegt, und der Unterschied steht auf ihr. Was fehlt, ist eine
+Zahl: wie oft das passiert, misst niemand - die Evals messen Antworten im Chat,
+und für Karten gibt es kein Golden-Item.
+
+Dazu die zweite Grenze derselben Funktion: `splitCards` ist die einzige Stelle
+in diesem Repository, an der Text zerlegt wird, den ein Modell geschrieben hat.
+Die Regel ist so eng wie möglich - ein Marker am Anfang einer Zeile oder eines
+Blocks -, und was nicht in diese Form passt, fällt weg statt falsch geschnitten
+zu werden. Hält sich das Modell nicht an das Format, kommen weniger Karten
+zurück, und niemand sieht, wie viele es hätten sein können.
+
+Was das kostet, wenn man es falsch macht, steht in `backend/evals/HILLCLIMB.md`:
+drei Läufe mit null Karten, weil die Blöcke der Citations API keine Zeilen sind
+- sie werden an den Belegen geschnitten, und dabei kann der Umbruch zwischen
+Frage und Antwort verschwinden. Ein Fehlschlag legt die Antwort seither an der
+Zeile ab, in derselben Spalte wie ein Report seine Segmente: ins Log darf sie
+nicht, und ohne sie kostet jede Diagnose einen neuen Aufruf.
+
 ## Ein Notizbuch hängt am Cookie
 
 Es gibt keine Konten (ADR-0005). Ein Notizbuch gehört der anonymen Session, die

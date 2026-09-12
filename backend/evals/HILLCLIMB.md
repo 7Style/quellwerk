@@ -7,6 +7,50 @@ as a zero.
 
 The thresholds live in `docs/SPEC.md` and are not repeated here.
 
+## 2026-09-13, M11-T3: flashcards.md, und warum der erste Lauf null Karten ergab
+
+Der Prompt der Flashcards schreibt die Karten in der Sprache der Quellen und
+verlangt die Form `Q:` / `A:`, an der sie danach im Code geschnitten werden. Der
+erste echte Lauf ueber das Demo-Notizbuch endete mit null Karten, bei 5.052
+Ausgabetoken und `end_turn`: das Modell hatte geschrieben, der Schnitt hat
+nichts gefunden.
+
+Die naechstliegende Erklaerung ist die, die auch in einem Probelauf sichtbar
+wurde: die Karten sind deutsch, und ein Marker, der wie ein Wort aussieht, wird
+mituebersetzt - `F:` fuer Frage. Der Prompt sagt jetzt in einem eigenen Absatz,
+dass `Q:` und `A:` Marken sind und keine Sprache, und nennt die Abweichungen,
+die gemeint sind.
+
+Zweimal gehaertet statt einmal, weil beide Seiten fuer sich zu schwach sind: der
+Prompt kann ein Modell nicht binden, und ein Schnitt, der raet, hat an einer
+Stelle mit Belegen nichts zu suchen. `splitCards` nimmt deshalb genau die
+naheliegenden Abweichungen an - `F:`, `Frage:`, fette Marker, Listenpunkte - und
+keine weitere. Eine Zeile, die blosss eine Frage ist, ist keine Karte.
+
+Der zweite Lauf ergab wieder null, und der dritte hat gezeigt, warum -- weil der
+Job seine Antwort bei einem Fehlschlag jetzt an der Zeile stehen laesst, in
+derselben Spalte, in der ein Report seine Segmente ablegt. Ins Log darf sie
+nicht, sie zitiert die Dokumente.
+
+Dort stand: "Q: Ab wann gilt die KI-Verordnung nach ihrem Artikel 113?" und
+"A: Sie tritt am zwanzigsten Tag..." als zwei Bloecke **ohne** Umbruch
+dazwischen. Die Citations API schneidet den Text an den Belegen, und dabei kann
+der Umbruch zwischen zwei Zeilen verschwinden. Zeilenweise zusammengesetzt klebte
+die Antwort an ihrer Frage, daraus wurde eine Karte ohne Antwort, und die faellt
+weg -- zwanzigmal, also ein leerer Stapel. Ein Marker beginnt jetzt eine Zeile,
+auch wenn kein Umbruch vor ihm steht. Gegen die gespeicherten Segmente desselben
+Laufs geprueft: zwanzig Karten, je zwei bis drei Belege, ohne einen neuen
+Aufruf.
+
+Das ist die Lehre, die ueber die Karten hinausgeht: die Bloecke der Citations
+API sind keine Zeilen. Wer an ihnen etwas ausrichtet, richtet es an einer
+Grenze aus, die das Modell nicht gesetzt hat.
+
+Keine Zahl in RESULTS.md dazu: es gibt kein Golden-Item fuer Karten, und die
+vier Metriken messen eine Antwort im Chat. Was die Karten schuetzt, ist derselbe
+Resolver wie den Chat - jeder Chip wird gegen den gespeicherten Text geprueft,
+bevor er abgelegt wird.
+
 ## 2026-09-12, M9-T1: the held-out split, and no revision after it
 
 No prompt changed in this entry, which is why it is one. `pnpm eval --full`

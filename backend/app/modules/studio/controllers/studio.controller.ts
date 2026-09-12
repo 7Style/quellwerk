@@ -10,6 +10,7 @@ import {
   toReportBodyResponse,
   toReportResponse,
   toMindMapResponse,
+  toFlashcardsResponse,
 } from '../dto/studio.dto.js';
 import type { StudioService } from '../services/studio.service.js';
 
@@ -85,6 +86,23 @@ export class StudioController {
 
     const { artifact, created } = await this.service.requestMindMap(notebookId, sessionId);
     res.status(created ? 201 : 200).json({ mindMap: toMindMapResponse(artifact) });
+  };
+
+  flashcards = async (req: Request, res: Response): Promise<void> => {
+    const sessionId = this.requireSession(req);
+    const { notebookId } = notebookIdParamSchema.parse(req.params);
+
+    const artifact = await this.service.flashcards(notebookId, sessionId);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ flashcards: artifact ? toFlashcardsResponse(artifact) : null });
+  };
+
+  createFlashcards = async (req: Request, res: Response): Promise<void> => {
+    const sessionId = this.requireSession(req);
+    const { notebookId } = notebookIdParamSchema.parse(req.params);
+
+    const { artifact, created } = await this.service.requestFlashcards(notebookId, sessionId);
+    res.status(created ? 201 : 200).json({ flashcards: toFlashcardsResponse(artifact) });
   };
 
   retry = async (req: Request, res: Response): Promise<void> => {

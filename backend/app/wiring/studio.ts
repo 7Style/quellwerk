@@ -42,6 +42,42 @@ export interface BuiltReportRequest {
  * here - another effort, another builder, a system block of its own - would be
  * a second cache namespace and the report would pay full price every time.
  */
+/**
+ * Der Aufruf fuer die Karten.
+ *
+ * Derselbe Bauer wie ein Report, aus demselben Grund und mit derselben Folge:
+ * gleiche Dokumente, gleicher Systemblock, gleicher Effort, also liest er den
+ * Cache-Praefix des Chats. Die Karten brauchen Belege, und Belege gibt es nur
+ * hier -- ein Structured-Output-Aufruf wie bei der Mind Map koennte keine
+ * tragen (CLAUDE.md, HTTP 400) und wuerde ausserdem seinen eigenen Praefix
+ * bezahlen.
+ */
+export async function buildFlashcardsRequest(input: {
+  sources: ReportSource[];
+  language: string;
+}): Promise<BuiltReportRequest> {
+  const system = (await loadPrompt('notebook-chat-system')).body;
+  const tail = await renderPrompt('flashcards', { language: input.language });
+
+  const { request, sourceIds } = buildChatRequest({
+    model: models.chat,
+    system,
+    sources: input.sources.map((source) => ({
+      id: source.id,
+      position: source.position,
+      title: source.title,
+      kind: source.kind,
+      text: source.text,
+      pageCount: source.pageCount,
+    })),
+    tail,
+    maxTokens: REPORT_MAX_TOKENS,
+    effort: effortChat,
+  });
+
+  return { request, sourceIds, promptUsed: tail };
+}
+
 export async function buildReportRequest(input: {
   format: ReportFormat;
   focus: string;

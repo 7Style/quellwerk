@@ -89,6 +89,7 @@ gerechnet mit den Preisen aus `backend/app/config/prices.ts`:
 | Frage mit Stil- und Längenvorgabe | 42 Token | liest 76.239 | 0,04 $ |
 | ein Report | 601 Token | liest 76.239 | 0,04 $ |
 | eine Mind Map | 64.507 Token | liest nichts | 0,32 $ |
+| ein Kartenstapel | 600 Token | liest 76.301 | 0,04 $ |
 
 Der gecachte Präfix ist größer als die Summe der Quellen (63.431 Token), weil
 der Systemblock und die Rahmen der Dokumentblöcke mitzählen.
@@ -107,7 +108,8 @@ den die Werte nehmen, steht und ist gemessen.
 Die Spalte ist die Eingabeseite; die Ausgabe kommt mit 25 $ je Million Token
 dazu und ist das, was sich zwischen einer Antwort und einem Report
 unterscheidet: gemessen 124 Token für eine Antwort, 5.744 für einen Briefing
-Doc. Der eine Report, den ich ganz gemessen habe, kostete 0,91 $, weil er den
+Doc, 5.049 für zwanzig Karten. Beim Kartenstapel ist die Ausgabe der ganze
+Preis: 16,7 Cent gemessen, davon 12,6 für die Karten selbst. Der eine Report, den ich ganz gemessen habe, kostete 0,91 $, weil er den
 Cache selbst geschrieben hat; der nächste über dieselben Quellen kostet ein
 Zehntel davon.
 

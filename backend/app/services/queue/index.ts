@@ -31,7 +31,7 @@ export type QueuedJob =
 
 /** What travels on the artifact queue: a report or a mind map. */
 export type ArtifactJob = {
-  kind: 'report' | 'mindmap';
+  kind: 'report' | 'mindmap' | 'flashcards';
   artifactId: string;
   notebookId: string;
 };

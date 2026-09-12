@@ -59,6 +59,12 @@ Wunschzahl.
   Ebenen, höchstens vierzig Knoten. Ein Klick auf einen Knoten schreibt eine
   Frage danach ins Eingabefeld und schickt sie nicht ab. Nach dem dritten Tag
   gebaut (M11-T1).
+- Flashcards: ein Stapel je Notizbuch, zwölf bis zwanzig Karten mit Frage,
+  Antwort und Beleg. **Nicht** über Structured Outputs, weil eine Karte ohne
+  Beleg eine Behauptung wäre: derselbe Aufruf wie ein Report, mit geprüften
+  Zitaten, danach im Code in Karten geschnitten. Umdrehen zeigt die Antwort, ein
+  Chip darauf öffnet die Stelle in der Quelle. Nach dem dritten Tag gebaut
+  (M11-T3).
 
 ### Bewusst weggelassen
 

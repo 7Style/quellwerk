@@ -461,6 +461,49 @@ function mindMap() {
   };
 }
 
+/**
+ * Ein Kartenstapel, wie ihn der Job ablegt: Rueckseiten als Segmente, mit den
+ * geprueften Belegen an derselben Stelle wie in einer Antwort.
+ */
+function flashcards() {
+  return {
+    id: 'fc-1',
+    notebookId: NOTEBOOK_ID,
+    status: 'ready',
+    error: null,
+    cards: [
+      {
+        question: 'What must a provider do before placing a high-risk system on the market?',
+        answer: [
+          {
+            text: 'A risk management system must be established, implemented, documented and maintained',
+            citations: [cite('s2', CITED[0])],
+          },
+          { text: ', and the technical documentation must exist before the system ships.', citations: [] },
+        ],
+      },
+      {
+        question: 'When do the rules for high-risk AI systems start to apply?',
+        answer: [
+          { text: 'The sources disagree. The Commission Q&A says ', citations: [] },
+          { text: 'they apply from 2 December 2027', citations: [cite('s2', CITED[4])] },
+          { text: '.', citations: [] },
+        ],
+      },
+      {
+        question: 'Is the risk management system a one-off exercise?',
+        answer: [
+          { text: 'No. It runs ', citations: [] },
+          { text: 'throughout the lifecycle of the system', citations: [cite('s1', CITED[1], 12)] },
+          { text: '.', citations: [] },
+        ],
+      },
+    ],
+    createdAt: '2026-09-13T10:00:00.000Z',
+    finishedAt: '2026-09-13T10:00:44.000Z',
+  };
+}
+
 function json(body: unknown) {
   return { status: 200, contentType: 'application/json', body: JSON.stringify(body) };
 }
@@ -523,6 +566,9 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
     if (path === `/api/notebooks/${DEMO_ID}/mindmap`) {
       return route.fulfill(json({ mindMap: null }));
     }
+    if (path === `/api/notebooks/${DEMO_ID}/flashcards`) {
+      return route.fulfill(json({ flashcards: null }));
+    }
 
     // Das Ziel des Wechsels: ein eigenes Notizbuch, mit derselben Quellenliste
     // und ohne die Marke "Read-only example".
@@ -543,6 +589,9 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
     }
     if (path === `/api/notebooks/${COPY_ID}/mindmap`) {
       return route.fulfill(json({ mindMap: null }));
+    }
+    if (path === `/api/notebooks/${COPY_ID}/flashcards`) {
+      return route.fulfill(json({ flashcards: null }));
     }
 
     if (path === `/api/notebooks/${NOTEBOOK_ID}`) {
@@ -586,6 +635,17 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
 
     if (path === `/api/notebooks/${NOTEBOOK_ID}/reports/r-ready`) {
       return route.fulfill(json({ report: reportBody() }));
+    }
+
+    if (path === `/api/notebooks/${NOTEBOOK_ID}/flashcards`) {
+      if (route.request().method() === 'POST') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ flashcards: { ...flashcards(), status: 'queued', cards: [] } }),
+        });
+      }
+      return route.fulfill(json({ flashcards: flashcards() }));
     }
 
     if (path === `/api/notebooks/${NOTEBOOK_ID}/mindmap`) {

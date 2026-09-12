@@ -53,13 +53,14 @@ import {
   type ArtifactJob,
   type QueuedJob,
 } from './services/queue/index.js';
-import { buildReportRequest } from './wiring/studio.js';
+import { buildFlashcardsRequest, buildReportRequest } from './wiring/studio.js';
 import { runReportJob, type ReportDeps, type ReportFormat } from './modules/studio/index.js';
 import {
   mindMapSchema,
   tidy,
   type MindMapDraft,
 } from './modules/studio/internal/mindmap.job.js';
+import { splitCards } from './modules/studio/internal/flashcards.js';
 import { resolveAnswer } from './modules/chat/index.js';
 import { pageAt, type PageSpan } from './modules/sources/internal/pages.js';
 import { safeCause } from './common/utils/error-cause.util.js';
@@ -478,6 +479,138 @@ async function runMindMapJob(payload: {
   }
 }
 
+/**
+ * Die Karten eines Notizbuchs schreiben.
+ *
+ * Derselbe Weg wie die Mind Map, aber ein anderer Aufruf: `buildChatRequest`
+ * mit Belegen, weil eine Karte ohne Beleg in diesem Produkt eine Behauptung
+ * waere. Jeder Chip geht durch denselben Resolver wie eine Antwort und wird
+ * gegen den gespeicherten Text geprueft, bevor er abgelegt wird (ADR-0003);
+ * danach schneidet `splitCards` den Strom in Karten, ohne einen Beleg zu
+ * verschieben.
+ */
+async function runFlashcardsJob(payload: {
+  artifactId: string;
+  notebookId: string;
+}): Promise<{ status: string; cards?: number; citations?: number; reason?: string }> {
+  const row = await prisma.artifact.findUnique({
+    where: { id: payload.artifactId },
+    select: { id: true, status: true },
+  });
+  if (!row) return { status: 'skipped', reason: 'artifact no longer exists' };
+  if (row.status === 'ready') return { status: 'skipped', reason: 'already written' };
+
+  try {
+    await prisma.artifact.update({
+      where: { id: payload.artifactId },
+      data: { status: 'running', startedAt: new Date(), heartbeatAt: new Date() },
+    });
+
+    const rows = await prisma.source.findMany({
+      where: { notebookId: payload.notebookId, status: 'ready' },
+      select: { id: true, position: true, title: true, kind: true, text: true, pages: true },
+    });
+    if (rows.length === 0) {
+      await failArtifact(payload.artifactId, 'This notebook has no readable sources yet.');
+      return { status: 'failed', reason: 'no ready sources' };
+    }
+
+    const ordered = [...rows].sort(byDocumentOrder);
+    const pages = new Map(ordered.map((one) => [one.id, (one.pages as PageSpan[] | null) ?? []]));
+
+    const { request, sourceIds, promptUsed } = await buildFlashcardsRequest({
+      sources: ordered.map((one) => ({
+        id: one.id,
+        position: one.position,
+        title: one.title,
+        kind: one.kind,
+        text: one.text,
+        pageCount: Array.isArray(one.pages) ? one.pages.length : null,
+      })),
+      language: await reportLanguage(payload.notebookId),
+    });
+
+    const started = Date.now();
+    const message = await llm.streamToMessage(request);
+
+    await recordUsage({
+      ...usageFrom(message.usage, {
+        stopReason: message.stop_reason,
+        requestId: null,
+        latencyMs: Date.now() - started,
+      }),
+      route: 'studio.flashcards',
+      model: models.chat,
+      notebookId: payload.notebookId,
+    });
+
+    const answer = resolveAnswer(message.content, {
+      sourceIds,
+      sources: new Map(ordered.map((one) => [one.id, one])),
+      pageAt: (sourceId, offset) => pageAt(pages.get(sourceId) ?? [], offset),
+    });
+
+    if (answer.droppedCitations.length > 0) {
+      logger.warn('[Worker] flashcard citations dropped', {
+        notebookId: payload.notebookId,
+        count: answer.droppedCitations.length,
+        dropped: answer.droppedCitations,
+      });
+    }
+
+    const cards = splitCards(answer.segments);
+    if (cards.length === 0) {
+      // Lieber ein Satz als ein leerer Stapel, den jemand durchblaettert.
+      //
+      // Und die Antwort bleibt an der Zeile stehen, in derselben Spalte, in der
+      // ein Report seine Segmente ablegt. Sie ist der einzige Weg, an einem
+      // Fehlschlag zu sehen, woran der Schnitt gescheitert ist: ins Log darf
+      // sie nicht (sie zitiert die Dokumente), und ein zweiter Lauf kostet
+      // einen zweiten Aufruf und schreibt etwas anderes.
+      await prisma.artifact.update({
+        where: { id: payload.artifactId },
+        data: {
+          status: 'failed',
+          error: 'No cards could be made from these sources.',
+          segments: answer.segments as unknown as Prisma.InputJsonValue,
+          finishedAt: new Date(),
+        },
+      });
+      return { status: 'failed', reason: 'no cards in the answer' };
+    }
+
+    await prisma.artifact.update({
+      where: { id: payload.artifactId },
+      data: {
+        status: 'ready',
+        title: `${cards.length} cards`,
+        data: cards as unknown as Prisma.InputJsonValue,
+        promptUsed,
+        error: null,
+        finishedAt: new Date(),
+      },
+    });
+
+    return {
+      status: 'written',
+      cards: cards.length,
+      citations: cards.reduce(
+        (total, card) => total + card.answer.reduce((sum, one) => sum + one.citations.length, 0),
+        0
+      ),
+    };
+  } catch (error) {
+    logger.error('[Worker] flashcards failed', undefined, {
+      artifactId: payload.artifactId,
+      notebookId: payload.notebookId,
+      cause: safeCause(error),
+    });
+    const reason = 'The cards could not be written.';
+    await failArtifact(payload.artifactId, reason);
+    return { status: 'failed', reason };
+  }
+}
+
 /** Ein Artefakt terminal machen. Ein Satz, nie die Meldung von oben. */
 async function failArtifact(artifactId: string, reason: string): Promise<void> {
   await prisma.artifact.update({
@@ -670,6 +803,11 @@ async function main(): Promise<void> {
       if (data.kind === 'mindmap') {
         const result = await runMindMapJob(data);
         logger.info('[Worker] mindmap', { artifactId: data.artifactId, ...result });
+        return;
+      }
+      if (data.kind === 'flashcards') {
+        const result = await runFlashcardsJob(data);
+        logger.info('[Worker] flashcards', { artifactId: data.artifactId, ...result });
         return;
       }
       const result = await runReportJob(reportDeps(data.notebookId), data);
