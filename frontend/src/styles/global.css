@@ -1,5 +1,26 @@
 @import 'tailwindcss';
 
+/*
+ * `dark:` has to mean what the tokens mean.
+ *
+ * Tailwind's stock dark variant is `prefers-color-scheme: dark` alone, and the
+ * theme below is a three state contract: no attribute follows the system, an
+ * explicit `data-theme` overrides it in both directions. Without this the two
+ * disagree in the case that matters - a reader on a dark system who chose light
+ * would get light tokens with `dark:` utilities painted over them, which is
+ * exactly the combination the vendored shadcn primitives rely on.
+ */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme='light']), :root:not([data-theme='light']) *) {
+      @slot;
+    }
+  }
+  &:where(:root[data-theme='dark'], :root[data-theme='dark'] *) {
+    @slot;
+  }
+}
+
 /* ==========================================================================
    Quellwerk tokens.
 

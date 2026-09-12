@@ -1,0 +1,159 @@
+import { expect, test } from '@playwright/test';
+
+/**
+ * The sources column and the Add sources dialog.
+ *
+ * From docs/PLAN.md M4-T2: four fixture sources with their status dots, select
+ * all toggles all, the dialog opens on Add source and closes on Escape.
+ *
+ * Fixtures, no backend.
+ */
+
+test.beforeEach(async ({ page }) => {
+  await page.goto('/n/eu-ai-act-obligations');
+});
+
+test.describe('the source list', () => {
+  test('shows every source with the state it is in', async ({ page }) => {
+    const items = page.locator('[data-source]');
+    await expect(items).toHaveCount(4);
+
+    // Two ready, one still being read, one that could not be read. The dot
+    // carries the state in colour; the row says it in words as well, because a
+    // colour alone is not a message.
+    await expect(page.getByTestId('dot-s1')).toHaveAttribute('data-state', 'ready');
+    await expect(page.getByTestId('dot-s2')).toHaveAttribute('data-state', 'ready');
+    await expect(page.getByTestId('dot-s3')).toHaveAttribute('data-state', 'queued');
+    await expect(page.getByTestId('dot-s4')).toHaveAttribute('data-state', 'failed');
+
+    await expect(page.getByText('PDF · 41,200 tokens')).toBeVisible();
+    await expect(page.getByText('Summarising')).toBeVisible();
+    await expect(page.getByText('The file is not a readable PDF.')).toBeVisible();
+  });
+
+  test('paints the three states in three different colours', async ({ page }) => {
+    const colourOf = (id: string) =>
+      page.getByTestId(id).evaluate((element) => getComputedStyle(element).backgroundColor);
+
+    const [ready, working, failed] = await Promise.all([
+      colourOf('dot-s1'),
+      colourOf('dot-s3'),
+      colourOf('dot-s4'),
+    ]);
+
+    expect(new Set([ready, working, failed]).size).toBe(3);
+  });
+
+  test('cannot select a source that is not ready', async ({ page }) => {
+    await expect(page.getByRole('checkbox', { name: /Internal memo/ })).toBeDisabled();
+    await expect(page.getByRole('checkbox', { name: /Board minutes/ })).toBeDisabled();
+    await expect(page.getByRole('checkbox', { name: /Regulation/ })).toBeEnabled();
+  });
+
+  test('select all toggles all of them', async ({ page }) => {
+    const all = page.getByRole('checkbox', { name: 'Select all sources' });
+    const first = page.getByRole('checkbox', { name: /Regulation/ });
+    const second = page.getByRole('checkbox', { name: /Commission/ });
+
+    await expect(all).toBeChecked();
+    await expect(first).toBeChecked();
+    await expect(second).toBeChecked();
+
+    await all.uncheck();
+
+    await expect(first).not.toBeChecked();
+    await expect(second).not.toBeChecked();
+
+    await all.check();
+
+    await expect(first).toBeChecked();
+    await expect(second).toBeChecked();
+  });
+
+  test('unticks select all when one source is taken out', async ({ page }) => {
+    const all = page.getByRole('checkbox', { name: 'Select all sources' });
+
+    await page.getByRole('checkbox', { name: /Regulation/ }).uncheck();
+
+    await expect(all).not.toBeChecked();
+    await expect(page.getByRole('checkbox', { name: /Commission/ })).toBeChecked();
+  });
+});
+
+test.describe('the Add sources dialog', () => {
+  test('opens on Add source and closes on Escape', async ({ page }) => {
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Add source' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('Add sources')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test('gives the focus to the panel and hands it back', async ({ page }) => {
+    const trigger = page.getByRole('button', { name: 'Add source' });
+    await trigger.click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    // Inside the panel, not still on the button behind it.
+    const inside = await page
+      .getByRole('dialog')
+      .evaluate((panel) => panel.contains(document.activeElement));
+    expect(inside).toBe(true);
+
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+  });
+
+  test('offers upload and paste, and no link', async ({ page }) => {
+    // Fetching a URL the reader picked is cut (docs/KNOWN-LIMITS.md) and the
+    // backend has no url kind, so a tab for it would offer what no route takes.
+    await page.getByRole('button', { name: 'Add source' }).click();
+
+    await expect(page.getByRole('tab', { name: 'Upload' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Paste text' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /link/i })).toHaveCount(0);
+  });
+
+  test('refuses to add pasted text without a title', async ({ page }) => {
+    await page.getByRole('button', { name: 'Add source' }).click();
+    await page.getByRole('tab', { name: 'Paste text' }).click();
+
+    const add = page.getByRole('button', { name: 'Add', exact: true });
+    await expect(add).toBeDisabled();
+
+    await page.getByLabel('Text').fill('Artikel 9 verlangt ein Risikomanagementsystem.');
+    await expect(add).toBeDisabled();
+
+    await page.getByLabel('Title').fill('Notiz');
+    await expect(add).toBeEnabled();
+  });
+
+  test('offers no Add button on the upload tab, where it could do nothing', async ({ page }) => {
+    await page.getByRole('button', { name: 'Add source' }).click();
+
+    await expect(page.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+
+    await page.getByRole('tab', { name: 'Paste text' }).click();
+    await expect(page.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
+  });
+
+  test('says how much room is left in the notebook', async ({ page }) => {
+    await page.getByRole('button', { name: 'Add source' }).click();
+
+    await expect(page.getByText('4 of 50 sources used')).toBeVisible();
+  });
+
+  test('closes on Cancel without adding anything', async ({ page }) => {
+    await page.getByRole('button', { name: 'Add source' }).click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.locator('[data-source]')).toHaveCount(4);
+  });
+});

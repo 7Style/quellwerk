@@ -1,12 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/icon';
 import { APP_NAME } from '@/lib/app';
 import { relativeTime } from '@/lib/relative-time';
 import { notebookFixtureById } from '@/modules/notebooks';
 import { Topbar, Workspace } from '@/modules/shell';
+import { SourcesPanel, sourceFixtures } from '@/modules/sources';
 
 interface NotebookRouteProps {
   /** A Promise since Next 15; awaited before anything reads it. */
@@ -48,18 +47,9 @@ export default async function NotebookPage({ params }: NotebookRouteProps) {
       </Topbar>
 
       <Workspace
-        sourceCount={notebook.sourceCount}
-        sources={
-          <p className="m-0 p-4 text-ink-muted">
-            No sources yet. Add a document and Quellwerk will read it before you ask anything.
-          </p>
-        }
-        sourcesFooter={
-          <Button variant="outline" type="button" className="w-full">
-            <Icon name="plus" />
-            Add source
-          </Button>
-        }
+        sourceCount={sourceFixtures.length}
+        sourcesFill
+        sources={<SourcesPanel sources={sourceFixtures} />}
         chat={
           <div className="mx-auto max-w-[var(--measure)] px-6 py-8">
             <p className="m-0 font-read text-read leading-read text-ink-muted">

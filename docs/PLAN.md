@@ -338,7 +338,7 @@ Files: frontend/src/modules/sources/{components,fixtures,types}/*
 Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/sources.spec.ts`
 Expected: four fixture sources with their status dots, select all toggles all, the dialog opens on Add source and closes on Escape.
 Box: 45
-Status: [ ]
+Status: [x]
 
 ### M4-T3 Source viewer and highlight (parallelisable)
 Goal: Clicking a citation chip opens the source and marks the exact character range.

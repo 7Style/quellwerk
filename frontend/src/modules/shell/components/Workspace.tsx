@@ -8,6 +8,8 @@ export interface WorkspaceProps {
   sources: ReactNode;
   /** Pinned under the sources list: the Add source button. */
   sourcesFooter?: ReactNode;
+  /** The sources slot brings its own scrolling and its own foot (Panel.fills). */
+  sourcesFill?: boolean;
   sourceCount?: number;
   chat: ReactNode;
   /** Pinned under the thread: the composer. Does not scroll with it. */
@@ -33,6 +35,7 @@ export interface WorkspaceProps {
 export function Workspace({
   sources,
   sourcesFooter,
+  sourcesFill,
   sourceCount,
   chat,
   composer,
@@ -57,6 +60,7 @@ export function Workspace({
         collapsed={sourcesCollapsed}
         onToggle={() => setSourcesCollapsed((open) => !open)}
         footer={sourcesFooter}
+        fills={sourcesFill}
       >
         {sources}
       </Panel>

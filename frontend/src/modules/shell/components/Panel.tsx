@@ -14,6 +14,16 @@ export interface PanelProps {
   children: ReactNode;
   /** Pinned under the scroll area: "Add source". */
   footer?: ReactNode;
+  /**
+   * The content fills the column and brings its own scrolling and its own
+   * pinned foot.
+   *
+   * The sources column needs it: its Add source button opens a dialog whose
+   * state lives with the list, and a foot rendered here by a different
+   * component could not reach that state. A panel that scrolls for its children
+   * is the common case and stays the default.
+   */
+  fills?: boolean;
 }
 
 /**
@@ -25,7 +35,16 @@ export interface PanelProps {
  * auto`, which means "as tall as my content"; without the override the column
  * grows past the viewport and the page scrolls instead of the panel.
  */
-export function Panel({ side, title, count, collapsed, onToggle, children, footer }: PanelProps) {
+export function Panel({
+  side,
+  title,
+  count,
+  collapsed,
+  onToggle,
+  children,
+  footer,
+  fills = false,
+}: PanelProps) {
   const label = `${collapsed ? 'Expand' : 'Collapse'} ${title.toLowerCase()}`;
   // Pointing outwards opens, pointing inwards closes.
   const closeIcon = side === 'left' ? 'chevronLeft' : 'chevronRight';
@@ -84,14 +103,18 @@ export function Panel({ side, title, count, collapsed, onToggle, children, foote
         {side === 'left' ? toggle : null}
       </div>
 
-      <div
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-        data-testid={`scroll-${title.toLowerCase()}`}
-      >
-        {children}
-      </div>
+      {fills ? (
+        children
+      ) : (
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          data-testid={`scroll-${title.toLowerCase()}`}
+        >
+          {children}
+        </div>
+      )}
 
-      {footer ? <div className="flex-none border-t border-rule p-3">{footer}</div> : null}
+      {footer && !fills ? <div className="flex-none border-t border-rule p-3">{footer}</div> : null}
     </aside>
   );
 }
