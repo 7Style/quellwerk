@@ -9,6 +9,7 @@ import {
   notebookIdParamSchema,
   toReportBodyResponse,
   toReportResponse,
+  toMindMapResponse,
 } from '../dto/studio.dto.js';
 import type { StudioService } from '../services/studio.service.js';
 
@@ -65,6 +66,25 @@ export class StudioController {
     // what it means, and a route that says 201 twice for one report is a route
     // that will be believed the second time.
     res.status(created ? 201 : 200).json({ report: toReportResponse(artifact) });
+  };
+
+  mindMap = async (req: Request, res: Response): Promise<void> => {
+    const sessionId = this.requireSession(req);
+    const { notebookId } = notebookIdParamSchema.parse(req.params);
+
+    const artifact = await this.service.mindMap(notebookId, sessionId);
+    res.setHeader('Cache-Control', 'no-store');
+    // `null` und nicht 404: die Frage "gibt es eine Karte" hat eine Antwort,
+    // und sie ist nicht "dieses Notizbuch gibt es nicht".
+    res.json({ mindMap: artifact ? toMindMapResponse(artifact) : null });
+  };
+
+  createMindMap = async (req: Request, res: Response): Promise<void> => {
+    const sessionId = this.requireSession(req);
+    const { notebookId } = notebookIdParamSchema.parse(req.params);
+
+    const { artifact, created } = await this.service.requestMindMap(notebookId, sessionId);
+    res.status(created ? 201 : 200).json({ mindMap: toMindMapResponse(artifact) });
   };
 
   retry = async (req: Request, res: Response): Promise<void> => {

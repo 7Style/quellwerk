@@ -42,7 +42,7 @@ class InMemoryArtifacts implements StudioRepository {
       title: null,
       type: data.type,
       status: 'queued',
-      params: data.params,
+      params: data.params ?? null,
       error: null,
       createdAt: new Date('2026-09-12T10:00:00Z'),
       startedAt: null,
@@ -66,6 +66,10 @@ class InMemoryArtifacts implements StudioRepository {
 
   async findById(notebookId: string, artifactId: string) {
     return this.rows.find((row) => row.id === artifactId && row.notebookId === notebookId) ?? null;
+  }
+
+  async findByType(notebookId: string, type: string) {
+    return this.rows.find((row) => row.notebookId === notebookId && row.type === type) ?? null;
   }
 
   async requeue(artifactId: string) {
@@ -111,7 +115,12 @@ const notebooks: NotebookAccess = {
 };
 
 let repository: InMemoryArtifacts;
-let enqueued: Array<{ artifactId: string; notebookId: string; replace?: boolean }>;
+let enqueued: Array<{
+  artifactId: string;
+  notebookId: string;
+  kind: 'report' | 'mindmap';
+  replace?: boolean;
+}>;
 let budgetSpent: boolean;
 
 function serviceFor(): StudioService {
@@ -126,7 +135,7 @@ function serviceFor(): StudioService {
         });
       }
     },
-    enqueueReport: async (job) => {
+    enqueueArtifact: async (job) => {
       enqueued.push(job);
     },
   });
@@ -281,6 +290,66 @@ describe('asking for a report', () => {
     await expect(service.retry(NOTEBOOK, artifact.id, 'session-a')).rejects.toMatchObject({
       errorCode: 'REPORT_NOT_FAILED',
     });
+  });
+});
+
+describe('the mind map', () => {
+  it('is one per notebook: asking twice rewrites the same row', async () => {
+    const service = serviceFor();
+
+    const first = await service.requestMindMap(NOTEBOOK, 'session-a');
+    repository.rows[0].status = 'ready';
+    const second = await service.requestMindMap(NOTEBOOK, 'session-a');
+
+    expect(second.artifact.id).toBe(first.artifact.id);
+    expect(repository.rows).toHaveLength(1);
+    // Neu eingereiht, und zwar ersetzend: der fertige Job liegt noch unter
+    // seiner Id (M6-Fund).
+    expect(enqueued[1]).toMatchObject({ kind: 'mindmap', replace: true });
+  });
+
+  it('does not queue a second run while one is being written', async () => {
+    const service = serviceFor();
+
+    await service.requestMindMap(NOTEBOOK, 'session-a');
+    repository.rows[0].status = 'running';
+    await service.requestMindMap(NOTEBOOK, 'session-a');
+
+    expect(enqueued).toHaveLength(1);
+  });
+
+  it('lands in the copy when it is asked for in the demo notebook', async () => {
+    const service = serviceFor();
+
+    const { artifact } = await service.requestMindMap(DEMO, 'visitor');
+
+    expect(artifact.notebookId).toBe('copy-of-demo-for-visitor');
+  });
+
+  it('leaves no queued row behind when the budget is spent', async () => {
+    budgetSpent = true;
+    const service = serviceFor();
+
+    await expect(service.requestMindMap(NOTEBOOK, 'session-a')).rejects.toMatchObject({
+      errorCode: 'BUDGET_SPENT',
+    });
+    expect(repository.rows).toHaveLength(0);
+  });
+
+  it('is a read for anybody who may read the notebook', async () => {
+    const service = serviceFor();
+    await service.requestMindMap(NOTEBOOK, 'session-a');
+
+    await expect(service.mindMap(NOTEBOOK, 'session-b')).rejects.toMatchObject({
+      errorCode: 'NOTEBOOK_NOT_FOUND',
+    });
+    await expect(service.mindMap(NOTEBOOK, 'session-a')).resolves.toMatchObject({
+      type: 'mindmap',
+    });
+  });
+
+  it('answers with null when none was ever asked for', async () => {
+    await expect(serviceFor().mindMap(NOTEBOOK, 'session-a')).resolves.toBeNull();
   });
 });
 

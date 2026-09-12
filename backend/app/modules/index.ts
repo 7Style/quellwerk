@@ -180,9 +180,9 @@ export async function registerModules(app: Express): Promise<void> {
       // The API never waits for a report; the worker writes it (ADR-0009).
       // One job id per (notebook, report, key), so a second enqueue for a
       // report already queued is dropped by BullMQ rather than run twice.
-      enqueueReport: ({ artifactId, notebookId, replace }) => {
-        const jobId = dedupeKey(notebookId, 'report', artifactId);
-        const data = { kind: 'report', artifactId, notebookId } satisfies ArtifactJob;
+      enqueueArtifact: ({ artifactId, notebookId, kind, replace }) => {
+        const jobId = dedupeKey(notebookId, kind, artifactId);
+        const data = { kind, artifactId, notebookId } satisfies ArtifactJob;
         // "Try again" has to get past the finished job that still holds the id;
         // a first ask must not (that is the dedupe).
         return replace

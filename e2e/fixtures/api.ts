@@ -436,6 +436,31 @@ function notes() {
   ];
 }
 
+/**
+ * Eine fertige Mind Map: eine Wurzel, drei Zweige, Blaetter darunter. Flach mit
+ * Ebenen, wie die Route sie schickt.
+ */
+function mindMap() {
+  return {
+    id: 'mm-1',
+    notebookId: NOTEBOOK_ID,
+    status: 'ready',
+    error: null,
+    nodes: [
+      { id: 'ai-act', label: 'EU AI Act obligations', parentId: null, depth: 0 },
+      { id: 'risk', label: 'Risk classes', parentId: 'ai-act', depth: 1 },
+      { id: 'prohibited', label: 'Prohibited practices', parentId: 'risk', depth: 2 },
+      { id: 'high-risk', label: 'High-risk systems', parentId: 'risk', depth: 2 },
+      { id: 'duties', label: 'Duties of providers', parentId: 'ai-act', depth: 1 },
+      { id: 'risk-management', label: 'Risk management system', parentId: 'duties', depth: 2 },
+      { id: 'technical-docs', label: 'Technical documentation', parentId: 'duties', depth: 2 },
+      { id: 'dates', label: 'When the rules apply', parentId: 'ai-act', depth: 1 },
+    ],
+    createdAt: '2026-09-13T09:00:00.000Z',
+    finishedAt: '2026-09-13T09:00:38.000Z',
+  };
+}
+
 function json(body: unknown) {
   return { status: 200, contentType: 'application/json', body: JSON.stringify(body) };
 }
@@ -495,6 +520,9 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
     if (path === `/api/notebooks/${DEMO_ID}/notes`) {
       return route.fulfill(json({ notes: [] }));
     }
+    if (path === `/api/notebooks/${DEMO_ID}/mindmap`) {
+      return route.fulfill(json({ mindMap: null }));
+    }
 
     // Das Ziel des Wechsels: ein eigenes Notizbuch, mit derselben Quellenliste
     // und ohne die Marke "Read-only example".
@@ -512,6 +540,9 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
     }
     if (path === `/api/notebooks/${COPY_ID}/notes`) {
       return route.fulfill(json({ notes: [] }));
+    }
+    if (path === `/api/notebooks/${COPY_ID}/mindmap`) {
+      return route.fulfill(json({ mindMap: null }));
     }
 
     if (path === `/api/notebooks/${NOTEBOOK_ID}`) {
@@ -555,6 +586,17 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
 
     if (path === `/api/notebooks/${NOTEBOOK_ID}/reports/r-ready`) {
       return route.fulfill(json({ report: reportBody() }));
+    }
+
+    if (path === `/api/notebooks/${NOTEBOOK_ID}/mindmap`) {
+      if (route.request().method() === 'POST') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ mindMap: { ...mindMap(), status: 'queued', nodes: [] } }),
+        });
+      }
+      return route.fulfill(json({ mindMap: mindMap() }));
     }
 
     if (path === `/api/notebooks/${NOTEBOOK_ID}/notes`) {

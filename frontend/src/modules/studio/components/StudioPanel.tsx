@@ -8,6 +8,7 @@ import { relativeTime } from '@/lib/relative-time';
 import { CustomReportDialog } from './CustomReportDialog';
 import { NoteDialog } from './NoteDialog';
 import { citationCount, type Note } from '../types/note';
+import type { MindMap } from '../types/mindmap';
 import {
   FORMAT_BLURBS,
   FORMAT_LABELS,
@@ -39,6 +40,11 @@ export interface StudioPanelProps {
      aus einem Notizbuch herauskommt und liegen bleibt. */
   notes: Note[];
   notesLoading?: boolean;
+
+  /* Mind map (M11-T1). Eine je Notizbuch. */
+  mindMap: MindMap | null;
+  onOpenMindMap: () => void;
+  mindMapOpen?: boolean;
   onAddNote: (input: { title: string; markdown: string }) => Promise<boolean>;
   onOpenNote: (noteId: string) => void;
   openNoteId?: string;
@@ -63,6 +69,9 @@ export function StudioPanel({
   stuck = [],
   notes,
   notesLoading = false,
+  mindMap,
+  onOpenMindMap,
+  mindMapOpen = false,
   onAddNote,
   onOpenNote,
   openNoteId,
@@ -92,6 +101,37 @@ export function StudioPanel({
 
   return (
     <div className="flex flex-col gap-5 p-3" data-testid="studio">
+      <section className="grid gap-2">
+        <h3 className="m-0 text-ui font-semibold text-ink-muted">Mind map</h3>
+        <button
+          type="button"
+          data-testid="open-mindmap"
+          // Gesperrt nur, solange es nichts zu zeichnen und nichts zu zeigen
+          // gibt. Eine Karte, die schon existiert, oeffnet sich auch waehrend
+          // die Quellenliste noch laedt.
+          disabled={!hasSources && !mindMap}
+          onClick={onOpenMindMap}
+          className={`grid w-full grid-cols-[20px_1fr_auto] items-center gap-3 rounded-control border p-3 text-left disabled:opacity-45 ${
+            mindMapOpen
+              ? 'border-rule-strong bg-surface-sunken shadow-[inset_2px_0_0_var(--ink)]'
+              : 'border-rule bg-surface hover:border-rule-strong hover:bg-surface-sunken'
+          }`}
+        >
+          <Icon name="mindmap" className="text-ink-muted" />
+          <span>
+            <span className="block text-ui font-medium">
+              {mindMap?.status === 'ready' && mindMap.nodes.length > 0
+                ? mindMap.nodes[0].label
+                : 'Mind map'}
+            </span>
+            <span className="mt-px block text-micro text-ink-faint" data-testid="mindmap-line">
+              {mindMapLine(mindMap)}
+            </span>
+          </span>
+          <Icon name={mindMap ? 'chevronRight' : 'plus'} className="text-ink-muted" />
+        </button>
+      </section>
+
       <section className="grid gap-2">
         <h3 className="m-0 text-ui font-semibold text-ink-muted">Reports</h3>
 
@@ -221,6 +261,16 @@ export function StudioPanel({
       <NoteDialog open={noteOpen} onOpenChange={setNoteOpen} onSubmit={onAddNote} />
     </div>
   );
+}
+
+/** Was die Karte gerade ist: keine, im Entstehen, fertig, gescheitert. */
+function mindMapLine(map: MindMap | null): string {
+  if (!map) return 'The subjects in these sources, as a map.';
+  if (map.status === 'queued') return 'Waiting for the writer';
+  if (map.status === 'running') return 'Reading the sources and drawing';
+  if (map.status === 'failed') return 'Could not be built';
+  const topics = Math.max(map.nodes.length - 1, 0);
+  return `${topics} ${topics === 1 ? 'topic' : 'topics'}`;
 }
 
 /** Woher die Notiz kommt, und ob sie Belege traegt. */

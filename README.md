@@ -88,9 +88,16 @@ gerechnet mit den Preisen aus `backend/app/config/prices.ts`:
 | jede weitere Frage | 23 Token | liest 76.239 | 0,04 $ |
 | Frage mit Stil- und Längenvorgabe | 42 Token | liest 76.239 | 0,04 $ |
 | ein Report | 601 Token | liest 76.239 | 0,04 $ |
+| eine Mind Map | 64.507 Token | liest nichts | 0,32 $ |
 
 Der gecachte Präfix ist größer als die Summe der Quellen (63.431 Token), weil
 der Systemblock und die Rahmen der Dokumentblöcke mitzählen.
+
+Die letzte Zeile ist die Ausnahme, und sie ist gemessen wie die anderen: eine
+Mind Map kommt aus einem Structured-Output-Aufruf, der sein Schema als eigenen
+Systemblock vor die Dokumente stellt. Damit steht sie in keinem Cache-Präfix,
+den der Chat teilt, und zahlt ihre Dokumente jedes Mal selbst - 36,65 Cent in
+der Messung am Demo-Notizbuch. Das steht in KNOWN-LIMITS mit dem Grund.
 
 Die dritte Zeile prüft eine Regel, nicht eine Funktion: Stil und Länge gehen in
 den letzten Benutzerturn, hinter den Cache-Punkt, und nicht in den Systemblock
@@ -121,9 +128,10 @@ Die Langfassung steht in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md).
   billiger als eine Ähnlichkeitssuche, deren Fehler niemand sieht (ADR-0002).
   Was oberhalb dieser Kante zu tun wäre, ist entworfen und nicht gebaut
   (ADR-0012).
-- **Keine Audio Overview, keine Mind Map.** Beides ist in NotebookLM
-  beeindruckend, und die Tage dafür sind in die Belege gegangen: geprüfte
-  Zitate, Evals mit Richtern, der Cache-Beweis oben.
+- **Keine Audio Overview.** Zwei Stimmen über den Quellen sind das, was Leute
+  an NotebookLM zuerst zeigen; der Weg dorthin ist ein zweiter Anbieter, ein
+  Skript zum Prüfen und eine Audiodatei je Notizbuch. Die Tage dafür sind in die
+  Belege gegangen: geprüfte Zitate, Evals mit Richtern, der Cache-Beweis oben.
 - **Keine Auswahl einzelner Quellen.** Jede Frage geht über alle Quellen des
   Notizbuchs: ein wechselnder Teil der Dokumente wäre ein anderer Cache-Präfix
   und damit voller Preis bei jeder Umschaltung.

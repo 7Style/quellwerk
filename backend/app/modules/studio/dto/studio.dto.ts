@@ -79,3 +79,55 @@ export function toReportBodyResponse(row: ArtifactWithBody): ReportBodyResponse 
     promptUsed: row.promptUsed,
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Mind map                                                                    */
+/* -------------------------------------------------------------------------- */
+
+export interface MindMapNodeResponse {
+  id: string;
+  label: string;
+  parentId: string | null;
+  depth: number;
+}
+
+export interface MindMapResponse {
+  id: string;
+  notebookId: string;
+  status: string;
+  error: string | null;
+  /** Leer, solange die Karte geschrieben wird. */
+  nodes: MindMapNodeResponse[];
+  createdAt: string;
+  finishedAt: string | null;
+}
+
+/**
+ * Die Knoten kommen aus der Json-Spalte, also wird hier einmal verengt.
+ *
+ * Was nicht wie ein Knoten aussieht, faellt weg statt als halber Knoten in die
+ * Zeichnung zu geraten - dieselbe Regel wie bei den Segmenten einer Notiz.
+ */
+export function toMindMapResponse(row: ArtifactRow & { data?: unknown }): MindMapResponse {
+  return {
+    id: row.id,
+    notebookId: row.notebookId,
+    status: row.status,
+    error: row.error,
+    nodes: asNodes(row.data),
+    createdAt: row.createdAt.toISOString(),
+    finishedAt: row.finishedAt?.toISOString() ?? null,
+  };
+}
+
+function asNodes(value: unknown): MindMapNodeResponse[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (one): one is MindMapNodeResponse =>
+      typeof one === 'object' &&
+      one !== null &&
+      typeof (one as MindMapNodeResponse).id === 'string' &&
+      typeof (one as MindMapNodeResponse).label === 'string' &&
+      typeof (one as MindMapNodeResponse).depth === 'number'
+  );
+}

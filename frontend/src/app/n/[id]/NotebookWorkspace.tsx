@@ -12,6 +12,7 @@ import { Composer, Thread, useChatStream, useListMessagesQuery } from '@/modules
 import { OverviewHeader, useGetNotebookQuery } from '@/modules/notebooks';
 import { Topbar, Workspace } from '@/modules/shell';
 import {
+  MindMapView,
   NoteView,
   ReportView,
   StudioPanel,
@@ -21,7 +22,11 @@ import {
   useConvertNoteToSourceMutation,
   useDeleteNoteMutation,
   useListNotesQuery,
+  useMindMapQuery,
+  useRequestMindMapMutation,
   useSaveAnswerToNoteMutation,
+  isDrawing,
+  WHILE_DRAWING_MS,
   useListReportsQuery,
   useReportQuery,
   useRequestReportMutation,
@@ -167,6 +172,18 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
   const [convertNote] = useConvertNoteToSourceMutation();
   const [deleteNote] = useDeleteNoteMutation();
 
+  const mindMap = useMindMapQuery(notebookId);
+  const [requestMindMap] = useRequestMindMapMutation();
+  const [mindMapOpen, setMindMapOpen] = useState(false);
+
+  // Wie bei einem Report: nichts schiebt, also wird nachgefragt, solange
+  // gezeichnet wird, und in dem Moment nicht mehr, in dem es fertig ist.
+  const drawing = isDrawing(mindMap.data ?? null);
+  useMindMapQuery(notebookId, {
+    pollingInterval: drawing ? WHILE_DRAWING_MS : 0,
+    skip: !drawing,
+  });
+
   // One box, filled from three places: the reader typing, a follow-up of the
   // last turn, and a suggested question from the overview.
   const [question, setQuestion] = useState('');
@@ -262,6 +279,21 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
               onClose={() => setOpenReportId(null)}
               onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
             />
+          ) : mindMapOpen ? (
+            <MindMapView
+              map={mindMap.data ?? null}
+              loading={mindMap.isLoading}
+              onClose={() => setMindMapOpen(false)}
+              onAsk={(text) => {
+                // Ins Eingabefeld, nicht abgeschickt: der Leser darf die Frage
+                // noch enger stellen. Dafuer muss die Karte aus der Spalte.
+                setQuestion(text);
+                setMindMapOpen(false);
+              }}
+              onRebuild={async () => {
+                await requestMindMap(notebookId).unwrap();
+              }}
+            />
           ) : openNoteId ? (
             <NoteView
               note={openNote}
@@ -314,7 +346,7 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
         composer={
           // The composer belongs to the conversation. A report has taken the
           // column; the way back is the chevron at its top.
-          openReportId || openNoteId ? null : (
+          openReportId || openNoteId || mindMapOpen ? null : (
             <Composer
               value={question}
               onValueChange={setQuestion}
@@ -346,6 +378,20 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
                   followCopy(report.notebookId);
                 })
             }
+            mindMap={mindMap.data ?? null}
+            mindMapOpen={mindMapOpen}
+            onOpenMindMap={async () => {
+              setOpenReportId(null);
+              setOpenNoteId(null);
+              setMindMapOpen(true);
+              // Noch keine Karte: bestellen, und die Ansicht zeigt beim
+              // Zeichnen zu. Eine vorhandene wird nur geoeffnet - neu
+              // geschrieben wird sie ueber "Build again", nicht nebenbei.
+              if (!mindMap.data) {
+                const created = await requestMindMap(notebookId).unwrap();
+                followCopy(created.notebookId);
+              }
+            }}
             notes={notes.data ?? []}
             notesLoading={notes.isLoading}
             onAddNote={async (input) => {
@@ -359,11 +405,13 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
             }}
             onOpenNote={(noteId) => {
               setOpenReportId(null);
+              setMindMapOpen(false);
               setOpenNoteId(noteId);
             }}
             openNoteId={openNoteId ?? undefined}
             onOpen={(reportId) => {
               setOpenNoteId(null);
+              setMindMapOpen(false);
               setOpenReportId(reportId);
             }}
             onRetry={(reportId) =>

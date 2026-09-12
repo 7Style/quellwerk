@@ -20,17 +20,26 @@ export interface ArtifactRow {
   finishedAt: Date | null;
 }
 
-/** The row plus what only the open report needs. */
+/** The row plus what only the open artefact needs. */
 export interface ArtifactWithBody extends ArtifactRow {
   segments: unknown;
   promptUsed: string | null;
+  /**
+   * Die Knoten einer Mind Map.
+   *
+   * Eine eigene Spalte und nicht `segments`: Segmente sind Text mit Belegen,
+   * Knoten sind keins von beidem, und eine Spalte, deren Name die Haelfte
+   * ihrer Inhalte nicht beschreibt, ist eine Spalte, die man falsch liest.
+   */
+  data?: unknown;
 }
 
 export interface CreateArtifactData {
   notebookId: string;
   type: string;
   idempotencyKey: string;
-  params: { format: ReportFormat; focus: string };
+  /** Der Auftrag eines Reports. Eine Mind Map hat keinen: sie liest alles. */
+  params?: { format: ReportFormat; focus: string } | null;
 }
 
 export interface StudioRepository {
@@ -45,6 +54,8 @@ export interface StudioRepository {
   createOrGet(data: CreateArtifactData): Promise<{ artifact: ArtifactRow; created: boolean }>;
   listByNotebook(notebookId: string): Promise<ArtifactRow[]>;
   findById(notebookId: string, artifactId: string): Promise<ArtifactWithBody | null>;
+  /** Das eine Artefakt dieses Typs im Notizbuch, oder null. */
+  findByType(notebookId: string, type: string): Promise<ArtifactWithBody | null>;
   /** Puts a failed report back in the queue, clearing what the last run left. */
   requeue(artifactId: string): Promise<void>;
 }

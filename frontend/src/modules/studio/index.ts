@@ -6,6 +6,16 @@ export { PromptDialog } from './components/PromptDialog';
 export { CustomReportDialog } from './components/CustomReportDialog';
 export { NoteDialog } from './components/NoteDialog';
 export { NoteView } from './components/NoteView';
+export { MindMapView } from './components/MindMapView';
+export type { MindMapViewProps } from './components/MindMapView';
+export {
+  mindMapApi,
+  useMindMapQuery,
+  useRequestMindMapMutation,
+  WHILE_DRAWING_MS,
+} from './services/mindmap.api';
+export { isDrawing, questionFor } from './types/mindmap';
+export type { MindMap, MindMapNode } from './types/mindmap';
 export type { NoteViewProps } from './components/NoteView';
 export {
   notesApi,

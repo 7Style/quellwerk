@@ -55,12 +55,35 @@ immer wahre Aussage: die Antwort sah alles, was im Notizbuch liegt.
 geschrieben; die Init-Migration ist bereits auf dem Server ausgerollt, und eine
 Migration nur zum Entfernen einer leeren Spalte ist mehr Risiko als Gewinn.
 
-## Keine Audio Overview, keine Mind Map
+## Keine Audio Overview
 
-Beide sind gestrichen, nicht verschoben. Drei Tage halten sie nicht neben einem
-Chat-Pfad, der stimmen muss, und ein halb gebautes Artefakt kostet mehr
-Glaubwürdigkeit als ein fehlendes. `ITtsProvider` bleibt als Interface im
-Repository, damit sichtbar ist, wo es angesetzt hätte.
+Zwei Stimmen, die sich über die Quellen unterhalten, sind das, was Leute an
+NotebookLM zuerst zeigen. Sie fehlen: der Weg dorthin ist ein zweiter Anbieter
+für Text-to-Speech, ein Skript, das jemand prüfen muss, und eine Audiodatei je
+Notizbuch samt Speicher und Löschung. Die Tage dafür sind in die Belege
+gegangen - geprüfte Zitate, Evals mit Richtern, der Cache-Beweis.
+
+`ITtsProvider` steht als Schnittstelle in `adapters/`, ungebaut. Sie kostet
+nichts und hält den Weg offen.
+
+## Eine Mind Map kostet jedes Mal ihre Dokumente
+
+Die Karte kommt aus einem Structured-Output-Aufruf, und der trägt sein Schema
+als zusätzlichen Systemblock **vor** den Dokumenten (prompts/README.md, Regel
+4). Damit teilt sie sich den Cache-Präfix des Chats nicht: gemessen am
+Demo-Notizbuch sind es 64.507 Eingabetoken, kein Cache-Treffer, 36,65 Cent und
+19,1 Sekunden je Karte. "Build again" kostet denselben Betrag noch einmal.
+
+Das ist der Preis dafür, dass die Knoten eine geprüfte Form haben statt Text,
+den jemand parsen muss. Wer es billiger will, müsste die Karte aus einer
+Chat-Antwort lesen - also aus Text, dessen Struktur geraten wird -, und dieses
+Produkt rät an keiner Stelle, an der es zitiert.
+
+Die zweite Grenze: eine Mind Map trägt keine Belege. Belege und Structured
+Outputs gehen im selben Aufruf nicht zusammen (CLAUDE.md, HTTP 400), und ein
+Knoten mit einem Chip, der nie geprüft wurde, wäre schlimmer als einer ohne.
+Deshalb ist jeder Knoten ein Knopf: er schreibt die Frage ins Eingabefeld, und
+die Antwort darauf trägt die Belege.
 
 ## Ein Notizbuch hängt am Cookie
 

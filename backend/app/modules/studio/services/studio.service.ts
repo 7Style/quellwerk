@@ -13,6 +13,9 @@ import type {
   StudioRepository,
 } from '../interfaces/studio.repository.js';
 
+/** Der Typ und zugleich der Idempotenzschluessel: eine Karte je Notizbuch. */
+export const MINDMAP_TYPE = 'mindmap';
+
 export interface StudioServiceDeps {
   repository: StudioRepository;
   notebooks: NotebookAccess;
@@ -21,12 +24,17 @@ export interface StudioServiceDeps {
   /**
    * Puts the job on the artifact queue. The API never waits for it.
    *
+   * `kind` says which processor picks it up; beide gehen ueber dieselbe
+   * Warteschlange, weil beide dasselbe brauchen: eine Zeile, die immer terminal
+   * endet, und einen Prozess, der nicht der der API ist.
+   *
    * `replace` is what makes "Try again" work: the failed job is still filed
    * under its id, and BullMQ drops an add that collides with one.
    */
-  enqueueReport: (job: {
+  enqueueArtifact: (job: {
     artifactId: string;
     notebookId: string;
+    kind: 'report' | 'mindmap';
     replace?: boolean;
   }) => Promise<void>;
 }
@@ -90,7 +98,11 @@ export class StudioService {
     });
 
     if (result.created) {
-      await this.deps.enqueueReport({ artifactId: result.artifact.id, notebookId: target });
+      await this.deps.enqueueArtifact({
+        artifactId: result.artifact.id,
+        notebookId: target,
+        kind: 'report',
+      });
     }
 
     return result;
@@ -122,8 +134,70 @@ export class StudioService {
     }
 
     await this.deps.repository.requeue(artifactId);
-    await this.deps.enqueueReport({ artifactId, notebookId, replace: true });
+    await this.deps.enqueueArtifact({ artifactId, notebookId, kind: 'report', replace: true });
 
     return { ...artifact, status: 'queued', error: null };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Mind map                                                            */
+  /* ------------------------------------------------------------------ */
+
+  /** Die Mind Map des Notizbuchs, oder null, wenn noch keine bestellt wurde. */
+  async mindMap(notebookId: string, sessionId: string): Promise<ArtifactWithBody | null> {
+    await this.deps.notebooks.readable(notebookId, sessionId);
+    return this.deps.repository.findByType(notebookId, MINDMAP_TYPE);
+  }
+
+  /**
+   * Bestellt die Mind Map, oder schreibt sie neu.
+   *
+   * Eine je Notizbuch, nicht eine je Klick: der Schluessel ist fest, und der
+   * eindeutige Index haelt das auch gegen zwei Klicks in derselben
+   * Millisekunde. Existiert sie schon und ist fertig oder fehlgeschlagen, wird
+   * dieselbe Zeile neu eingereiht - die Quellen haben sich geaendert, die Karte
+   * soll ihnen folgen, und zwei Karten nebeneinander waeren zwei Karten, von
+   * denen eine veraltet ist.
+   *
+   * Laeuft sie gerade, passiert nichts: der Job dafuer ist schon unterwegs.
+   */
+  async requestMindMap(
+    notebookId: string,
+    sessionId: string
+  ): Promise<{ artifact: ArtifactRow; created: boolean }> {
+    const { id: target } = await this.deps.notebooks.writableOrCopy(notebookId, sessionId);
+
+    // Vor der Zeile, nicht danach: eine abgelehnte Bestellung darf keine
+    // wartende Karte hinterlassen, die niemand mehr ausfuehrt.
+    await this.deps.assertBudgetLeft();
+
+    const result = await this.deps.repository.createOrGet({
+      notebookId: target,
+      type: MINDMAP_TYPE,
+      idempotencyKey: MINDMAP_TYPE,
+      params: null,
+    });
+
+    if (result.created) {
+      await this.deps.enqueueArtifact({
+        artifactId: result.artifact.id,
+        notebookId: target,
+        kind: MINDMAP_TYPE,
+      });
+      return result;
+    }
+
+    if (result.artifact.status === 'ready' || result.artifact.status === 'failed') {
+      await this.deps.repository.requeue(result.artifact.id);
+      await this.deps.enqueueArtifact({
+        artifactId: result.artifact.id,
+        notebookId: target,
+        kind: MINDMAP_TYPE,
+        replace: true,
+      });
+      return { artifact: { ...result.artifact, status: 'queued', error: null }, created: false };
+    }
+
+    return result;
   }
 }

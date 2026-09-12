@@ -16,9 +16,10 @@ export interface StudioModuleDeps {
   sessionIdOf: (req: Request) => string | null;
   notebooks: NotebookAccess;
   assertBudgetLeft: () => Promise<void>;
-  enqueueReport: (job: {
+  enqueueArtifact: (job: {
     artifactId: string;
     notebookId: string;
+    kind: 'report' | 'mindmap';
     replace?: boolean;
   }) => Promise<void>;
   limit: RequestHandler;
@@ -30,7 +31,7 @@ export function initStudioModule(app: Express, deps: StudioModuleDeps): void {
     repository: new PrismaStudioRepository(deps.prisma),
     notebooks: deps.notebooks,
     assertBudgetLeft: deps.assertBudgetLeft,
-    enqueueReport: deps.enqueueReport,
+    enqueueArtifact: deps.enqueueArtifact,
   });
   const controller = new StudioController(service, deps.sessionIdOf);
 

@@ -55,13 +55,16 @@ Wunschzahl.
   Löschung nach 7 Tagen, Seite `/datenschutz`, `noindex`.
 - Deploy auf den eigenen Server: Compose, Host-Nginx, Let's Encrypt, GHCR,
   Deploy per SSH aus GitHub Actions.
+- Mind Map: eine je Notizbuch, flache Knotenliste aus Structured Outputs, drei
+  Ebenen, höchstens vierzig Knoten. Ein Klick auf einen Knoten schreibt eine
+  Frage danach ins Eingabefeld und schickt sie nicht ab. Nach dem dritten Tag
+  gebaut (M11-T1).
 
 ### Bewusst weggelassen
 
-Video, Infographic, Slides, Data Table, Flashcards, Discover, YouTube- und
-Audio-Quellen, OCR für Scans, Google Drive, Teilen, mobile Ansichten, eigenes
-Vektor-RAG, Audio Overview, Mind Map, Website-Quellen und die Auswahl einzelner
-Quellen. Die Begründung für das Vektor-RAG steht in ADR-0002 und ADR-0012, die
+Video, Infographic, Slides, Data Table, Discover, YouTube- und Audio-Quellen,
+OCR für Scans, Google Drive, Teilen, mobile Ansichten, eigenes Vektor-RAG,
+Audio Overview, Website-Quellen und die Auswahl einzelner Quellen. Die Begründung für das Vektor-RAG steht in ADR-0002 und ADR-0012, die
 für die übrigen in docs/KNOWN-LIMITS.md; Website-Quellen fallen, weil ein
 URL-Abruf auf einem geteilten Server ein SSRF-Risiko für die anderen Seiten
 darauf ist.

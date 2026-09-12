@@ -55,6 +55,11 @@ import {
 } from './services/queue/index.js';
 import { buildReportRequest } from './wiring/studio.js';
 import { runReportJob, type ReportDeps, type ReportFormat } from './modules/studio/index.js';
+import {
+  mindMapSchema,
+  tidy,
+  type MindMapDraft,
+} from './modules/studio/internal/mindmap.job.js';
 import { resolveAnswer } from './modules/chat/index.js';
 import { pageAt, type PageSpan } from './modules/sources/internal/pages.js';
 import { safeCause } from './common/utils/error-cause.util.js';
@@ -389,6 +394,99 @@ function overviewDeps(notebookId: string) {
 }
 
 /**
+ * Die Mind Map eines Notizbuchs schreiben.
+ *
+ * Derselbe Weg wie ein Report -- Zeile, Heartbeat, Endzustand -- und derselbe
+ * `runArtifact` wie Guide und Uebersicht, also Structured Outputs statt Text
+ * mit Belegen. Das hat eine Folge, die in RESULTS.md steht: ein
+ * Structured-Output-Aufruf traegt sein Schema als zusaetzlichen Systemblock vor
+ * den Dokumenten, teilt sich den Cache-Praefix des Chats also nicht. Eine Karte
+ * zahlt ihre Dokumente einmal selbst.
+ *
+ * Die Regeln der Karte stehen nicht im Schema, sondern in `tidy`
+ * (mindmap.job.ts): die API streicht Laengen- und Anzahlgrenzen aus einem
+ * Structured-Output-Schema, statt sie durchzusetzen.
+ */
+async function runMindMapJob(payload: {
+  artifactId: string;
+  notebookId: string;
+}): Promise<{ status: string; nodes?: number; reason?: string }> {
+  const row = await prisma.artifact.findUnique({
+    where: { id: payload.artifactId },
+    select: { id: true, notebookId: true, status: true },
+  });
+  if (!row) return { status: 'skipped', reason: 'artifact no longer exists' };
+  if (row.status === 'ready') return { status: 'skipped', reason: 'already written' };
+
+  try {
+    await prisma.artifact.update({
+      where: { id: payload.artifactId },
+      data: { status: 'running', startedAt: new Date(), heartbeatAt: new Date() },
+    });
+
+    const sources = await prisma.source.findMany({
+      where: { notebookId: payload.notebookId, status: 'ready' },
+      orderBy: { position: 'asc' },
+      select: { id: true, position: true, title: true, kind: true, text: true },
+    });
+
+    if (sources.length === 0) {
+      await failArtifact(payload.artifactId, 'This notebook has no readable sources yet.');
+      return { status: 'failed', reason: 'no ready sources' };
+    }
+
+    const draft = await runArtifact<MindMapDraft>({
+      prompt: 'mindmap',
+      schema: mindMapSchema,
+      sources,
+      model: models.chat,
+      effort: effortChat,
+      values: { language: await reportLanguage(payload.notebookId) },
+      route: 'studio.mindmap',
+      notebookId: payload.notebookId,
+    });
+
+    const nodes = tidy(draft);
+    if (nodes.length === 0) {
+      // Eine Karte ohne Wurzel ist keine Karte; lieber ein Satz als eine
+      // leere Zeichnung, unter der jemand auf Knoten wartet.
+      await failArtifact(payload.artifactId, 'The map could not be built. Try again in a moment.');
+      return { status: 'failed', reason: 'no root node' };
+    }
+
+    await prisma.artifact.update({
+      where: { id: payload.artifactId },
+      data: {
+        status: 'ready',
+        title: nodes[0].label,
+        data: nodes as unknown as Prisma.InputJsonValue,
+        error: null,
+        finishedAt: new Date(),
+      },
+    });
+
+    return { status: 'written', nodes: nodes.length };
+  } catch (error) {
+    logger.error('[Worker] mindmap failed', undefined, {
+      artifactId: payload.artifactId,
+      notebookId: payload.notebookId,
+      cause: safeCause(error),
+    });
+    const reason = 'The map could not be written.';
+    await failArtifact(payload.artifactId, reason);
+    return { status: 'failed', reason };
+  }
+}
+
+/** Ein Artefakt terminal machen. Ein Satz, nie die Meldung von oben. */
+async function failArtifact(artifactId: string, reason: string): Promise<void> {
+  await prisma.artifact.update({
+    where: { id: artifactId },
+    data: { status: 'failed', error: reason, finishedAt: new Date() },
+  });
+}
+
+/**
  * What a report job needs, wired to Prisma, the prompt loader and the adapter.
  *
  * `write` is the interesting one. It builds the same request a chat turn
@@ -569,6 +667,11 @@ async function main(): Promise<void> {
     'artifact',
     async (job) => {
       const data = job.data;
+      if (data.kind === 'mindmap') {
+        const result = await runMindMapJob(data);
+        logger.info('[Worker] mindmap', { artifactId: data.artifactId, ...result });
+        return;
+      }
       const result = await runReportJob(reportDeps(data.notebookId), data);
       logger.info('[Worker] report', { artifactId: data.artifactId, ...result });
     },

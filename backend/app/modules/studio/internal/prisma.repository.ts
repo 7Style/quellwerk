@@ -52,7 +52,7 @@ export class PrismaStudioRepository implements StudioRepository {
           notebookId: data.notebookId,
           type: data.type,
           idempotencyKey: data.idempotencyKey,
-          params: data.params,
+          params: data.params ?? undefined,
           status: 'queued',
         },
         select: ROW_FIELDS,
@@ -90,9 +90,29 @@ export class PrismaStudioRepository implements StudioRepository {
     // miss rather than resolve and then be checked.
     const row = await this.prisma.artifact.findFirst({
       where: { id: artifactId, notebookId, type: 'report' },
-      select: { ...ROW_FIELDS, segments: true, promptUsed: true },
+      select: { ...ROW_FIELDS, segments: true, promptUsed: true, data: true },
     });
-    return row ? { ...toRow(row), segments: row.segments, promptUsed: row.promptUsed } : null;
+    return row
+      ? { ...toRow(row), segments: row.segments, promptUsed: row.promptUsed, data: row.data }
+      : null;
+  }
+
+  /**
+   * Das eine Artefakt dieses Typs, oder null.
+   *
+   * Fuer die Mind Map: eine je Notizbuch, die neu geschrieben und nicht neben
+   * die alte gestellt wird. Der eindeutige Index auf (notebookId,
+   * idempotencyKey) haelt das fest; diese Abfrage liest es zurueck.
+   */
+  async findByType(notebookId: string, type: string): Promise<ArtifactWithBody | null> {
+    const row = await this.prisma.artifact.findFirst({
+      where: { notebookId, type },
+      orderBy: { createdAt: 'desc' },
+      select: { ...ROW_FIELDS, segments: true, promptUsed: true, data: true },
+    });
+    return row
+      ? { ...toRow(row), segments: row.segments, promptUsed: row.promptUsed, data: row.data }
+      : null;
   }
 
   async requeue(artifactId: string): Promise<void> {

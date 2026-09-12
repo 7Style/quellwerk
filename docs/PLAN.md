@@ -24,7 +24,7 @@ Their ids are gone; a session prompt that names one of them will find nothing:
 | M5-T3 | dropped: source selection, every ready source always goes to the model |
 | M7-T4 | merged into M4-T4: states belong to the component that shows them |
 | M10-T1..T3 | dropped: audio overview |
-| M11-T1, M11-T2 | dropped: mind map |
+| M11-T2 | dropped: mind map on the server side of the demo (M11-T1 was built after the third day; see below) |
 
 **M8-T2 and M8-T3 are pulled forward** and run directly after M0, before M1. A
 deploy first attempted on the last evening is the largest risk in this plan; one
@@ -541,6 +541,25 @@ command finds its own line in this file, so the number is 1; with `--glob '!PLAN
 it is 0, and that is the claim.
 Box: 60
 Status: [x]
+
+---
+
+## M11 Mind map
+
+Nach dem dritten Tag gebaut, auf Zuruf: das Studio hatte nur Reports, und eine
+Mind Map ist der zweite Ausgabetyp, den ein Leser eines Notizbuchs erwartet.
+
+### M11-T1 Mind map
+Goal: Eine Mind Map je Notizbuch, geschrieben vom selben Artefakt-Job wie ein Report, und ein Klick auf einen Knoten fragt danach.
+Files: backend/app/modules/studio/{internal/mindmap.job.ts,services,routes,dto}, backend/app/worker.ts, prompts/mindmap.md, frontend/src/modules/studio/components/MindMap*.tsx
+Test: `pnpm --filter @quellwerk/backend test -- mindmap && pnpm --filter @quellwerk/e2e exec playwright test tests/ui/mindmap.spec.ts`
+Expected: eine flache Knotenliste aus Structured Outputs, ohne Laengen- oder Anzahl-Constraint im Schema (die API streicht sie, prompts/README.md); die Regeln stehen im Code und werden dort geprueft: hoechstens 40 Knoten, hoechstens drei Ebenen, genau eine Wurzel, ein Knoten mit unbekanntem Elternteil faellt weg statt die Karte zu zerreissen. Der Job endet immer terminal, wie der Report. Ein Klick auf einen Knoten fuellt das Eingabefeld mit einer Frage danach und schickt sie nicht ab.
+Box: 60
+Status: [x]
+
+Nicht gebaut: eine zweite Ansicht mit Kanten und Positionen (M11-T2). Die
+flache Liste mit Ebenen ist das, was die Karte lesbar macht; ein Layout-Graph
+ist eine Bibliothek und ein Tag.
 
 ---
 

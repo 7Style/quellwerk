@@ -34,5 +34,11 @@ export function createStudioRouter(deps: StudioRouterDeps): Router {
     wrap(deps.controller.retry)
   );
 
+  // Eine Karte je Notizbuch, deshalb Einzahl und kein Id-Segment. Der POST
+  // schreibt sie neu, wenn es schon eine gibt: die Quellen aendern sich, die
+  // Karte soll ihnen folgen.
+  router.get('/notebooks/:notebookId/mindmap', wrap(deps.controller.mindMap));
+  router.post('/notebooks/:notebookId/mindmap', deps.limit, wrap(deps.controller.createMindMap));
+
   return router;
 }
