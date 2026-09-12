@@ -1,0 +1,26 @@
+# Fundstellen, die gitleaks in der Historie findet und die keine Secrets sind.
+#
+# Beide Zeilen zeigen auf dieselbe Zeile derselben Datei in den beiden ersten
+# Commits: backend/app/modules/auth/_tests_/test-utils.ts, Zeile 59,
+#
+#     export const TEST_JWT_SECRET = 'test-jwt-secret-0123456789abcdef0123456789';
+#
+# ein Dummy aus dem Testhelfer der Vorlage. Das Auth-Modell der Vorlage verlangt
+# ein Secret mit mindestens 32 Zeichen, deshalb ist der Dummy lang genug, um wie
+# ein Schlüssel auszusehen, und deshalb greift `generic-api-key`. Er hat nie
+# etwas geschützt: er stand in einem Testhelfer, den es nur gab, damit die Tests
+# der Vorlage laufen.
+#
+# M0-T2 hat das ganze Kontosystem und mit ihm diese Datei gelöscht. In der
+# Historie bleibt sie, und `gitleaks detect` liest die Historie -- ohne diese
+# Datei ist jeder CI-Lauf rot, und ein CI, das immer rot ist, meldet nichts
+# mehr. Genau das ist der Grund, die zwei Fingerprints hier zu nennen und nicht
+# die Regel abzuschalten: ein neuer Fund an einer anderen Stelle fällt weiter
+# auf.
+#
+# Die Fingerprints sind aus einem echten Lauf übernommen, nicht von Hand
+# gebaut:
+#   docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:latest \
+#     detect --source . --report-format json --report-path /repo/report.json
+a2241b1ee65ab9948fae637ba3140f6a4aac147d:backend/app/modules/auth/_tests_/test-utils.ts:generic-api-key:59
+dfc359419105b0e64bb809f55d00ce53cc3b46fe:backend/app/modules/auth/_tests_/test-utils.ts:generic-api-key:59

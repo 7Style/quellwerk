@@ -253,4 +253,7 @@ nachlesbar ist und was nicht, steht in
 
 ## Lizenz
 
-Privates Bewerbungsprojekt, keine Lizenz zur Weiterverwendung.
+MIT, siehe [LICENSE](LICENSE). Der Code darf benutzt werden; die vier
+Korpusdateien unter `backend/evals/corpus/` sind fremde Inhalte (Rechtstext der
+EU, eine Seite der Europäischen Kommission) und nicht meine, um sie zu
+lizenzieren.
