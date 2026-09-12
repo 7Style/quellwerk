@@ -7,6 +7,28 @@ as a zero.
 
 The thresholds live in `docs/SPEC.md` and are not repeated here.
 
+## 2026-09-12, M6-T0: six report prompts, and no run yet
+
+`report-common.md` and the five structure blocks. CLAUDE.md asks for
+`pnpm eval --dev` after any change under `prompts/`, and it is not run here for
+the same reason as the follow-up prompt: no golden item produces a report, so
+the four metrics are about an answer this change cannot reach. A run would
+reproduce the previous numbers at the price of twenty turns.
+
+What replaces it is not nothing. The prompts are executed against the real API in
+M6-T1, where the job that uses them exists - a prompt that has never run is a
+guess, and this repository has paid for that lesson once already (M2-T2).
+
+The report path also has no judge, and that is worth naming rather than working
+around. Correctness and faithfulness are measured on golden items, and a report
+is a page, not an answer to a question somebody wrote an expected answer for. The
+report is the artefact a reader takes away from the conversation, read by someone
+who was not there, and no number watches it. What guards it today is the same
+resolver as the chat - every chip in a report is checked against the stored text
+before it is stored - plus the structure blocks asking for the sections a
+smoothed-over report would leave out: where the sources disagree, and what is not
+in them.
+
 ## 2026-09-12, M3 close: follow-up-questions.md, and why no run followed
 
 The security review found the one place in the chat path that assembled a prompt
