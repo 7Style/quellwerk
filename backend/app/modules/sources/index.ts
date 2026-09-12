@@ -26,7 +26,17 @@ export interface SourcesModuleDeps {
   basePath?: string;
 }
 
-export function initSourcesModule(app: Express, deps: SourcesModuleDeps): void {
+/**
+ * Wie beim Notizbuch-Modul: der Dienst kommt zurueck, damit die
+ * Kompositionswurzel ihn weiterreichen kann. Das Notizen-Modul braucht genau
+ * eine Sache von hier -- den Weg, den eingefuegter Text nimmt -- und darf diese
+ * Datei nicht importieren.
+ */
+export interface SourcesModule {
+  service: SourcesService;
+}
+
+export function initSourcesModule(app: Express, deps: SourcesModuleDeps): SourcesModule {
   const repository = new PrismaSourcesRepository(deps.prisma);
   const service = new SourcesService({
     repository,
@@ -42,6 +52,8 @@ export function initSourcesModule(app: Express, deps: SourcesModuleDeps): void {
     deps.basePath ?? '/api',
     createSourcesRouter({ controller, upload: deps.upload, limit: deps.limit })
   );
+
+  return { service };
 }
 
 export { SourcesService } from './services/sources.service.js';

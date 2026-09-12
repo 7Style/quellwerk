@@ -18,7 +18,14 @@ type ChatEvent =
   | { t: 'followups'; q: string[] }
   | { t: 'truncated' }
   | { t: 'refused'; m: string }
-  | { t: 'done'; usage: unknown; trace: unknown; refused: boolean }
+  | {
+      t: 'done';
+      usage: unknown;
+      trace: unknown;
+      refused: boolean;
+      /** Die gespeicherte Antwortzeile, oder null im geteilten Notizbuch. */
+      messageId?: string | null;
+    }
   | { t: 'error'; m: string; retry: boolean };
 
 export interface UseChatStreamOptions {
@@ -259,7 +266,11 @@ export function useChatStream({ notebookId, initial }: UseChatStreamOptions): Us
             break;
 
           case 'done':
-            patchAnswer(answerId, (answer) => ({ ...answer, refused: event.refused }));
+            patchAnswer(answerId, (answer) => ({
+              ...answer,
+              refused: event.refused,
+              savedId: event.messageId ?? null,
+            }));
             setState('idle');
             break;
 

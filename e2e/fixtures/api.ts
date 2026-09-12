@@ -401,6 +401,41 @@ function reportBody() {
   };
 }
 
+/**
+ * Zwei Notizen: eine aus einer Antwort gesicherte mit ihren geprueften Belegen,
+ * und eine selbst geschriebene ohne. Die Ansicht entscheidet daran, ob sie
+ * Chips zeichnet -- und zeichnet nie welche, die nicht vom Server kommen.
+ */
+function notes() {
+  return [
+    {
+      id: 'n-saved',
+      notebookId: NOTEBOOK_ID,
+      title: 'What exactly does a provider have to do?',
+      markdown:
+        'Four obligations come up across the sources. A provider must set up a risk management system before the system is placed on the market, and that system is not a one-off exercise.',
+      segments: [
+        {
+          text: 'Four obligations come up across the sources. A provider must set up a risk management system before the system is placed on the market',
+          citations: [cite('s2', CITED[0])],
+        },
+        { text: ', and that system is not a one-off exercise.', citations: [] },
+      ],
+      fromMessageId: 'm2',
+      createdAt: '2026-09-13T07:10:00.000Z',
+    },
+    {
+      id: 'n-own',
+      notebookId: NOTEBOOK_ID,
+      title: 'Offene Fragen fuer Dienstag',
+      markdown: 'Wer ist bei uns Anbieter und wer Betreiber? Und ab wann gilt das fuer uns?',
+      segments: null,
+      fromMessageId: null,
+      createdAt: '2026-09-13T07:20:00.000Z',
+    },
+  ];
+}
+
 function json(body: unknown) {
   return { status: 200, contentType: 'application/json', body: JSON.stringify(body) };
 }
@@ -457,6 +492,9 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
     if (path === `/api/notebooks/${DEMO_ID}/reports`) {
       return route.fulfill(json({ reports: [] }));
     }
+    if (path === `/api/notebooks/${DEMO_ID}/notes`) {
+      return route.fulfill(json({ notes: [] }));
+    }
 
     // Das Ziel des Wechsels: ein eigenes Notizbuch, mit derselben Quellenliste
     // und ohne die Marke "Read-only example".
@@ -471,6 +509,9 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
     }
     if (path === `/api/notebooks/${COPY_ID}/reports`) {
       return route.fulfill(json({ reports: [] }));
+    }
+    if (path === `/api/notebooks/${COPY_ID}/notes`) {
+      return route.fulfill(json({ notes: [] }));
     }
 
     if (path === `/api/notebooks/${NOTEBOOK_ID}`) {
@@ -514,6 +555,43 @@ export async function stubApi(page: Page, options: StubOptions = {}): Promise<vo
 
     if (path === `/api/notebooks/${NOTEBOOK_ID}/reports/r-ready`) {
       return route.fulfill(json({ report: reportBody() }));
+    }
+
+    if (path === `/api/notebooks/${NOTEBOOK_ID}/notes`) {
+      if (route.request().method() === 'POST') {
+        const asked = route.request().postDataJSON() as { title?: string; markdown?: string };
+        return route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 'n-new',
+            notebookId: NOTEBOOK_ID,
+            title: asked.title ?? 'Note',
+            markdown: asked.markdown ?? '',
+            segments: null,
+            fromMessageId: null,
+            createdAt: new Date().toISOString(),
+          }),
+        });
+      }
+      return route.fulfill(json({ notes: notes() }));
+    }
+    if (path === `/api/notebooks/${NOTEBOOK_ID}/notes/from-message`) {
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(notes()[0]),
+      });
+    }
+    if (/\/notes\/[^/]+\/convert$/.test(path)) {
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ sourceId: 's-from-note', notebookId: NOTEBOOK_ID }),
+      });
+    }
+    if (/\/notes\/[^/]+$/.test(path) && route.request().method() === 'DELETE') {
+      return route.fulfill({ status: 204, body: '' });
     }
 
     if (path === `/api/notebooks/${NOTEBOOK_ID}/messages`) {

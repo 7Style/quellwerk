@@ -27,6 +27,7 @@ import {
   type TurnSources,
 } from '../modules/chat/index.js';
 import { pageAt, type PageSpan } from '../modules/sources/internal/pages.js';
+import type { NoteSegment } from '../modules/notes/index.js';
 import { loadPrompt, renderPrompt } from '../services/prompt-loader/index.js';
 import { assertBudgetLeft } from '../services/quota/index.js';
 import { recordUsage } from '../services/usage-log/index.js';
@@ -212,7 +213,7 @@ export function chatDeps(llm: AnthropicLlmAdapter): ChatServiceDeps {
     saveTurn: async (notebookId, turn) => {
       // Two rows, one transaction: a question without its answer reads like the
       // model never replied, and an answer without its question is unreadable.
-      await prisma.$transaction([
+      const [, assistant] = await prisma.$transaction([
         prisma.message.create({
           data: { notebookId, role: 'user', segments: [{ text: turn.question }] as Prisma.InputJsonValue },
         }),
@@ -229,6 +230,9 @@ export function chatDeps(llm: AnthropicLlmAdapter): ChatServiceDeps {
         }),
         prisma.notebook.update({ where: { id: notebookId }, data: { lastUsedAt: new Date() } }),
       ]);
+
+      // Die Id der Antwort, nicht die der Frage: gesichert wird eine Antwort.
+      return { messageId: assistant.id };
     },
 
     onError: (error, context) => {
@@ -323,6 +327,34 @@ export async function loadMessages(notebookId: string, sessionId: string) {
     orderBy: { createdAt: 'asc' },
     select: { id: true, role: true, segments: true, droppedCitations: true, createdAt: true },
   });
+}
+
+/**
+ * Die geprüften Segmente einer gespeicherten Antwort, oder null.
+ *
+ * Das Notizen-Modul braucht sie, um "Save to note" zu bedienen, und darf das
+ * Chat-Modul nicht importieren; diese Datei kennt beide Seiten und ist die
+ * Stelle, an der die Form einer Nachricht steht. Was zurückkommt, ist das, was
+ * der Resolver beim Schreiben der Antwort geprüft hat (ADR-0003) - deshalb
+ * schickt der Client eine Id und keine Belege.
+ *
+ * Nur Antworten. Eine Frage als Notiz zu sichern ergibt eine Notiz, in der die
+ * eigene Frage steht, und keinen Beleg.
+ */
+export async function loadMessageSegments(
+  notebookId: string,
+  messageId: string
+): Promise<{ segments: NoteSegment[] } | null> {
+  const message = await prisma.message.findFirst({
+    where: { id: messageId, notebookId, role: 'assistant' },
+    select: { segments: true },
+  });
+  if (!message) return null;
+
+  const segments = message.segments as NoteSegment[] | null;
+  if (!Array.isArray(segments) || segments.length === 0) return null;
+
+  return { segments };
 }
 
 /** The last turns of this notebook, oldest first, as the builder wants them. */

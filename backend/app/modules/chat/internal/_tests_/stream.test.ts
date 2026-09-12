@@ -269,6 +269,9 @@ function serviceWith(
     },
     saveTurn: async (_id, turn) => {
       saved.push(turn);
+      // Die Id, die `done` mitnimmt: an ihr findet "Save to note" die Antwort
+      // wieder (M5-T4).
+      return { messageId: `msg-${saved.length}` };
     },
     onDroppedCitations: (entries) => {
       droppedLog.push(...entries);

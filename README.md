@@ -144,7 +144,7 @@ beweisen musste, und was offen ist, steht als offene Box.
 
 Jede offene Box hat eine Zeile am Ende von
 [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md), die sagt, warum sie offen ist.
-Dreizehn davon sind es am Ende des dritten Tages, und die Liste ist der Teil der
+Zwölf davon sind es nach dem dritten Tag, und die Liste ist der Teil der
 Dokumentation, den ich zuletzt geschrieben habe: sie ist leichter zu schreiben,
 solange der Grund noch stimmt.
 

@@ -22,6 +22,8 @@ export interface ThreadProps {
   /** How many sources the running turn is reading. */
   sourceCount?: number;
   onOpenCitation: (citation: Citation) => void;
+  /** Reicht "Save to note" an jede Antwort durch; siehe `Answer`. */
+  onSaveToNote?: (messageId: string) => void;
   /** One sentence, from the server's error event. Never the upstream message. */
   error?: string | null;
   onRetry?: () => void;
@@ -41,6 +43,7 @@ export function Thread({
   state = 'idle',
   sourceCount = 0,
   onOpenCitation,
+  onSaveToNote,
   error = null,
   onRetry,
 }: ThreadProps) {
@@ -61,6 +64,7 @@ export function Thread({
         ) : (
           <div key={message.id} className="grid gap-3">
             <Answer
+              onSaveToNote={onSaveToNote}
               message={message}
               onOpenCitation={onOpenCitation}
               streaming={streamingMessage?.id === message.id}

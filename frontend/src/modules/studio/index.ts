@@ -4,6 +4,19 @@ export { ReportView } from './components/ReportView';
 export type { ReportViewProps } from './components/ReportView';
 export { PromptDialog } from './components/PromptDialog';
 export { CustomReportDialog } from './components/CustomReportDialog';
+export { NoteDialog } from './components/NoteDialog';
+export { NoteView } from './components/NoteView';
+export type { NoteViewProps } from './components/NoteView';
+export {
+  notesApi,
+  useListNotesQuery,
+  useAddNoteMutation,
+  useSaveAnswerToNoteMutation,
+  useConvertNoteToSourceMutation,
+  useDeleteNoteMutation,
+} from './services/notes.api';
+export { citationCount, hasCitations } from './types/note';
+export type { Note } from './types/note';
 export {
   studioApi,
   useListReportsQuery,

@@ -9,6 +9,15 @@ import { answerText, citationsOf, sourceCountOf, type AssistantMessage } from '.
 export interface AnswerProps {
   message: AssistantMessage;
   onOpenCitation: (citation: Citation) => void;
+  /**
+   * Sichert diese Antwort als Notiz.
+   *
+   * Kommt aus der Route, nicht aus dem Chat-Modul: Notizen sind das Studio, und
+   * die beiden Module kennen einander nicht. Fehlt der Rueckruf, fehlt der
+   * Knopf - im Demo-Notizbuch ist das der Fall, weil dort kein Turn gespeichert
+   * wird und es nichts zu sichern gibt.
+   */
+  onSaveToNote?: (messageId: string) => void;
   /** Drawn with a caret while the answer is still arriving. */
   streaming?: boolean;
 }
@@ -29,7 +38,13 @@ function leadSentence(text: string): string | null {
   return text.slice(0, stop + 1);
 }
 
-export function Answer({ message, onOpenCitation, streaming = false }: AnswerProps) {
+export function Answer({
+  message,
+  onOpenCitation,
+  onSaveToNote,
+  streaming = false,
+}: AnswerProps) {
+  const savedId = message.savedId ?? null;
   const citations = citationsOf(message);
   const refusal = message.refused;
   // The refusal sentence is the first sentence, which the frozen system prompt
@@ -65,6 +80,19 @@ export function Answer({ message, onOpenCitation, streaming = false }: AnswerPro
             </span>
           ) : null}
           <span className="flex-1" />
+          {onSaveToNote && savedId ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              onClick={() => onSaveToNote(savedId)}
+              className="h-6 px-2"
+              data-testid="save-to-note"
+            >
+              <Icon name="note" className="h-[14px] w-[14px]" />
+              Save to note
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="icon"

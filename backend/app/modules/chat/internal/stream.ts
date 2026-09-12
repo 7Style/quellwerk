@@ -65,7 +65,13 @@ export type ChatEvent =
    * `refused` so the client never needs the refusal sentences itself. The route
    * owns them, enforces that a refusal carries no chip, and says which it was.
    */
-  | { t: 'done'; usage: TurnUsage; trace: TurnTrace; refused: boolean }
+  /**
+   * `messageId` ist die gespeicherte Antwortzeile, oder null.
+   *
+   * Null im Demo-Notizbuch, wo kein Turn gespeichert wird: dort gibt es nichts
+   * zu sichern, und die Oberflaeche zeigt den Knopf deshalb gar nicht erst.
+   */
+  | { t: 'done'; usage: TurnUsage; trace: TurnTrace; refused: boolean; messageId: string | null }
   | { t: 'error'; m: string; retry: boolean };
 
 /** The part of a response this writer needs, so a test can hand it a fake. */

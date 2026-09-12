@@ -387,12 +387,12 @@ Box: 45
 Status: [ ]
 
 ### M5-T4 Notes
-Goal: Add note, Save to note and Convert to source work against the session's notebook.
-Files: backend/app/modules/notes/*, frontend/src/modules/studio/components/Notes*.tsx
-Test: `pnpm --filter @quellwerk/backend test -- notes`
-Expected: a converted note appears as a ready source without going through the extractor.
-Box: 45
-Status: [ ]
+Goal: Add note, Save to note, Convert to source and Delete note work against the session's notebook.
+Files: backend/app/modules/notes/*, backend/app/wiring/chat.ts, frontend/src/modules/studio/components/Notes*.tsx
+Test: `pnpm --filter @quellwerk/backend test -- notes && pnpm --filter @quellwerk/e2e exec playwright test tests/ui/notes.spec.ts`
+Expected: four things. An answer saved as a note keeps its verified segments, so the chips in the note still open the source at the passage - the client sends a message id and the server copies the stored segments, because a client that sent its own citations could store chips nobody checked. A note written by hand is markdown and has no chips. A converted note goes through the same path as pasted text (`addPasted`), so it is normalised once, counted against the notebook's tokens and given a guide by the worker; a source without a guide is the bug M8-T1 found. Deleting a note deletes the row and nothing else, and a source made from a note stays.
+Box: 60
+Status: [x]
 
 ### M5-T5 Trace toggle and delete chat history
 Goal: The trace shows model, tokens, cache read and write, latency and cents; the history can be deleted.

@@ -80,7 +80,7 @@ function appFor(): Express {
       droppedCitations: 0,
       stopReason: 'end_turn',
     }),
-    saveTurn: async () => undefined,
+    saveTurn: async () => ({ messageId: '00000000-0000-4000-8000-0000000000a1' }),
     onError: () => undefined,
     onDroppedCitations: () => undefined,
   });

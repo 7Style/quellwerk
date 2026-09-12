@@ -28,10 +28,11 @@ import {
 import { assertBudgetLeft } from '../services/quota/index.js';
 import { initSessionModule, sessionIdOf } from './session/index.js';
 import { initNotebooksModule } from './notebooks/index.js';
-import { initSourcesModule } from './sources/index.js';
+import { initSourcesModule, type SourcesModule } from './sources/index.js';
 import { initChatModule } from './chat/index.js';
 import { initStudioModule } from './studio/index.js';
-import { budgetMiddleware, chatDeps, loadMessages } from '../wiring/chat.js';
+import { initNotesModule } from './notes/index.js';
+import { budgetMiddleware, chatDeps, loadMessages, loadMessageSegments } from '../wiring/chat.js';
 import { initAdminModule } from './admin/index.js';
 
 // Cross-module communication without imports between modules.
@@ -87,9 +88,13 @@ export async function registerModules(app: Express): Promise<void> {
   const notebooks = initNotebooksModule(app, { prisma, sessionIdOf });
   startupStatus.moduleOk('Notebooks');
 
-  try {
+  // Ausserhalb des try, weil das Notizen-Modul weiter unten den Dienst braucht:
+  // "Convert to source" geht denselben Weg wie eingefuegter Text. Der catch
+  // wirft weiter, also ist die Variable danach in jedem Fall gesetzt.
+  let sources: SourcesModule;
 
-    initSourcesModule(app, {
+  try {
+    sources = initSourcesModule(app, {
       prisma,
       sessionIdOf,
       notebooks: {
@@ -196,7 +201,37 @@ export async function registerModules(app: Express): Promise<void> {
     throw error;
   }
 
-  // notes arrive in M5-T4.
+  try {
+    initNotesModule(app, {
+      prisma,
+      sessionIdOf,
+      notebooks: {
+        readable: async (notebookId, sessionId) =>
+          notebooks.service.readable(notebookId, sessionId),
+        // Eine Notiz ist ein Schreibzugriff, der etwas anlegt, also darf sie
+        // das Demo-Notizbuch kopieren (M7-T1).
+        writableOrCopy: async (notebookId, sessionId) =>
+          notebooks.service.writableOrCopy(notebookId, sessionId),
+      },
+      // Die beiden Stellen, an denen das Notizen-Modul etwas von zwei anderen
+      // braucht, ohne sie zu importieren: die geprueften Segmente einer Antwort
+      // aus dem Chat, und der Weg, den eingefuegter Text nimmt, aus den
+      // Quellen. Beides wird hier uebergeben und nirgends sonst.
+      loadMessageSegments,
+      createSourceFromText: async ({ notebookId, sessionId, title, text }) => {
+        const source = await sources.service.addPasted(notebookId, sessionId, { title, text });
+        return { id: source.id, notebookId: source.notebookId };
+      },
+      // Dieselbe Schranke wie fuer eine Quelle: "Convert to source" loest am
+      // Ende den Guide im Worker aus, und eine Notiz darf so gross sein wie
+      // eine eingefuegte Quelle (SECURITY.md 7.3).
+      limit: createRateLimiter('sources', config.rateLimit.sources),
+    });
+    startupStatus.moduleOk('Notes');
+  } catch (error) {
+    startupStatus.moduleFail('Notes', error);
+    throw error;
+  }
 
   logger.info('[Modules] All modules registered successfully');
   startupStatus.logSummary();

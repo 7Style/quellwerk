@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/icon';
 import { relativeTime } from '@/lib/relative-time';
 import { CustomReportDialog } from './CustomReportDialog';
+import { NoteDialog } from './NoteDialog';
+import { citationCount, type Note } from '../types/note';
 import {
   FORMAT_BLURBS,
   FORMAT_LABELS,
@@ -32,6 +34,14 @@ export interface StudioPanelProps {
    * during render would make two renders in the same second disagree.
    */
   stuck?: readonly string[];
+
+  /* Notizen (M5-T4). Sie stehen im selben Panel, weil sie dasselbe sind: was
+     aus einem Notizbuch herauskommt und liegen bleibt. */
+  notes: Note[];
+  notesLoading?: boolean;
+  onAddNote: (input: { title: string; markdown: string }) => Promise<boolean>;
+  onOpenNote: (noteId: string) => void;
+  openNoteId?: string;
 }
 
 /**
@@ -51,10 +61,16 @@ export function StudioPanel({
   openReportId,
   hasSources,
   stuck = [],
+  notes,
+  notesLoading = false,
+  onAddNote,
+  onOpenNote,
+  openNoteId,
 }: StudioPanelProps) {
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState<ReportFormat | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
 
   const written = new Set(
     reports.filter((one) => one.format !== 'custom').map((one) => one.format)
@@ -112,6 +128,59 @@ export function StudioPanel({
         ) : null}
       </section>
 
+      <section className="grid gap-2" data-testid="notes">
+        <div className="flex items-center gap-2">
+          <h3 className="m-0 text-ui font-semibold text-ink-muted">Notes</h3>
+          <span className="flex-1" />
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            onClick={() => setNoteOpen(true)}
+            className="h-6 px-2"
+            data-testid="add-note"
+          >
+            <Icon name="plus" className="h-[14px] w-[14px]" />
+            Add note
+          </Button>
+        </div>
+
+        {notesLoading ? (
+          <div className="h-[44px] rounded-control border border-rule p-3" aria-hidden="true">
+            <div className="h-[13px] w-2/5 rounded bg-surface-sunken" />
+          </div>
+        ) : null}
+
+        {!notesLoading && notes.length === 0 ? (
+          <p className="m-0 text-micro text-ink-faint">
+            Nothing yet. Save an answer with Save to note, or write one yourself.
+          </p>
+        ) : null}
+
+        {notes.map((note) => (
+          <button
+            key={note.id}
+            type="button"
+            data-note={note.id}
+            onClick={() => onOpenNote(note.id)}
+            className={`grid w-full grid-cols-[20px_1fr_auto] items-center gap-3 rounded-control border p-3 text-left ${
+              note.id === openNoteId
+                ? 'border-rule-strong bg-surface-sunken shadow-[inset_2px_0_0_var(--ink)]'
+                : 'border-rule bg-surface hover:bg-surface-sunken'
+            }`}
+          >
+            <Icon name="note" className="text-ink-muted" />
+            <span className="min-w-0">
+              <span className="block truncate text-ui font-medium">{note.title}</span>
+              <span className="mt-px block text-micro text-ink-faint">
+                {noteLine(note)}
+              </span>
+            </span>
+            <Icon name="chevronRight" className="text-ink-muted" />
+          </button>
+        ))}
+      </section>
+
       <section className="grid gap-2">
         <h3 className="m-0 text-ui font-semibold text-ink-muted">Written</h3>
 
@@ -148,8 +217,19 @@ export function StudioPanel({
         onOpenChange={setCustomOpen}
         onSubmit={(focus) => request('custom', focus)}
       />
+
+      <NoteDialog open={noteOpen} onOpenChange={setNoteOpen} onSubmit={onAddNote} />
     </div>
   );
+}
+
+/** Woher die Notiz kommt, und ob sie Belege traegt. */
+function noteLine(note: Note): string {
+  const citations = citationCount(note);
+  if (citations > 0) {
+    return `From an answer · ${citations} ${citations === 1 ? 'citation' : 'citations'}`;
+  }
+  return note.fromMessageId ? 'From an answer' : 'Written by you';
 }
 
 function ReportRow({

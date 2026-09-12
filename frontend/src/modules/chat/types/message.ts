@@ -40,6 +40,17 @@ export interface AssistantMessage {
   /** Set when the turn ended early. */
   stopped?: boolean;
   truncated?: boolean;
+  /**
+   * Die Id der gespeicherten Antwortzeile, sobald der Server sie nennt.
+   *
+   * Sie kommt mit `done` und steht an einer Nachricht aus dem Verlauf ohnehin.
+   * "Save to note" schickt genau sie: der Server holt die geprueften Segmente
+   * aus seiner eigenen Zeile, statt dem Client seine Belege zu glauben.
+   *
+   * Fehlt im Demo-Notizbuch, wo kein Turn gespeichert wird - dann gibt es
+   * nichts zu sichern und der Knopf erscheint nicht.
+   */
+  savedId?: string | null;
 }
 
 export type Message = UserMessage | AssistantMessage;

@@ -25,6 +25,9 @@ function toMessage(row: MessageApiRow): Message {
     segments: row.segments,
     droppedCitations: row.droppedCitations,
     refused: row.refused,
+    // Aus dem Verlauf ist die Zeile gespeichert, also ist ihre Id die, mit der
+    // "Save to note" sie benennt. Im Stream kommt dieselbe Id mit `done`.
+    savedId: row.id,
   };
 }
 

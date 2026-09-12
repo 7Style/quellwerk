@@ -82,7 +82,16 @@ export interface ChatServiceDeps {
   ): Promise<string[]>;
   /** Prices the call and writes the usage row. Returns the cost. */
   recordUsage(message: Anthropic.Message, latencyMs: number, notebookId: string): Promise<TurnTrace>;
-  saveTurn(notebookId: string, turn: StoredTurn): Promise<void>;
+  /**
+   * Speichert Frage und Antwort und gibt die Id der Antwortzeile zurück.
+   *
+   * Die Id geht mit `done` an den Client, damit "Save to note" die Antwort
+   * benennen kann, die gerade entstanden ist. Ohne sie könnte eine Antwort
+   * erst nach einem Reload gesichert werden - oder der Client müsste seine
+   * eigenen Belege mitschicken, und dann stünden in einer Notiz Chips, die nie
+   * jemand geprüft hat.
+   */
+  saveTurn(notebookId: string, turn: StoredTurn): Promise<{ messageId: string }>;
   onError(error: unknown, context: { notebookId: string }): void;
   /**
    * One line per citation that did not survive the check.
@@ -244,11 +253,33 @@ export class ChatService {
       const usage = usageOf(finished);
       const refused = beginsWithRefusal(answer);
 
-      // `done` first, then the follow-ups. They are a second model call on
+      // Gespeichert wird vor `done`, nicht danach.
+      //
+      // Es ist eine Transaktion und kein Modellaufruf, kostet also wenige
+      // Millisekunden, und es schliesst zwei Dinge: die Antwort ist geschrieben,
+      // bevor der Client erfährt, dass sie fertig ist (dazwischen lag bisher ein
+      // Fenster, in dem ein Absturz eine Antwort auf dem Schirm liess, die es
+      // nirgends gab), und `done` kann die Id der Zeile mitgeben, an der "Save
+      // to note" sie wiederfindet.
+      //
+      // Nicht in einem geteilten Notizbuch. Dort zu schreiben hiesse, die Frage
+      // dieses Besuchers in den Verlauf des naechsten zu legen
+      // (TurnSources.shared); dort gibt es dann auch nichts zu sichern.
+      const stored = sources.shared
+        ? null
+        : await this.deps.saveTurn(input.notebookId, {
+            question: input.question,
+            segments,
+            droppedCitations: dropped.length,
+            usage,
+            trace,
+          });
+
+      // `done` before the follow-ups. They are a second model call on
       // MODEL_FAST, and a turn that holds `done` back until it returns is a turn
       // whose answer is complete on screen while the spinner keeps going. The
       // client treats `followups` as an event that may or may not arrive.
-      sink.send({ t: 'done', usage, trace, refused });
+      sink.send({ t: 'done', usage, trace, refused, messageId: stored?.messageId ?? null });
 
       const questions = await this.followUpsOrNone(
         input.question,
@@ -257,18 +288,6 @@ export class ChatService {
         signal
       );
       if (questions.length > 0 && !sink.isClosed) sink.send({ t: 'followups', q: questions });
-
-      // Not in a shared notebook. Writing there would put this visitor's
-      // question into the next visitor's history (TurnSources.shared).
-      if (!sources.shared) {
-        await this.deps.saveTurn(input.notebookId, {
-          question: input.question,
-          segments,
-          droppedCitations: dropped.length,
-          usage,
-          trace,
-        });
-      }
 
       return { status: 'done' };
     } catch (error) {

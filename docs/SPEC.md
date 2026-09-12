@@ -41,7 +41,12 @@ Wunschzahl.
   gibt es nicht (docs/KNOWN-LIMITS.md).
 - Studio Reports: Briefing Doc, Study Guide, FAQ, Timeline, Create your own; als
   Jobs, mit Zitat-Chips und "View prompt used".
-- Notes: Add note, Save to note, Convert to source, Delete note.
+- Notes: Add note, Save to note, Convert to source, Delete note. Eine gesicherte
+  Antwort behält ihre geprüften Segmente, ein Chip in der Notiz öffnet also
+  dieselbe Stelle wie im Gespräch; der Client schickt dafür eine Nachrichten-Id
+  und keine Belege. Eine selbst geschriebene Notiz trägt keine. Convert to
+  source geht denselben Weg wie eingefügter Text, damit spätere Antworten sie
+  zitieren können.
 - Trace-Toggle: Modell, Token, Cache Read und Write, Latenz, Cent, verworfene
   Zitate und `stop_reason`.
 - Eval-Harness vor dem Chat-Code: 30 Fragen, 20 dev und 10 held-out,

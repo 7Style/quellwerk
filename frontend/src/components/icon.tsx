@@ -81,6 +81,12 @@ const PATHS = {
       <path d="M5.8 5.8h4.4M5.8 8h4.4M5.8 10.2h2.6" />
     </>
   ),
+  note: (
+    <>
+      <path d="M3.4 2.6h9.2v7.2l-2.8 3.6H3.4z" />
+      <path d="M12.6 9.8h-2.8v3.6" />
+    </>
+  ),
   mindmap: (
     <>
       <circle cx="4" cy="8" r="1.6" />

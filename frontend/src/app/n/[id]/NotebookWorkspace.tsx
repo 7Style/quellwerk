@@ -12,10 +12,16 @@ import { Composer, Thread, useChatStream, useListMessagesQuery } from '@/modules
 import { OverviewHeader, useGetNotebookQuery } from '@/modules/notebooks';
 import { Topbar, Workspace } from '@/modules/shell';
 import {
+  NoteView,
   ReportView,
   StudioPanel,
   isWriting,
   REPORT_STUCK_AFTER_MS,
+  useAddNoteMutation,
+  useConvertNoteToSourceMutation,
+  useDeleteNoteMutation,
+  useListNotesQuery,
+  useSaveAnswerToNoteMutation,
   useListReportsQuery,
   useReportQuery,
   useRequestReportMutation,
@@ -153,6 +159,14 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
   const [requestReport] = useRequestReportMutation();
   const [retryReport] = useRetryReportMutation();
 
+  const notes = useListNotesQuery(notebookId);
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const openNote = (notes.data ?? []).find((note) => note.id === openNoteId) ?? null;
+  const [addNote] = useAddNoteMutation();
+  const [saveAnswerToNote] = useSaveAnswerToNoteMutation();
+  const [convertNote] = useConvertNoteToSourceMutation();
+  const [deleteNote] = useDeleteNoteMutation();
+
   // One box, filled from three places: the reader typing, a follow-up of the
   // last turn, and a suggested question from the overview.
   const [question, setQuestion] = useState('');
@@ -248,6 +262,24 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
               onClose={() => setOpenReportId(null)}
               onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
             />
+          ) : openNoteId ? (
+            <NoteView
+              note={openNote}
+              loading={notes.isLoading}
+              onClose={() => setOpenNoteId(null)}
+              onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
+              onConvert={async () => {
+                const source = await convertNote({ notebookId, noteId: openNoteId }).unwrap();
+                // Die Notiz bleibt offen: was passiert ist, steht links in der
+                // Quellenliste, und ein Sprung waere eine Antwort auf eine
+                // Frage, die niemand gestellt hat.
+                followCopy(source.notebookId);
+              }}
+              onDelete={async () => {
+                await deleteNote({ notebookId, noteId: openNoteId }).unwrap();
+                setOpenNoteId(null);
+              }}
+            />
           ) : (
             <Thread
               header={
@@ -262,6 +294,18 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
               state={chat.state}
               sourceCount={ready.length}
               onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
+              onSaveToNote={async (messageId) => {
+                // Der Titel kommt aus der Frage davor, nicht aus einem Dialog:
+                // eine Antwort sichert man mit einem Klick, und umbenennen kann
+                // man sie danach immer noch.
+                const note = await saveAnswerToNote({
+                  notebookId,
+                  messageId,
+                  title: titleForNote(chat.messages, messageId),
+                }).unwrap();
+                followCopy(note.notebookId);
+                setOpenNoteId(note.id);
+              }}
               error={chat.error}
               onRetry={chat.retryable ? chat.dismissError : undefined}
             />
@@ -270,7 +314,7 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
         composer={
           // The composer belongs to the conversation. A report has taken the
           // column; the way back is the chevron at its top.
-          openReportId ? null : (
+          openReportId || openNoteId ? null : (
             <Composer
               value={question}
               onValueChange={setQuestion}
@@ -302,7 +346,26 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
                   followCopy(report.notebookId);
                 })
             }
-            onOpen={setOpenReportId}
+            notes={notes.data ?? []}
+            notesLoading={notes.isLoading}
+            onAddNote={async (input) => {
+              try {
+                const note = await addNote({ notebookId, ...input }).unwrap();
+                followCopy(note.notebookId);
+                return true;
+              } catch {
+                return false;
+              }
+            }}
+            onOpenNote={(noteId) => {
+              setOpenReportId(null);
+              setOpenNoteId(noteId);
+            }}
+            openNoteId={openNoteId ?? undefined}
+            onOpen={(reportId) => {
+              setOpenNoteId(null);
+              setOpenReportId(reportId);
+            }}
             onRetry={(reportId) =>
               retryReport({ notebookId, reportId })
                 .unwrap()
@@ -321,6 +384,25 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
  * screen says the same thing for both, because telling them apart would be the
  * information the rule exists to withhold.
  */
+/**
+ * Der Titel einer gesicherten Antwort: die Frage, die zu ihr gefuehrt hat.
+ *
+ * Eine Antwort ohne ihre Frage ist eine Notiz, die niemand wiederfindet. Faellt
+ * die Frage weg - im Verlauf steht sie immer davor, im Stream auch -, bleibt
+ * ein Datum, und das ist immer noch besser als die ersten Woerter der Antwort.
+ */
+function titleForNote(messages: readonly { id: string; role: string }[], messageId: string): string {
+  const at = messages.findIndex((message) => message.id === messageId);
+  for (let index = at - 1; index >= 0; index -= 1) {
+    const earlier = messages[index];
+    if (earlier.role === 'user') {
+      const text = (earlier as { text?: string }).text ?? '';
+      return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+    }
+  }
+  return 'Saved answer';
+}
+
 function MissingNotebook() {
   return (
     <div className="flex h-dvh flex-col">

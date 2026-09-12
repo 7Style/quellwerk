@@ -247,11 +247,6 @@ durch den letzten Benutzerturn und sind im Cache-Beweis gemessen; der Dialog,
 mit dem ein Leser sie setzt, fehlt. Reihenfolge: der Weg, den ein Wert nimmt,
 war wichtiger als das Feld, in das man ihn tippt.
 
-**Notes (M5-T4).** "Save to note" und "Convert to source" stehen in SPEC.md und
-sind nicht gebaut. Eine Notiz ist ein zweiter Schreibpfad in ein Notizbuch, und
-die drei Tage sind in den ersten gegangen: Quellen, Antworten mit geprüften
-Belegen, Reports.
-
 **Trace-Toggle (M5-T5).** Die Zahlen dafür stehen vollständig in `usage_log` -
 Modell, Token, Cache, Latenz, Cent, verworfene Zitate, `stop_reason` - und die
 Antwort trägt sie bis in den Browser. Was fehlt, ist die Klappe, die sie

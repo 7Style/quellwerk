@@ -61,6 +61,6 @@ export const baseApi = createApi({
     },
   }),
   refetchOnReconnect: true,
-  tagTypes: ['Notebook', 'Source', 'Message', 'Report'],
+  tagTypes: ['Notebook', 'Source', 'Message', 'Report', 'Note'],
   endpoints: () => ({}),
 });
