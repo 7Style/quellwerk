@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import type { Citation } from '@/lib/citation';
 import { Answer } from './Answer';
 import { Banner } from './Banner';
@@ -7,6 +9,14 @@ import { Thinking } from './Thinking';
 import type { Message, TurnState } from '../types/message';
 
 export interface ThreadProps {
+  /**
+   * The overview, above the first turn and scrolling with it.
+   *
+   * Passed in rather than imported: it belongs to the notebooks module, and a
+   * module may not import another one. It scrolls away on purpose - it is what
+   * the notebook is about, which matters most before the first question.
+   */
+  header?: ReactNode;
   messages: Message[];
   state?: TurnState;
   /** How many sources the running turn is reading. */
@@ -26,6 +36,7 @@ export interface ThreadProps {
  * chat log.
  */
 export function Thread({
+  header,
   messages,
   state = 'idle',
   sourceCount = 0,
@@ -38,12 +49,7 @@ export function Thread({
 
   return (
     <div className="mx-auto grid max-w-[var(--measure)] gap-6 px-5 py-6" data-testid="thread">
-      {messages.length === 0 && state === 'idle' ? (
-        <p className="m-0 font-read text-read leading-read text-ink-muted">
-          Ask a question about your sources. Every sentence of the answer carries the passage it
-          came from.
-        </p>
-      ) : null}
+      {header}
 
       {messages.map((message) =>
         message.role === 'user' ? (

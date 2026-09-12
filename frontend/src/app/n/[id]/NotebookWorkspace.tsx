@@ -8,7 +8,7 @@ import { Icon } from '@/components/icon';
 import { highlightOf } from '@/lib/citation';
 import { relativeTime } from '@/lib/relative-time';
 import { Composer, Thread, useChatStream, useListMessagesQuery } from '@/modules/chat';
-import { useGetNotebookQuery } from '@/modules/notebooks';
+import { OverviewHeader, useGetNotebookQuery } from '@/modules/notebooks';
 import { Topbar, Workspace } from '@/modules/shell';
 import {
   SourcesPanel,
@@ -91,6 +91,10 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
 
   const chat = useChatStream({ notebookId, initial: history.data });
 
+  // One box, filled from three places: the reader typing, a follow-up of the
+  // last turn, and a suggested question from the overview.
+  const [question, setQuestion] = useState('');
+
   const [addPaste] = useAddPastedSourceMutation();
   const [uploadSource] = useUploadSourceMutation();
 
@@ -112,8 +116,14 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
         {notebook.data ? (
           <>
             <span className="h-[20px] w-px flex-none bg-rule" aria-hidden="true" />
-            <span className="text-base leading-none">{notebook.data.emoji}</span>
-            <h1 className="m-0 truncate text-ui-lg font-medium">{notebook.data.title}</h1>
+            <span className="text-base leading-none" aria-hidden="true">
+              {notebook.data.emoji}
+            </span>
+            {/* Not a heading. The overview below carries the h1; repeating it
+                here would make a reader navigating by heading hear the same
+                title twice, once as chrome. This copy exists for after the
+                overview has scrolled away. */}
+            <span className="truncate text-ui-lg font-medium">{notebook.data.title}</span>
           </>
         ) : null}
       </Topbar>
@@ -166,6 +176,14 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
         }
         chat={
           <Thread
+            header={
+              notebook.data ? (
+                <OverviewHeader
+                  notebook={{ ...notebook.data, sourceCount: rows.length }}
+                  onAsk={setQuestion}
+                />
+              ) : null
+            }
             messages={chat.messages}
             state={chat.state}
             sourceCount={ready.length}
@@ -176,6 +194,8 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
         }
         composer={
           <Composer
+            value={question}
+            onValueChange={setQuestion}
             suggestions={chat.suggestions}
             busy={chat.busy}
             onAsk={chat.ask}

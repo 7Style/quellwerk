@@ -376,7 +376,7 @@ Files: frontend/src/modules/notebooks/components/OverviewHeader.tsx, backend/app
 Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/overview.spec.ts`
 Expected: exactly four questions, each one fills the composer on click.
 Box: 45
-Status: [ ]
+Status: [x]
 
 ### M5-T2 Configure chat
 Goal: Style and length reach the model in the last user turn, never in the system block.

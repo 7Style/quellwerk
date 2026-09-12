@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/icon';
@@ -9,6 +9,16 @@ import { Icon } from '@/components/icon';
 const MAX_QUESTION_CHARS = 4_000;
 
 export interface ComposerProps {
+  /**
+   * The text in the box, owned by the caller.
+   *
+   * Two things outside this component put a question in it: the follow-ups of
+   * the last turn and the suggested questions of the overview header. Keeping
+   * the text here would mean a second way in - a ref, or a prop that resets
+   * state when it changes - for something that is simply shared.
+   */
+  value: string;
+  onValueChange: (value: string) => void;
   /** Three follow-ups from the last turn. Clicking one fills the box. */
   suggestions?: string[];
   busy?: boolean;
@@ -27,6 +37,8 @@ export interface ComposerProps {
  * scrolls, so a long question never pushes the thread off the screen.
  */
 export function Composer({
+  value,
+  onValueChange,
   suggestions = [],
   busy = false,
   onAsk,
@@ -34,7 +46,6 @@ export function Composer({
   meta,
   onConfigure,
 }: ComposerProps) {
-  const [question, setQuestion] = useState('');
   const box = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -42,13 +53,13 @@ export function Composer({
     if (!element) return;
     element.style.height = 'auto';
     element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
-  }, [question]);
+  }, [value]);
 
   function send() {
-    const asked = question.trim();
+    const asked = value.trim();
     if (!asked || busy) return;
     onAsk(asked);
-    setQuestion('');
+    onValueChange('');
   }
 
   return (
@@ -61,7 +72,7 @@ export function Composer({
                 key={suggestion}
                 type="button"
                 onClick={() => {
-                  setQuestion(suggestion);
+                  onValueChange(suggestion);
                   box.current?.focus();
                 }}
                 className="inline-flex h-[28px] max-w-full items-center gap-2 truncate rounded-[14px] border border-rule-strong bg-surface px-3 text-ui text-ink-muted hover:border-ink-faint hover:text-ink"
@@ -80,9 +91,9 @@ export function Composer({
             id="composer"
             ref={box}
             rows={1}
-            value={question}
+            value={value}
             maxLength={MAX_QUESTION_CHARS}
-            onChange={(event) => setQuestion(event.target.value)}
+            onChange={(event) => onValueChange(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
@@ -109,7 +120,7 @@ export function Composer({
               type="button"
               size="icon"
               onClick={send}
-              disabled={question.trim().length === 0}
+              disabled={value.trim().length === 0}
               aria-label="Send"
               className="h-[32px] w-[32px]"
             >

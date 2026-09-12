@@ -17,6 +17,7 @@ interface NotebookApiRow {
   summary: string | null;
   tokenCount: number;
   sourceCount: number;
+  suggestedQuestions: string[];
   isDemo: boolean;
   createdAt: string;
   lastUsedAt: string;
@@ -32,6 +33,8 @@ function toSummary(row: NotebookApiRow): NotebookSummary {
     title: row.title,
     sourceCount: row.sourceCount,
     updatedAt: row.lastUsedAt,
+    summary: row.summary,
+    suggestedQuestions: row.suggestedQuestions,
     // A notebook nobody has written to since it was made. The card then says
     // "Created" instead of "Updated", which is the difference between an empty
     // notebook and one somebody worked in.

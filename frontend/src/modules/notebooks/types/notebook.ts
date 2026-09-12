@@ -15,6 +15,10 @@ export interface NotebookSummary {
   updatedAt: string;
   /** True while the notebook has never been written to. Changes the meta line. */
   isNew?: boolean;
+  /** What the overview job wrote once a source was ready. Null until then. */
+  summary?: string | null;
+  /** Four of them, or none yet. Written by the same job as the summary. */
+  suggestedQuestions?: string[];
 }
 
 /** What the grid is doing right now. M4-T6 drives it from the query state. */

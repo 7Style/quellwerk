@@ -49,12 +49,29 @@ export interface NotebookResponse {
   title: string;
   emoji: string | null;
   summary: string | null;
-  suggestedQuestions: unknown;
+  /**
+   * The four the overview job wrote, or none yet.
+   *
+   * Typed rather than `unknown`, because the header renders them as buttons and
+   * a caller that has to guess the shape is a caller that will guess wrong. The
+   * column is Json, so what comes out of it is checked here and nowhere else.
+   */
+  suggestedQuestions: string[];
   tokenCount: number;
   sourceCount: number;
   isDemo: boolean;
   createdAt: string;
   lastUsedAt: string;
+}
+
+/**
+ * A Json column holds whatever was written into it. An overview from an older
+ * shape, or a half-written one, must not reach the header as something that
+ * looks like a question and is not.
+ */
+function asQuestions(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((one): one is string => typeof one === 'string' && one.trim().length > 0);
 }
 
 export function toNotebookResponse(row: NotebookRow): NotebookResponse {
@@ -63,7 +80,7 @@ export function toNotebookResponse(row: NotebookRow): NotebookResponse {
     title: row.title,
     emoji: row.emoji,
     summary: row.summary,
-    suggestedQuestions: row.suggestedQuestions ?? null,
+    suggestedQuestions: asQuestions(row.suggestedQuestions),
     tokenCount: row.tokenCount,
     sourceCount: row.sourceCount,
     isDemo: row.isDemo,
