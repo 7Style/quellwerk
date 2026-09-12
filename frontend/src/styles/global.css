@@ -298,3 +298,15 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* A bar that moves without claiming progress. Nobody knows how long a report
+   takes, and a bar that fills to ninety percent and waits is a lie with a
+   number on it. */
+@keyframes qw-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}

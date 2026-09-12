@@ -268,6 +268,86 @@ export const SUGGESTIONS = [
   'Who counts as a provider under the Act?',
 ];
 
+/**
+ * Three reports, one per state the panel has to draw: written, being written,
+ * and failed. The written one carries real citations, so the chips in a report
+ * can be clicked into the document exactly as the chips in an answer are.
+ */
+const REPORTS = [
+  {
+    id: 'r-ready',
+    type: 'report',
+    format: 'briefing',
+    focus: '',
+    title: 'Briefing Doc',
+    status: 'ready',
+    error: null,
+    createdAt: '2026-09-12T07:00:00.000Z',
+    finishedAt: '2026-09-12T07:00:41.000Z',
+  },
+  {
+    id: 'r-writing',
+    type: 'report',
+    format: 'faq',
+    focus: '',
+    title: null,
+    status: 'running',
+    error: null,
+    createdAt: '2026-09-12T07:59:30.000Z',
+    finishedAt: null,
+  },
+  {
+    id: 'r-failed',
+    type: 'report',
+    format: 'timeline',
+    focus: '',
+    title: null,
+    status: 'failed',
+    error: 'The model was busy. Try again in a moment.',
+    createdAt: '2026-09-12T07:10:00.000Z',
+    finishedAt: '2026-09-12T07:10:12.000Z',
+  },
+];
+
+const REPORT_PROMPT = `Write a report from the documents above.
+
+Every claim comes from the documents, and the ones that carry weight carry a
+citation.
+
+## Structure
+
+# ‹Title›
+
+One line naming what the documents are about.`;
+
+function reportBody() {
+  return {
+    ...REPORTS[0],
+    promptUsed: REPORT_PROMPT,
+    // Copied from the shape of the first real report this repository produced
+    // (M6-T1, a Briefing Doc over the corpus): the model marked its title with
+    // two hashes although the prompt asks for one, and put its subsections a
+    // level below its sections. The panel has to read that as a document.
+    segments: [
+      {
+        text: '## Pflichten für Hochrisiko-KI-Systeme\n\n## Das Wichtigste in Kürze\n\nEin Risikomanagementsystem ist einzurichten, und die technische Dokumentation entsteht, bevor das System in Verkehr gebracht wird',
+        citations: [cite('s2', CITED[0])],
+      },
+      {
+        text: '. Das Risikomanagementsystem laeuft ',
+        citations: [cite('s1', CITED[1], 12)],
+      },
+      {
+        text:
+          '.\n\n### Risikomanagement (Artikel 9)\n\nDer Prozess laeuft ueber den gesamten ' +
+          'Lebenszyklus.\n\n## Wo sich die Quellen widersprechen\n\nDie Textstellen ' +
+          'widersprechen einander nicht.',
+        citations: [],
+      },
+    ],
+  };
+}
+
 function json(body: unknown) {
   return { status: 200, contentType: 'application/json', body: JSON.stringify(body) };
 }
@@ -292,6 +372,34 @@ export async function stubApi(page: Page): Promise<void> {
     if (path === `/api/notebooks/${NOTEBOOK_ID}/sources`) {
       return route.fulfill(json({ sources: SOURCES }));
     }
+    if (path === `/api/notebooks/${NOTEBOOK_ID}/reports`) {
+      if (route.request().method() === 'POST') {
+        const asked = route.request().postDataJSON() as { format: string };
+        return route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            report: {
+              id: `r-new-${asked.format}`,
+              type: 'report',
+              format: asked.format,
+              focus: '',
+              title: null,
+              status: 'queued',
+              error: null,
+              createdAt: new Date().toISOString(),
+              finishedAt: null,
+            },
+          }),
+        });
+      }
+      return route.fulfill(json({ reports: REPORTS }));
+    }
+
+    if (path === `/api/notebooks/${NOTEBOOK_ID}/reports/r-ready`) {
+      return route.fulfill(json({ report: reportBody() }));
+    }
+
     if (path === `/api/notebooks/${NOTEBOOK_ID}/messages`) {
       return route.fulfill(json({ messages: MESSAGES }));
     }

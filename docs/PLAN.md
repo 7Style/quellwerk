@@ -430,7 +430,7 @@ Files: frontend/src/modules/studio/{components,pages}/*
 Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/studio.spec.ts`
 Expected: a generating report shows its step, a finished report renders chips that open the source, the prompt dialog shows the rendered file.
 Box: 60
-Status: [ ]
+Status: [x]
 
 Milestone end: run `/eval` and record numbers, tag `m6-reports`, then deploy.
 

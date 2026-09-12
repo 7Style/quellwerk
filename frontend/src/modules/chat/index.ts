@@ -7,7 +7,6 @@ export type { BannerProps, BannerTone } from './components/Banner';
 export { Thinking } from './components/Thinking';
 export { Composer } from './components/Composer';
 export type { ComposerProps } from './components/Composer';
-export { CitationChip } from './components/CitationChip';
 export { useChatStream } from './hooks/useChatStream';
 export type { UseChatStreamOptions, UseChatStreamResult } from './hooks/useChatStream';
 export { chatApi, useListMessagesQuery } from './services/chat.api';

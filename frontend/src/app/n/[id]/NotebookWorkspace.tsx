@@ -11,6 +11,16 @@ import { Composer, Thread, useChatStream, useListMessagesQuery } from '@/modules
 import { OverviewHeader, useGetNotebookQuery } from '@/modules/notebooks';
 import { Topbar, Workspace } from '@/modules/shell';
 import {
+  ReportView,
+  StudioPanel,
+  isWriting,
+  useListReportsQuery,
+  useReportQuery,
+  useRequestReportMutation,
+  useRetryReportMutation,
+  WHILE_WRITING_MS,
+} from '@/modules/studio';
+import {
   SourcesPanel,
   SourceViewer,
   useAddPastedSourceMutation,
@@ -90,6 +100,25 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
   );
 
   const chat = useChatStream({ notebookId, initial: history.data });
+
+  const reports = useListReportsQuery(notebookId);
+  const writing = (reports.data ?? []).some(isWriting);
+
+  // A report takes about half a minute and nothing pushes, so the panel asks
+  // again while one is being written and stops the moment none is.
+  useListReportsQuery(notebookId, {
+    pollingInterval: writing ? WHILE_WRITING_MS : 0,
+    skip: !writing,
+  });
+
+  const [openReportId, setOpenReportId] = useState<string | null>(null);
+  const report = useReportQuery(
+    { notebookId, reportId: openReportId ?? '' },
+    { skip: openReportId === null }
+  );
+
+  const [requestReport] = useRequestReportMutation();
+  const [retryReport] = useRetryReportMutation();
 
   // One box, filled from three places: the reader typing, a follow-up of the
   // last turn, and a suggested question from the overview.
@@ -175,53 +204,70 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
           )
         }
         chat={
-          <Thread
-            header={
-              notebook.data ? (
-                <OverviewHeader
-                  notebook={{ ...notebook.data, sourceCount: rows.length }}
-                  onAsk={setQuestion}
-                />
-              ) : null
-            }
-            messages={chat.messages}
-            state={chat.state}
-            sourceCount={ready.length}
-            onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
-            error={chat.error}
-            onRetry={chat.retryable ? chat.dismissError : undefined}
-          />
+          openReportId ? (
+            <ReportView
+              report={report.data ?? null}
+              loading={report.isFetching}
+              error={report.isError ? 'The report could not be loaded.' : null}
+              onClose={() => setOpenReportId(null)}
+              onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
+            />
+          ) : (
+            <Thread
+              header={
+                notebook.data ? (
+                  <OverviewHeader
+                    notebook={{ ...notebook.data, sourceCount: rows.length }}
+                    onAsk={setQuestion}
+                  />
+                ) : null
+              }
+              messages={chat.messages}
+              state={chat.state}
+              sourceCount={ready.length}
+              onOpenCitation={(citation) => viewer.open(citation.sourceId, highlightOf(citation))}
+              error={chat.error}
+              onRetry={chat.retryable ? chat.dismissError : undefined}
+            />
+          )
         }
         composer={
-          <Composer
-            value={question}
-            onValueChange={setQuestion}
-            suggestions={chat.suggestions}
-            busy={chat.busy}
-            onAsk={chat.ask}
-            onStop={chat.stop}
-            meta={
-              rows.length === 1
-                ? `${ready.length} of 1 source ready`
-                : `${ready.length} of ${rows.length} sources ready`
-            }
-          />
+          // The composer belongs to the conversation. A report has taken the
+          // column; the way back is the chevron at its top.
+          openReportId ? null : (
+            <Composer
+              value={question}
+              onValueChange={setQuestion}
+              suggestions={chat.suggestions}
+              busy={chat.busy}
+              onAsk={chat.ask}
+              onStop={chat.stop}
+              meta={
+                rows.length === 1
+                  ? `${ready.length} of 1 source ready`
+                  : `${ready.length} of ${rows.length} sources ready`
+              }
+            />
+          )
         }
         studio={
-          <div className="flex flex-col gap-5 p-3">
-            <section>
-              <h3 className="m-0 mb-2 text-small font-semibold text-ink-muted">Reports</h3>
-              <p className="m-0 text-ink-faint">
-                A Briefing Doc, a Study Guide, an FAQ or a Timeline, written from the sources.
-              </p>
-            </section>
-            <section>
-              <h3 className="m-0 mb-2 text-small font-semibold text-ink-muted">Notes</h3>
-              <p className="m-0 text-ink-faint">
-                Save an answer here, or write your own and turn it into a source.
-              </p>
-            </section>
-          </div>
+          <StudioPanel
+            reports={reports.data ?? []}
+            loading={reports.isLoading}
+            hasSources={ready.length > 0}
+            openReportId={openReportId ?? undefined}
+            onRequest={(input) =>
+              requestReport({ notebookId, ...input })
+                .unwrap()
+                .then(() => undefined)
+            }
+            onOpen={setOpenReportId}
+            onRetry={(reportId) =>
+              retryReport({ notebookId, reportId })
+                .unwrap()
+                .then(() => undefined)
+            }
+          />
         }
       />
     </div>

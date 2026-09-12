@@ -13,6 +13,11 @@ export interface CitationChipProps {
 /**
  * The chip at the end of a sentence, and the card that shows what it points at.
  *
+ * Under components/ and not in a module because two modules draw it: the chat
+ * draws an answer, the studio draws a report, and a chip in a report has to mean
+ * exactly what a chip in an answer means. A module may not import another one,
+ * so what both need lives here.
+ *
  * The accent belongs to provenance and to nothing else (styles/global.css), so
  * this and the mark in the viewer are the two places it appears in a message.
  *
