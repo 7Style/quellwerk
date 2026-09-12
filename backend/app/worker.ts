@@ -20,6 +20,8 @@ import {
   AnthropicLlmAdapter,
   buildArtifactRequest,
   buildCountTokensRequest,
+  byDocumentOrder,
+  usageFrom,
   type DocumentSource,
 } from './adapters/llm/index.js';
 import { logger } from './common/utils/logger.util.js';
@@ -48,8 +50,13 @@ import {
   createWorker,
   dedupeKey,
   enqueueDebounced,
+  type ArtifactJob,
   type QueuedJob,
 } from './services/queue/index.js';
+import { buildReportRequest } from './wiring/studio.js';
+import { runReportJob, type ReportDeps, type ReportFormat } from './modules/studio/index.js';
+import { resolveAnswer } from './modules/chat/index.js';
+import { pageAt, type PageSpan } from './modules/sources/internal/pages.js';
 import { recordUsage } from './services/usage-log/index.js';
 
 const llm = new AnthropicLlmAdapter();
@@ -374,8 +381,149 @@ function overviewDeps(notebookId: string) {
   };
 }
 
+/**
+ * What a report job needs, wired to Prisma, the prompt loader and the adapter.
+ *
+ * `write` is the interesting one. It builds the same request a chat turn
+ * builds - same documents, same system block, same effort - streams it to the
+ * end, and puts every citation through the same resolver the chat route uses
+ * before a single one is stored. A chip in a report means exactly what a chip
+ * in an answer means, or it is not there (ADR-0003).
+ */
+/** The guides of the ready sources, fed to the language rule that exists. */
+async function reportLanguage(notebookId: string): Promise<string> {
+  const rows = await prisma.source.findMany({
+    where: { notebookId, status: 'ready' },
+    orderBy: { position: 'asc' },
+    select: { guide: true },
+  });
+  return languageOf(rows.map((row) => row.guide));
+}
+
+function reportDeps(notebookId: string): ReportDeps {
+  return {
+    getArtifact: async (id) => {
+      const row = await prisma.artifact.findUnique({
+        where: { id },
+        select: { id: true, notebookId: true, type: true, status: true, params: true },
+      });
+      if (!row) return null;
+      const params = row.params as { format?: string; focus?: string } | null;
+      return {
+        id: row.id,
+        notebookId: row.notebookId,
+        type: row.type,
+        status: row.status,
+        params:
+          params && typeof params.format === 'string'
+            ? { format: params.format as ReportFormat, focus: params.focus ?? '' }
+            : null,
+      };
+    },
+
+    readySources: async (id) => {
+      const rows = await prisma.source.findMany({
+        where: { notebookId: id, status: 'ready' },
+        select: { id: true, position: true, title: true, kind: true, text: true, pages: true },
+      });
+      // Sorted with the builder's comparator, not with orderBy: the index in
+      // this array is what a citation's document_index resolves against, so it
+      // has to be the order the document blocks go out in, tie for tie.
+      return [...rows]
+        .sort(byDocumentOrder)
+        .map((row) => ({
+          id: row.id,
+          position: row.position,
+          title: row.title,
+          kind: row.kind,
+          text: row.text,
+          pageCount: Array.isArray(row.pages) ? row.pages.length : null,
+        }));
+    },
+
+    start: async (artifactId) => {
+      await prisma.artifact.update({
+        where: { id: artifactId },
+        data: { status: 'running', startedAt: new Date(), heartbeatAt: new Date() },
+      });
+    },
+
+    write: async (format, focus, sources) => {
+      const { request, sourceIds, promptUsed } = await buildReportRequest({
+        format,
+        focus,
+        sources,
+        language: await reportLanguage(notebookId),
+      });
+
+      const started = Date.now();
+      const message = await llm.streamToMessage(request);
+
+      await recordUsage({
+        ...usageFrom(message.usage, {
+          stopReason: message.stop_reason,
+          requestId: null,
+          latencyMs: Date.now() - started,
+        }),
+        route: `studio.report.${format}`,
+        model: models.chat,
+        notebookId,
+      });
+
+      const byId = new Map(sources.map((source) => [source.id, source]));
+      const pagesById = new Map<string, PageSpan[]>();
+
+      const answer = resolveAnswer(message.content, {
+        sourceIds,
+        sources: byId,
+        pageAt: (sourceId, offset) => pageAt(pagesById.get(sourceId) ?? [], offset),
+      });
+
+      if (answer.droppedCitations.length > 0) {
+        // Offsets and lengths, never the cited text or the slice (CLAUDE.md).
+        logger.warn('[Worker] report citations dropped', {
+          notebookId,
+          count: answer.droppedCitations.length,
+          dropped: answer.droppedCitations,
+        });
+      }
+
+      return {
+        segments: answer.segments,
+        promptUsed,
+        droppedCitations: answer.droppedCitations.length,
+      };
+    },
+
+    finish: async (artifactId, report) => {
+      await prisma.artifact.update({
+        where: { id: artifactId },
+        data: {
+          status: 'ready',
+          title: report.title,
+          segments: report.segments as unknown as Prisma.InputJsonValue,
+          promptUsed: report.promptUsed,
+          error: null,
+          finishedAt: new Date(),
+        },
+      });
+    },
+
+    fail: async (artifactId, reason) => {
+      await prisma.artifact.update({
+        where: { id: artifactId },
+        data: { status: 'failed', error: reason, finishedAt: new Date() },
+      });
+    },
+
+    onError: (error, artifactId) => {
+      logger.error('[Worker] report failed', error, { artifactId, notebookId });
+    },
+  };
+}
+
 async function main(): Promise<void> {
-  logger.info('[Worker] starting', { queues: ['ingest'] });
+  logger.info('[Worker] starting', { queues: ['ingest', 'artifact'] });
 
   const ingest = createWorker<QueuedJob>('ingest', async (job) => {
     const data = job.data;
@@ -390,10 +538,24 @@ async function main(): Promise<void> {
     logger.info('[Worker] ingest', { sourceId: data.sourceId, ...result });
   });
 
+  // One at a time. A report is a 150,000 token request; two of them in parallel
+  // on one worker is two full prefixes in flight for a page nobody is waiting
+  // in front of.
+  const artifact = createWorker<ArtifactJob>(
+    'artifact',
+    async (job) => {
+      const data = job.data;
+      const result = await runReportJob(reportDeps(data.notebookId), data);
+      logger.info('[Worker] report', { artifactId: data.artifactId, ...result });
+    },
+    1
+  );
+
   const shutdown = (signal: NodeJS.Signals): void => {
     logger.info('[Worker] shutting down', { signal });
     void (async () => {
       await ingest.close();
+      await artifact.close();
       await titleLock.quit();
       await closeQueues();
       await prisma.$disconnect();

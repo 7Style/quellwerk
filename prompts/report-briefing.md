@@ -10,7 +10,7 @@ structure: true
 A briefing document: what someone needs to know before a meeting about these
 sources, in the order they need it.
 
-## ‹Title›
+# ‹Title›
 
 One line naming what the documents are about. Not "Briefing Doc".
 

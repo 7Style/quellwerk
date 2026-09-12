@@ -23,6 +23,7 @@ import { access } from 'node:fs/promises';
 import path from 'node:path';
 
 import { byFile, loadCorpus } from './corpus.js';
+import { formatCacheCheck, runCacheCheck } from './cache-check.js';
 import { devSplit, GOLDEN_FILE, loadGolden, type GoldenItem } from './golden.js';
 import { createJudge, isSelfJudged, type Judge } from './judges.js';
 import { LiveAnswerer } from './answerers/live.answerer.js';
@@ -45,7 +46,6 @@ const NOT_YET: Record<string, string> = {
   // test. Recording from the live answerer would make --smoke a replay of one
   // past run instead, which is a different and weaker thing.
   record: 'not written. The shipped fixtures are handwritten; see evals/fixtures/*.json',
-  'cache-check': 'M6-T1, it asserts cache_read_input_tokens on a second turn',
   batch: 'M6',
 };
 
@@ -138,6 +138,23 @@ async function select(mode: Mode, items: GoldenItem[]): Promise<Selection> {
 async function main(): Promise<void> {
   const mode = parseMode(process.argv.slice(2));
   const notes: string[] = [];
+
+  // Its own shape: four calls, one number each, no golden set and no judge.
+  // Forcing it through the item runner would mean inventing items whose only
+  // purpose is to be sent twice.
+  if (mode === 'cache-check') {
+    if (!env.ANTHROPIC_API_KEY) {
+      console.error('--cache-check calls the real model and needs ANTHROPIC_API_KEY.');
+      process.exit(2);
+    }
+
+    const report = await runCacheCheck(await loadCorpus());
+    console.log(formatCacheCheck(report));
+    console.log('');
+
+    if (report.failures.length > 0) process.exit(1);
+    return;
+  }
 
   const blocked = NOT_YET[mode];
   if (blocked) {

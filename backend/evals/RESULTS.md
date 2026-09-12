@@ -11,6 +11,38 @@ leaves the word out will be quoted as if it were the better of the two.
 
 Why a revision moved a number belongs in `HILLCLIMB.md`, not here.
 
+## 2026-09-12, M6-T1: the cache is read, including by a report
+
+`pnpm eval --cache-check`, four calls against the real API.
+
+| call | input | cache read | cache write |
+|---|---|---|---|
+| first turn | 21 | 0 | 76,239 |
+| second turn | 23 | 76,239 | 0 |
+| after Configure chat | 42 | 76,239 | 0 |
+| report right after a chat turn | 601 | 76,239 | 0 |
+
+This is the whole economic claim of ADR-0002 on one screen. The documents are
+paid for once, and every call after that reads them back for a tenth of the
+price. The input column is what is actually new each time: a question is twenty
+tokens, a report task is six hundred.
+
+The fourth row is the one worth the four calls. A report is a chat turn whose
+last message is a task instead of a question - same documents, same system
+block, same effort - and if any of those three had drifted it would be a second
+cache namespace. Nothing in the interface would look different; every report
+over a full notebook would simply cost about ten times what it should, for ever,
+and the only trace would be this number staying at zero.
+
+The third row is the one that is easy to get wrong the other way. Configure chat
+sets style and length, and they go into the last user turn, behind the
+breakpoint (prompts/README.md, cache rule 3). Had they gone into the system
+block - which is where a reader would first think to put them - changing the
+style would throw away the whole prefix.
+
+Run it after touching a request builder, the system prompt or the effort. It
+costs four calls and it is the only thing that notices.
+
 ## 2026-09-12, M4 close: unchanged, which is the result
 
 **From `golden.draft.jsonl` again**; the golden set is still written by hand

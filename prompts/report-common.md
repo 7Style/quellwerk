@@ -26,7 +26,9 @@ section's heading and one sentence saying the sources do not cover it. Do not
 fill it from what you know. A short report that is true is the deliverable; a
 complete-looking one that is half invented is not.
 
-No preamble and no closing note. The report begins with its first heading.
+No preamble and no closing note. The report begins with its title, which is the
+only first-level heading; every section below it is a level down. A document
+whose title looks like its sections is a document nobody can skim.
 
 {{#if focus}}
 ## What the reader asked for

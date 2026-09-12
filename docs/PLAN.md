@@ -422,7 +422,7 @@ Files: backend/app/modules/studio/*, backend/app/worker.ts, backend/evals/run.ts
 Test: `pnpm --filter @quellwerk/backend test -- studio.reports && pnpm eval --cache-check`
 Expected: the same request twice produces one report, a failing model call ends as `failed` with a reason and nothing half-written; `cache_read_input_tokens > 0` on the second turn, after a Configure chat change and on a report request.
 Box: 75
-Status: [ ]
+Status: [x]
 
 ### M6-T2 Studio panel
 Goal: The panel lists the formats, shows progress and opens a finished report with its chips and "View prompt used".

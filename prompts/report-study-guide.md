@@ -10,7 +10,7 @@ structure: true
 A study guide: what to learn from these sources, and how to check whether it
 stuck.
 
-## ‹Title›
+# ‹Title›
 
 One line naming the subject.
 

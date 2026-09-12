@@ -9,7 +9,7 @@ structure: true
 
 A timeline of what the documents date.
 
-## ‹Title›
+# ‹Title›
 
 One line naming what is being dated.
 

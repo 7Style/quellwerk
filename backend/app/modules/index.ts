@@ -18,12 +18,13 @@ import { prisma } from '../lib/prisma.js';
 import { AnthropicLlmAdapter, buildCountTokensRequest } from '../adapters/llm/index.js';
 import { models } from '../config/models.js';
 import { createUploadMiddleware } from '../common/middleware/upload.middleware.js';
-import { dedupeKey, enqueue, type QueuedJob } from '../services/queue/index.js';
+import { dedupeKey, enqueue, type ArtifactJob, type QueuedJob } from '../services/queue/index.js';
 import { assertBudgetLeft } from '../services/quota/index.js';
 import { initSessionModule, sessionIdOf } from './session/index.js';
 import { initNotebooksModule } from './notebooks/index.js';
 import { initSourcesModule } from './sources/index.js';
 import { initChatModule } from './chat/index.js';
+import { initStudioModule } from './studio/index.js';
 import { budgetMiddleware, chatDeps, loadMessages } from '../wiring/chat.js';
 import { initAdminModule } from './admin/index.js';
 
@@ -74,9 +75,13 @@ export async function registerModules(app: Express): Promise<void> {
   // other: the answer is handed over as a function.
   const llm = new AnthropicLlmAdapter();
 
+  // Out of the try below, because two modules ask it the ownership question:
+  // sources and studio. A failure here is fatal either way - the catch rethrows
+  // - so nothing is lost by mounting it first.
+  const notebooks = initNotebooksModule(app, { prisma, sessionIdOf });
+  startupStatus.moduleOk('Notebooks');
+
   try {
-    const notebooks = initNotebooksModule(app, { prisma, sessionIdOf });
-    startupStatus.moduleOk('Notebooks');
 
     initSourcesModule(app, {
       prisma,
@@ -143,7 +148,37 @@ export async function registerModules(app: Express): Promise<void> {
     throw error;
   }
 
-  // notes arrive in M5-T4, studio in M6-T1.
+  try {
+    initStudioModule(app, {
+      prisma,
+      sessionIdOf,
+      notebooks: {
+        readable: async (notebookId, sessionId) =>
+          notebooks.service.readable(notebookId, sessionId),
+        writable: async (notebookId, sessionId) =>
+          notebooks.service.writable(notebookId, sessionId),
+      },
+      assertBudgetLeft: () => assertBudgetLeft(),
+      // The API never waits for a report; the worker writes it (ADR-0009).
+      // One job id per (notebook, report, key), so a second enqueue for a
+      // report already queued is dropped by BullMQ rather than run twice.
+      enqueueReport: ({ artifactId, notebookId }) =>
+        enqueue('artifact', dedupeKey(notebookId, 'report', artifactId), {
+          kind: 'report',
+          artifactId,
+          notebookId,
+        } satisfies ArtifactJob),
+      // A report is one model call over the whole notebook, so it sits behind
+      // the same per-session ceiling as an upload (SECURITY.md 7.3).
+      limit: createRateLimiter('sources', config.rateLimit.sources),
+    });
+    startupStatus.moduleOk('Studio');
+  } catch (error) {
+    startupStatus.moduleFail('Studio', error);
+    throw error;
+  }
+
+  // notes arrive in M5-T4.
 
   logger.info('[Modules] All modules registered successfully');
   startupStatus.logSummary();

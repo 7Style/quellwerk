@@ -29,6 +29,9 @@ export type QueuedJob =
   | { kind: 'ingest'; sourceId: string; notebookId: string }
   | { kind: 'overview'; notebookId: string };
 
+/** What travels on the artifact queue. Reports today, audio in M10. */
+export type ArtifactJob = { kind: 'report'; artifactId: string; notebookId: string };
+
 export function dedupeKey(notebookId: string, type: string, params: string): string {
   // No colon: BullMQ treats it as a separator in job ids.
   return [notebookId, type, params].join('.');
