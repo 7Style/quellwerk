@@ -61,6 +61,21 @@ test.describe('the panel', () => {
     await expect(page.getByTestId('retry-r-failed')).toBeVisible();
   });
 
+  test('says so when a report has been written for longer than that can mean', async ({
+    page,
+  }) => {
+    // Not a spinner that never ends (docs/SPEC.md). The row stops claiming to
+    // be in progress and says what is actually the case.
+    await expect(page.getByTestId('state-r-stalled')).toHaveText('Taking too long');
+    await expect(page.getByTestId('stuck-r-stalled')).toContainText(
+      'the writer on the server did not pick it up'
+    );
+    // The fresh one next to it still reads as work in progress.
+    await expect(page.getByTestId('state-r-writing')).toHaveText(
+      'Reading the sources and writing'
+    );
+  });
+
   test('asks for Create your own before writing it', async ({ page }) => {
     await page.getByTestId('request-custom').click();
 
@@ -72,6 +87,33 @@ test.describe('the panel', () => {
 
     await dialog.getByLabel('Describe the report').fill('Only the deadlines, one page');
     await expect(dialog.getByRole('button', { name: 'Write it' })).toBeEnabled();
+  });
+});
+
+test.describe('a refused request', () => {
+  test('keeps the description the reader typed', async ({ page }) => {
+    await stubApi(page, {
+      refuseReport: {
+        status: 429,
+        code: 'RATE_LIMITED',
+        message: 'Too many artifacts in this hour. The limit resets on the hour.',
+      },
+    });
+    await page.goto('/n/3f1b0a3c-1f2e-4c3a-9a1b-000000000001');
+
+    await page.getByTestId('request-custom').click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Describe the report').fill('Only the deadlines, one page');
+    await dialog.getByRole('button', { name: 'Write it' }).click();
+
+    // Five lines typed and a 429 is not a reason to type them again.
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Describe the report')).toHaveValue(
+      'Only the deadlines, one page'
+    );
+    await expect(page.getByTestId('studio-error')).toHaveText(
+      'Too many artifacts in this hour. The limit resets on the hour.'
+    );
   });
 });
 

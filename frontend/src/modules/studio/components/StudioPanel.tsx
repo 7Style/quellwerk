@@ -25,6 +25,13 @@ export interface StudioPanelProps {
   openReportId?: string;
   /** No sources, no report: the panel says so instead of offering a page of nothing. */
   hasSources: boolean;
+  /**
+   * Reports that have been "being written" for longer than that can mean.
+   *
+   * Decided one level up, where the clock lives, because reading the time
+   * during render would make two renders in the same second disagree.
+   */
+  stuck?: readonly string[];
 }
 
 /**
@@ -43,6 +50,7 @@ export function StudioPanel({
   onRetry,
   openReportId,
   hasSources,
+  stuck = [],
 }: StudioPanelProps) {
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState<ReportFormat | null>(null);
@@ -52,13 +60,15 @@ export function StudioPanel({
     reports.filter((one) => one.format !== 'custom').map((one) => one.format)
   );
 
-  async function request(format: ReportFormat, focus?: string) {
+  async function request(format: ReportFormat, focus?: string): Promise<boolean> {
     setFailure(null);
     setPending(format);
     try {
       await onRequest({ format, focus });
+      return true;
     } catch (cause) {
       setFailure(messageOf(cause));
+      return false;
     } finally {
       setPending(null);
     }
@@ -126,6 +136,7 @@ export function StudioPanel({
             key={report.id}
             report={report}
             current={report.id === openReportId}
+            stuck={stuck.includes(report.id)}
             onOpen={() => onOpen(report.id)}
             onRetry={() => onRetry(report.id)}
           />
@@ -144,15 +155,17 @@ export function StudioPanel({
 function ReportRow({
   report,
   current,
+  stuck,
   onOpen,
   onRetry,
 }: {
   report: ReportSummary;
   current: boolean;
+  stuck: boolean;
   onOpen: () => void;
   onRetry: () => Promise<void>;
 }) {
-  const writing = isWriting(report);
+  const writing = isWriting(report) && !stuck;
 
   return (
     <div
@@ -179,7 +192,7 @@ function ReportRow({
             className="mt-px block text-micro text-ink-faint"
             data-testid={`state-${report.id}`}
           >
-            {stateLine(report)}
+            {stateLine(report, stuck)}
           </span>
         </span>
         {report.status === 'ready' ? <Icon name="chevronRight" className="text-ink-muted" /> : null}
@@ -194,6 +207,16 @@ function ReportRow({
         >
           <span className="block h-full w-1/3 bg-ink-faint motion-safe:animate-[qw-slide_1.4s_ease-in-out_infinite]" />
         </span>
+      ) : null}
+
+      {stuck ? (
+        // Not a spinner that never ends (docs/SPEC.md). There is no retry here:
+        // the route only takes a report that failed, and this row never did -
+        // the sweeper that makes it terminal arrives in M7-T5.
+        <p className="m-0 text-micro text-ink-muted" data-testid={`stuck-${report.id}`}>
+          A report takes about half a minute. This one has been waiting for minutes, which means the
+          writer on the server did not pick it up. The rest of the notebook works.
+        </p>
       ) : null}
 
       {report.status === 'failed' ? (
@@ -217,7 +240,8 @@ function ReportRow({
 }
 
 /** What is happening to this report, in words rather than a spinner alone. */
-function stateLine(report: ReportSummary): string {
+function stateLine(report: ReportSummary, stuck = false): string {
+  if (stuck) return 'Taking too long';
   if (report.status === 'queued') return 'Waiting for the writer';
   if (report.status === 'running') return 'Reading the sources and writing';
   if (report.status === 'failed') return 'Could not be written';

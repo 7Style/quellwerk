@@ -14,6 +14,7 @@ import {
   ReportView,
   StudioPanel,
   isWriting,
+  REPORT_STUCK_AFTER_MS,
   useListReportsQuery,
   useReportQuery,
   useRequestReportMutation,
@@ -68,15 +69,20 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
   // the same second would disagree. The interval runs only while something is
   // queued, and 0 before the first tick simply means "not yet stuck".
   const queued = rows.some((source) => source.status === 'queued');
+
+  const reports = useListReportsQuery(notebookId);
+  const reportRows = useMemo(() => reports.data ?? [], [reports.data]);
+  const beingWritten = reportRows.some(isWriting);
+
   const [now, setNow] = useState(0);
   useEffect(() => {
-    if (!queued) return;
+    if (!queued && !beingWritten) return;
     // Only the interval. Setting the clock straight away would be a state write
     // inside the effect body, and the first tick is two seconds away against a
     // three minute threshold.
     const tick = setInterval(() => setNow(Date.now()), WHILE_READING_MS);
     return () => clearInterval(tick);
-  }, [queued]);
+  }, [queued, beingWritten]);
 
   const stuck = rows.filter(
     (source) => source.status === 'queued' && now - Date.parse(source.createdAt) > STUCK_AFTER_MS
@@ -101,11 +107,16 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
 
   const chat = useChatStream({ notebookId, initial: history.data });
 
-  const reports = useListReportsQuery(notebookId);
-  const writing = (reports.data ?? []).some(isWriting);
+  // Same rule as a source that never got read: a row still being written long
+  // after a report could plausibly take is stuck, and the panel stops asking
+  // rather than shimmering under a line that never changes.
+  const stuckReports = reportRows
+    .filter((report) => isWriting(report) && now - Date.parse(report.createdAt) > REPORT_STUCK_AFTER_MS)
+    .map((report) => report.id);
 
   // A report takes about half a minute and nothing pushes, so the panel asks
   // again while one is being written and stops the moment none is.
+  const writing = beingWritten && stuckReports.length === 0;
   useListReportsQuery(notebookId, {
     pollingInterval: writing ? WHILE_WRITING_MS : 0,
     skip: !writing,
@@ -256,6 +267,7 @@ export function NotebookWorkspace({ notebookId }: NotebookWorkspaceProps) {
             loading={reports.isLoading}
             hasSources={ready.length > 0}
             openReportId={openReportId ?? undefined}
+            stuck={stuckReports}
             onRequest={(input) =>
               requestReport({ notebookId, ...input })
                 .unwrap()

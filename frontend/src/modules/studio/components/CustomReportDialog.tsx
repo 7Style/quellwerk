@@ -12,7 +12,8 @@ const MAX_FOCUS_CHARS = 1_000;
 export interface CustomReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (focus: string) => Promise<void>;
+  /** True when the report was actually asked for; false when the server refused. */
+  onSubmit: (focus: string) => Promise<boolean>;
 }
 
 /**
@@ -30,12 +31,14 @@ export function CustomReportDialog({ open, onOpenChange, onSubmit }: CustomRepor
     if (focus.trim().length === 0 || sending) return;
     setSending(true);
     try {
-      await onSubmit(focus.trim());
-      setFocus('');
-      onOpenChange(false);
+      // Left open on a failure, with the text still in the box: a reader who
+      // typed five lines and met a 429 must not have to type them again. The
+      // panel shows what the server said.
+      if (await onSubmit(focus.trim())) {
+        setFocus('');
+        onOpenChange(false);
+      }
     } finally {
-      // Left open on a failure, with the text still in the box. The panel shows
-      // what the server said.
       setSending(false);
     }
   }

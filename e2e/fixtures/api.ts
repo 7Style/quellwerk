@@ -269,10 +269,46 @@ export const SUGGESTIONS = [
 ];
 
 /**
- * Three reports, one per state the panel has to draw: written, being written,
- * and failed. The written one carries real citations, so the chips in a report
- * can be clicked into the document exactly as the chips in an answer are.
+ * Four reports, one per state the panel has to draw: written, being written,
+ * failed, and being written for so long that it is not being written at all.
+ * The written one carries real citations, so the chips in a report can be
+ * clicked into the document exactly as the chips in an answer are.
+ *
+ * Two of the four carry a clock rather than a date, because the panel reads the
+ * age of a row and not its timestamp: `r-writing` has to be young enough to
+ * still be plausible and `r-stalled` old enough not to be, whenever the suite
+ * happens to run.
  */
+function reports() {
+  return [
+    ...REPORTS,
+    {
+      id: 'r-writing',
+      type: 'report',
+      format: 'faq',
+      focus: '',
+      title: null,
+      status: 'running',
+      error: null,
+      createdAt: new Date(Date.now() - 20_000).toISOString(),
+      finishedAt: null,
+    },
+    {
+      // Custom on purpose: it is the one format the panel never counts as
+      // written, so this row does not take the offer away from another test.
+      id: 'r-stalled',
+      type: 'report',
+      format: 'custom',
+      focus: 'Only the deadlines, one page',
+      title: null,
+      status: 'running',
+      error: null,
+      createdAt: new Date(Date.now() - 20 * 60_000).toISOString(),
+      finishedAt: null,
+    },
+  ];
+}
+
 const REPORTS = [
   {
     id: 'r-ready',
@@ -284,17 +320,6 @@ const REPORTS = [
     error: null,
     createdAt: '2026-09-12T07:00:00.000Z',
     finishedAt: '2026-09-12T07:00:41.000Z',
-  },
-  {
-    id: 'r-writing',
-    type: 'report',
-    format: 'faq',
-    focus: '',
-    title: null,
-    status: 'running',
-    error: null,
-    createdAt: '2026-09-12T07:59:30.000Z',
-    finishedAt: null,
   },
   {
     id: 'r-failed',
@@ -358,7 +383,17 @@ function json(body: unknown) {
  * Anything not listed answers 404, on purpose: a request nobody expected should
  * make a test fail rather than hang on a real network that is not there.
  */
-export async function stubApi(page: Page): Promise<void> {
+export interface StubOptions {
+  /**
+   * Answer a report request with this instead of creating one.
+   *
+   * The interesting case is not the 201: it is what the dialog does with five
+   * lines the reader typed when the server says 429.
+   */
+  refuseReport?: { status: number; code: string; message: string };
+}
+
+export async function stubApi(page: Page, options: StubOptions = {}): Promise<void> {
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -374,6 +409,14 @@ export async function stubApi(page: Page): Promise<void> {
     }
     if (path === `/api/notebooks/${NOTEBOOK_ID}/reports`) {
       if (route.request().method() === 'POST') {
+        const refusal = options.refuseReport;
+        if (refusal) {
+          return route.fulfill({
+            status: refusal.status,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: { code: refusal.code, message: refusal.message } }),
+          });
+        }
         const asked = route.request().postDataJSON() as { format: string };
         return route.fulfill({
           status: 201,
@@ -393,7 +436,7 @@ export async function stubApi(page: Page): Promise<void> {
           }),
         });
       }
-      return route.fulfill(json({ reports: REPORTS }));
+      return route.fulfill(json({ reports: reports() }));
     }
 
     if (path === `/api/notebooks/${NOTEBOOK_ID}/reports/r-ready`) {

@@ -46,3 +46,18 @@ export interface ReportBody extends ReportSummary {
 export function isWriting(report: ReportSummary): boolean {
   return report.status === 'queued' || report.status === 'running';
 }
+
+/**
+ * How long the panel keeps asking before it says something is wrong.
+ *
+ * A report takes about half a minute, and the longest one measured was under
+ * two. A row still being written after five minutes is not slow, it is stuck:
+ * the worker was down when the job was queued, or it died mid-call and the row
+ * kept its `running`. The sweeper that would make such a row terminal arrives
+ * in M7-T5; until then the panel stops polling and says so, because
+ * docs/SPEC.md rules out a spinner that never ends.
+ *
+ * The same shape as the sources panel's `STUCK_AFTER_MS`, and for the same
+ * reason.
+ */
+export const REPORT_STUCK_AFTER_MS = 300_000;

@@ -12,5 +12,11 @@ export {
   useRetryReportMutation,
   WHILE_WRITING_MS,
 } from './services/studio.api';
-export { FORMAT_BLURBS, FORMAT_LABELS, isWriting, REPORT_FORMATS } from './types/report';
+export {
+  FORMAT_BLURBS,
+  FORMAT_LABELS,
+  isWriting,
+  REPORT_FORMATS,
+  REPORT_STUCK_AFTER_MS,
+} from './types/report';
 export type { ReportBody, ReportFormat, ReportStatus, ReportSummary } from './types/report';
