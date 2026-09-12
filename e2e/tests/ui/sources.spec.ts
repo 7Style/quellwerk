@@ -44,39 +44,24 @@ test.describe('the source list', () => {
     expect(new Set([ready, working, failed]).size).toBe(3);
   });
 
-  test('cannot select a source that is not ready', async ({ page }) => {
-    await expect(page.getByRole('checkbox', { name: /Internal memo/ })).toBeDisabled();
-    await expect(page.getByRole('checkbox', { name: /Board minutes/ })).toBeDisabled();
-    await expect(page.getByRole('checkbox', { name: /Regulation/ })).toBeEnabled();
+  test('offers no checkbox, because there is no selection to make', async ({ page }) => {
+    // docs/KNOWN-LIMITS.md: an answer sees every ready source. A box that
+    // promised to take one out would promise a filter nobody applies, and this
+    // product sells exactly one thing - that what it shows can be checked.
+    await expect(page.getByTestId('scroll-sources').getByRole('checkbox')).toHaveCount(0);
+    await expect(page.getByText('Select all sources')).toHaveCount(0);
   });
 
-  test('select all toggles all of them', async ({ page }) => {
-    const all = page.getByRole('checkbox', { name: 'Select all sources' });
-    const first = page.getByRole('checkbox', { name: /Regulation/ });
-    const second = page.getByRole('checkbox', { name: /Commission/ });
-
-    await expect(all).toBeChecked();
-    await expect(first).toBeChecked();
-    await expect(second).toBeChecked();
-
-    await all.uncheck();
-
-    await expect(first).not.toBeChecked();
-    await expect(second).not.toBeChecked();
-
-    await all.check();
-
-    await expect(first).toBeChecked();
-    await expect(second).toBeChecked();
+  test('says how many sources the answer will see', async ({ page }) => {
+    await expect(page.getByText('2 of 4 sources ready')).toBeVisible();
   });
 
-  test('unticks select all when one source is taken out', async ({ page }) => {
-    const all = page.getByRole('checkbox', { name: 'Select all sources' });
+  test('opens a ready source and leaves the others alone', async ({ page }) => {
+    const list = page.getByTestId('scroll-sources');
 
-    await page.getByRole('checkbox', { name: /Regulation/ }).uncheck();
-
-    await expect(all).not.toBeChecked();
-    await expect(page.getByRole('checkbox', { name: /Commission/ })).toBeChecked();
+    await expect(list.getByRole('button', { name: /Regulation/ })).toBeEnabled();
+    await expect(list.getByRole('button', { name: /Internal memo/ })).toBeDisabled();
+    await expect(list.getByRole('button', { name: /Board minutes/ })).toBeDisabled();
   });
 });
 

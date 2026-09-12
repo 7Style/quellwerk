@@ -9,7 +9,7 @@ Quellen kommen als Datei oder als eingefügter Text. Eine URL abzurufen, ist
 gestrichen.
 
 Der Grund ist der Server, nicht der Aufwand. Quellwerk läuft auf einer Maschine,
-die weitere Seiten trägt. Ein Dienst, der eine vom Nutzer gewählte URL abruft,
+die neun weitere Seiten trägt. Ein Dienst, der eine vom Nutzer gewählte URL abruft,
 ist eine serverseitige Anfrageschleuse: er kann interne Adressen erreichen, die
 von außen nicht erreichbar sind, Metadaten-Endpunkte der Infrastruktur, andere
 Container im selben Netz. Das nennt sich SSRF, und die Abwehr besteht nicht aus
@@ -30,8 +30,12 @@ wird.
 
 ## Keine Auswahl einzelner Quellen
 
-Jede Antwort arbeitet auf allen fertigen Quellen des Notizbuchs. Die Häkchen in
-der Quellenspalte wählen nichts ab.
+Jede Antwort arbeitet auf allen fertigen Quellen des Notizbuchs. Die Quellenspalte
+hat deshalb keine Häkchen: sie stand kurz im Entwurf und ist wieder heraus. Ein
+Schalter, der einen Filter verspricht und keinen anwendet, ist bei einem Produkt,
+dessen einziger Anspruch nachprüfbare Herkunft ist, der teuerste Kompromiss.
+Unter dem Eingabefeld steht stattdessen ein Satz, der stimmt: wie viele Quellen
+fertig gelesen sind und damit in der Antwort stecken.
 
 Der Grund liegt im Cache. Die Dokumente liegen im Nachrichtenteil des Requests
 und werden mit einem Breakpoint über eine Stunde zwischengespeichert (ADR-0002,

@@ -156,7 +156,7 @@ die Datenschutzseite und der Loom.
 |---|---|
 | Create new notebook | Neues Notizbuch anlegen |
 | Sources | Quellenspalte |
-| Add source | Quelle hinzufügen (Upload, Link, eingefügter Text) |
+| Add source | Quelle hinzufügen (Upload oder eingefügter Text; kein Link, siehe docs/KNOWN-LIMITS.md) |
 | Ask a question about your sources | Platzhalter im Eingabefeld |
 | Configure chat | Stil und Länge der Antworten |
 | Studio | Rechte Spalte mit den Artefakten |

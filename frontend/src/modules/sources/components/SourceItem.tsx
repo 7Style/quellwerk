@@ -52,29 +52,20 @@ function dotClass(source: SourceSummary): string {
 
 export interface SourceItemProps {
   source: SourceSummary;
-  selected: boolean;
-  onSelectedChange: (selected: boolean) => void;
-  /** Opens the source in the viewer (M4-T3). */
+  /** Opens the source in the viewer. */
   onOpen?: (id: string) => void;
   /** The source the viewer is currently showing. */
   current?: boolean;
 }
 
 /**
- * One row: a checkbox, a kind icon, the title over its state.
+ * One row: a kind icon, the title over its state.
  *
- * The row is a button and the checkbox sits inside it, which cannot be nested
- * in HTML, so the checkbox is a sibling and the button covers the rest. That
- * also separates the two actions a reader has here: opening a source and
- * choosing whether it is used.
+ * No checkbox. An answer works on every ready source of the notebook and a box
+ * that promised to take one out would not be applying a filter
+ * (docs/KNOWN-LIMITS.md). The row does one thing: it opens the source.
  */
-export function SourceItem({
-  source,
-  selected,
-  onSelectedChange,
-  onOpen,
-  current = false,
-}: SourceItemProps) {
+export function SourceItem({ source, onOpen, current = false }: SourceItemProps) {
   const usable = isUsable(source);
 
   return (
@@ -82,22 +73,10 @@ export function SourceItem({
       data-source={source.id}
       data-state={source.status}
       aria-current={current ? 'true' : undefined}
-      className={`grid grid-cols-[auto_16px_1fr] items-start gap-2 rounded-control border border-transparent p-2 ${
+      className={`grid grid-cols-[16px_1fr] items-start gap-2 rounded-control border border-transparent p-2 ${
         current ? 'bg-surface-sunken shadow-[inset_2px_0_0_var(--ink)]' : 'hover:bg-surface-sunken'
       }`}
     >
-      {/* A source that is not ready is not used, so its box is empty. Ticked and
-          greyed out would say the opposite: that a file which could not be read
-          is in the answer anyway. */}
-      <input
-        type="checkbox"
-        className="mt-px h-[15px] w-[15px] cursor-pointer accent-[var(--ink)]"
-        checked={usable && selected}
-        disabled={!usable}
-        onChange={(event) => onSelectedChange(event.target.checked)}
-        aria-label={`Use ${source.title}`}
-      />
-
       <Icon name={ICON_FOR[source.kind]} className="mt-px text-ink-faint" />
 
       <button

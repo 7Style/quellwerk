@@ -129,27 +129,15 @@ export function StatesCatalogue() {
           </h2>
 
           <Specimen label="Queued" width={300}>
-            <SourceItem
-              source={sourceIn('queued', null)}
-              selected={false}
-              onSelectedChange={noop}
-            />
+            <SourceItem source={sourceIn('queued', null)} />
           </Specimen>
 
           <Specimen label="Reading" width={300}>
-            <SourceItem
-              source={sourceIn('queued', 'extract')}
-              selected={false}
-              onSelectedChange={noop}
-            />
+            <SourceItem source={sourceIn('queued', 'extract')} />
           </Specimen>
 
           <Specimen label="Failed" width={300}>
-            <SourceItem
-              source={sourceIn('failed', null, 'The file is not a readable PDF.')}
-              selected={false}
-              onSelectedChange={noop}
-            />
+            <SourceItem source={sourceIn('failed', null, 'The file is not a readable PDF.')} />
           </Specimen>
 
           <Specimen label="Almost no readable text" width={520}>
