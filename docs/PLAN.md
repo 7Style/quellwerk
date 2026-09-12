@@ -330,7 +330,7 @@ Files: frontend/src/modules/notebooks/{pages,components,fixtures,types}/*, front
 Test: `pnpm --filter @quellwerk/frontend run build && pnpm --filter @quellwerk/e2e exec playwright test tests/ui/shell.spec.ts`
 Expected: both routes render, each column scrolls on its own, the page itself never scrolls, both panels collapse to the rail.
 Box: 60
-Status: [ ]
+Status: [x]
 
 ### M4-T2 Sources panel (parallelisable)
 Goal: The source list with status, selection and the Add sources dialog matches the prototype.

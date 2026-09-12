@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:standalone": "cp -r .next/static .next/standalone/frontend/.next/ && cp -r public .next/standalone/frontend/ && node .next/standalone/frontend/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",

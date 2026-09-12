@@ -314,6 +314,12 @@ jobs:
       # The specs arrive in M4; until then there is nothing to run and Playwright
       # would fail with "no tests found", which would say nothing about the code.
       - name: Playwright (chromium)
+        # BASE_URL points the specs at the frontend container that was just
+        # built and started. Without it Playwright would start a build of its
+        # own (e2e/playwright.config.ts), and there is none in the runner: the
+        # build happened inside Docker.
+        env:
+          BASE_URL: http://127.0.0.1:3010
         run: |
           set -euo pipefail
           if ! ls e2e/tests/**/*.spec.ts >/dev/null 2>&1 && ! ls e2e/tests/*.spec.ts >/dev/null 2>&1; then

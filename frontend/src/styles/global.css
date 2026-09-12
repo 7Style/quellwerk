@@ -57,6 +57,16 @@
   --focus: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink);
 }
 
+/* Below this width the two side panels give room back to the answer. Straight
+   from design/styles.css; the workspace reads the tokens, so nothing in React
+   needs to know the breakpoint. */
+@media (max-width: 1360px) {
+  :root {
+    --w-sources: 260px;
+    --w-studio: 320px;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
@@ -171,6 +181,17 @@
    utility suffix and a plain CSS variable. `static` is required: without it
    Tailwind drops theme variables no utility references yet, and a plain
    var(--font-ui) in CSS would resolve to nothing. */
+/*
+ * The prototype's spacing steps, mapped onto Tailwind's numeric scale, so `p-3`
+ * is the prototype's 12px rather than the stock 0.75rem. The steps are not
+ * linear: 4, 8, 12, 16, 24, 32, 48, 64.
+ *
+ * Which means `h-*` and `w-*` read them too, because Tailwind sizes from the
+ * same namespace: `h-7` is 48px here and `h-8` is 64px, not 28 and 32. Fixed
+ * control sizes are therefore written as explicit pixels in the components, the
+ * way design/styles.css writes them; the numeric utilities are for padding,
+ * margin and gap, which is where the scale means something.
+ */
 @theme static {
   --spacing-1: 4px;
   --spacing-2: 8px;
@@ -212,12 +233,32 @@
 
 /* Base */
 
-* {
-  border-color: var(--rule);
+/*
+ * In a layer, and that is the whole point. An unlayered rule beats every layered
+ * one whatever the selector says, and Tailwind's utilities live in
+ * @layer utilities: written outside a layer, this `*` selector overrode
+ * `border-transparent`, `border-ink` and every other border colour in the
+ * application, so a ghost button came out with a visible frame.
+ */
+@layer base {
+  * {
+    border-color: var(--rule);
+  }
+}
+
+/* The page itself never scrolls: the topbar is fixed height and everything under
+   it is a region that scrolls for itself. A stray element tall enough to push
+   the document is a layout bug, and clipping it here makes that visible at once
+   instead of producing a second scrollbar beside the panel's own. */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   background-color: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
 }

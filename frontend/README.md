@@ -34,7 +34,7 @@ Laufzeit-`environment` ändert nichts mehr.
 | Variable                      | Bedeutung                                                                                                                                                                                                                 |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_API_URL`         | Backend-Origin ohne `/api`-Suffix (`src/lib/api.ts`). Development: Fallback `http://localhost:3011`. Production: kein Fallback, ein fehlender Wert bedeutet gleicher Origin und wird einmal per `console.error` gemeldet. |
-| `NEXT_PUBLIC_APP_NAME`        | Anzeigename (`src/lib/app.ts`: Metadata, Login- und Dashboard-Seite), Default `quellwerk`                                                                                                                               |
+| `NEXT_PUBLIC_APP_NAME`        | Anzeigename (`src/lib/app.ts`: Metadata, Login- und Dashboard-Seite), Default `quellwerk`                                                                                                                                 |
 | `NEXT_PUBLIC_APP_DESCRIPTION` | Beschreibung (Metadata), Default leer                                                                                                                                                                                     |
 
 Keine Secrets in `NEXT_PUBLIC_*`: alles darin ist öffentlich.

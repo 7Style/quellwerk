@@ -11,12 +11,23 @@ if (existsSync(envFile)) {
 }
 
 /**
- * Playwright configuration for the quellwerk E2E tests
- * @see https://playwright.dev/docs/test-configuration
+ * Two ways to run, and the environment decides which.
  *
- * One worker for now: the specs that arrive in M4 drive a single stack and the
- * chat route is rate limited per session.
+ * BASE_URL set: test that server. This is what CI does - it builds the images,
+ * starts the compose stack and points the specs at the frontend container, so
+ * the run measures what would be deployed.
+ *
+ * BASE_URL unset: Playwright starts the frontend's own production build on a
+ * port of its own. The UI specs under tests/ui run on fixtures and need no
+ * backend (docs/PLAN.md, M4), so `next build && playwright test` is a complete
+ * command from a clean checkout. The port is not 3010 on purpose: reusing the
+ * stack's port would silently test whatever container happens to be running,
+ * including one built from an older tree.
  */
+const externalBaseUrl = process.env.BASE_URL;
+const uiPort = Number(process.env.UI_PORT ?? 3015);
+const baseURL = externalBaseUrl ?? `http://127.0.0.1:${uiPort}`;
+
 export default defineConfig({
   testDir: './tests',
 
@@ -33,10 +44,8 @@ export default defineConfig({
   /* Reporter to use */
   reporter: [['html', { open: 'never' }], ['list']],
 
-  /* Shared settings for all projects */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')` */
-    baseURL: process.env.BASE_URL || 'http://localhost:3010',
+    baseURL,
 
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
@@ -48,21 +57,33 @@ export default defineConfig({
     video: 'on-first-retry',
   },
 
-  /* Configure projects for major browsers */
+  /*
+   * Chromium only, and the project keeps that name because CI selects it by
+   * name. Firefox and WebKit were in the template's config and were never
+   * installed by the workflow, so they were a promise the pipeline did not keep.
+   * The matrix that does matter here is viewport and theme, and M4-T4 adds it.
+   */
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
   ],
+
+  webServer: externalBaseUrl
+    ? undefined
+    : {
+        // The standalone server, which is exactly what the image runs
+        // (frontend/Dockerfile). `next start` also serves the build but warns
+        // that it is the wrong entry point for `output: standalone`, and a
+        // warning in every test run is a warning nobody reads.
+        command: `pnpm --filter @quellwerk/frontend run start:standalone`,
+        env: { PORT: String(uiPort), HOSTNAME: '127.0.0.1' },
+        url: baseURL,
+        cwd: path.resolve(__dirname, '..'),
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
 
   /* Timeout settings */
   timeout: 30 * 1000,

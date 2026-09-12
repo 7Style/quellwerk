@@ -89,12 +89,12 @@ export function useTheme(): UseThemeResult {
   const preference = useSyncExternalStore(
     subscribeToPreference,
     readStoredPreference,
-    getServerPreference,
+    getServerPreference
   );
   const systemTheme = useSyncExternalStore(
     subscribeToSystemTheme,
     getSystemTheme,
-    getServerSystemTheme,
+    getServerSystemTheme
   );
 
   // Writing the attribute is the one thing React does not own here. Someone

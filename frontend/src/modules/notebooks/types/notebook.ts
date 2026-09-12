@@ -1,0 +1,23 @@
+/**
+ * What the home grid needs about a notebook, and nothing more.
+ *
+ * The shape is the one the API will return in M4-T6, so replacing the fixtures
+ * with an endpoint is a change of source and not a change of type. `emoji` is
+ * data the user picks, not decoration: it is the only picture on the card and
+ * the one thing that tells two notebooks apart at a glance (docs/SPEC.md).
+ */
+export interface NotebookSummary {
+  id: string;
+  emoji: string;
+  title: string;
+  sourceCount: number;
+  /** ISO. Rendered as "2 hours ago" by the card. */
+  updatedAt: string;
+  /** True while the notebook has never been written to. Changes the meta line. */
+  isNew?: boolean;
+}
+
+/** What the grid is doing right now. M4-T6 drives it from the query state. */
+export type NotebooksState = 'loading' | 'error' | 'empty' | 'ready';
+
+export type NotebookSort = 'recent' | 'title' | 'sources';
