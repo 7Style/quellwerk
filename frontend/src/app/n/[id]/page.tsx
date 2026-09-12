@@ -4,8 +4,9 @@ import { notFound } from 'next/navigation';
 import { APP_NAME } from '@/lib/app';
 import { relativeTime } from '@/lib/relative-time';
 import { notebookFixtureById } from '@/modules/notebooks';
-import { Topbar, Workspace } from '@/modules/shell';
-import { SourcesPanel, sourceFixtures } from '@/modules/sources';
+import { Topbar } from '@/modules/shell';
+import { sourceFixtures, sourceTextFixtures } from '@/modules/sources';
+import { NotebookWorkspace } from './NotebookWorkspace';
 
 interface NotebookRouteProps {
   /** A Promise since Next 15; awaited before anything reads it. */
@@ -46,18 +47,9 @@ export default async function NotebookPage({ params }: NotebookRouteProps) {
         <h1 className="m-0 truncate text-ui-lg font-medium">{notebook.title}</h1>
       </Topbar>
 
-      <Workspace
-        sourceCount={sourceFixtures.length}
-        sourcesFill
-        sources={<SourcesPanel sources={sourceFixtures} />}
-        chat={
-          <div className="mx-auto max-w-[var(--measure)] px-6 py-8">
-            <p className="m-0 font-read text-read leading-read text-ink-muted">
-              Ask a question about your sources. Every sentence of the answer carries the passage it
-              came from.
-            </p>
-          </div>
-        }
+      <NotebookWorkspace
+        sources={sourceFixtures}
+        texts={sourceTextFixtures}
         studio={
           <div className="flex flex-col gap-5 p-3">
             <section>

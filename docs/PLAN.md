@@ -346,7 +346,7 @@ Files: frontend/src/modules/sources/components/{SourceViewer,SourcePassage}.tsx,
 Test: `pnpm --filter @quellwerk/e2e exec playwright test tests/ui/viewer.spec.ts`
 Expected: the marked text equals the fixture's `cited` string, the passage is scrolled into view, a second click on another chip moves the mark.
 Box: 60
-Status: [ ]
+Status: [x]
 
 ### M4-T4 Chat rendering, chips, states and the smoke spec (parallelisable)
 Goal: Answers render with citation chips and hover cards, a refusal renders without any chip, every state from the prototype is reachable, and one spec walks the demo path.
