@@ -49,7 +49,12 @@ class InMemoryNotebooks implements NotebooksRepository {
   }
 
   async listBySession(sessionId: string): Promise<NotebookRow[]> {
-    return this.rows.filter((row) => row.sessionId === sessionId);
+    // The same rule as the Prisma query: own notebooks plus the demo one, own
+    // ones first. A double that only filtered by session would let the test
+    // below pass against a repository that never returns the demo.
+    return this.rows
+      .filter((row) => row.sessionId === sessionId || row.isDemo)
+      .sort((a, b) => Number(a.isDemo) - Number(b.isDemo));
   }
 
   async touch(id: string): Promise<void> {
@@ -206,4 +211,56 @@ describe('the demo notebook', () => {
     // then a write must not happen at all rather than happen to the original.
     await expect(service.writable(demoId, 'anyone')).rejects.toThrow('No such notebook.');
   });
+
+  it('is in the list of a visitor who has no notebooks', async () => {
+    // The first second of the product: an empty grid on a site whose demo
+    // notebook exists and was reachable only by typing /n/demo.
+    repository.rows.push(demoRow());
+    const service = new NotebooksService({ repository });
+
+    const list = await service.list('a-fresh-visitor');
+
+    expect(list).toHaveLength(1);
+    expect(list[0]).toHaveProperty('isDemo', true);
+  });
+
+  it("comes after the visitor's own notebooks", async () => {
+    const service = new NotebooksService({ repository });
+    repository.rows.push(demoRow());
+    await service.create('session-a', 'Mine');
+
+    const list = await service.list('session-a');
+
+    expect(list.map((row) => row.title)).toEqual(['Mine', 'Demo']);
+  });
+
+  it("is in another session's list too, and belongs to neither", async () => {
+    // It is in every list, and it is nobody's: the response carries no
+    // sessionId at all, so the card cannot tell whose it is either.
+    repository.rows.push(demoRow());
+    const service = new NotebooksService({ repository });
+    await service.create('session-a', 'Mine');
+
+    const other = await service.list('session-b');
+
+    expect(other.map((row) => row.title)).toEqual(['Demo']);
+  });
 });
+
+function demoRow(): NotebookRow {
+  return {
+    id: '00000000-0000-4000-8000-000000000dem',
+    sessionId: null,
+    title: 'Demo',
+    emoji: null,
+    userSetTitle: false,
+    summary: null,
+    suggestedQuestions: null,
+    tokenCount: 0,
+    tokenModel: null,
+    sourceCount: 0,
+    isDemo: true,
+    createdAt: new Date('2026-09-11T12:00:00Z'),
+    lastUsedAt: new Date('2026-09-11T12:00:00Z'),
+  };
+}

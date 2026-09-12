@@ -19,6 +19,13 @@ export interface NotebookSummary {
   summary?: string | null;
   /** Four of them, or none yet. Written by the same job as the summary. */
   suggestedQuestions?: string[];
+  /**
+   * The demo notebook: in every visitor's list, in nobody's ownership.
+   *
+   * The card says so, because the grid otherwise offers a notebook that refuses
+   * the first thing anybody tries in it (SECURITY.md 7.2).
+   */
+  isDemo?: boolean;
 }
 
 /** What the grid is doing right now. M4-T6 drives it from the query state. */

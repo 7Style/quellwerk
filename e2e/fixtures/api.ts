@@ -130,6 +130,22 @@ const NOTEBOOKS = [
     createdAt: '2026-09-11T09:00:00.000Z',
     lastUsedAt: '2026-09-11T09:00:00.000Z',
   },
+  {
+    // The demo notebook, as the list route returns it to every visitor: last,
+    // and marked. It belongs to no session, which is why the card says that it
+    // can only be read.
+    id: 'demo',
+    title: 'EU-KI-Verordnung',
+    emoji: '\u2696\uFE0F',
+    summary:
+      'Vier Quellen zur EU-KI-Verordnung: der Rechtstext im Auszug, die Fragen und Antworten der Kommission, ein Glossar und eine interne Notiz.',
+    tokenCount: 63_431,
+    sourceCount: 4,
+    suggestedQuestions: ['Welche KI-Praktiken sind nach Artikel 5 verboten?'],
+    isDemo: true,
+    createdAt: '2026-09-12T05:00:00.000Z',
+    lastUsedAt: '2026-09-12T05:00:00.000Z',
+  },
 ];
 
 /** The offsets come from the document, exactly as the route computes them. */

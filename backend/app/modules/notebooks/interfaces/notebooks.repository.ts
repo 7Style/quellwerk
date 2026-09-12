@@ -43,6 +43,7 @@ export interface CreateNotebookData {
 export interface NotebooksRepository {
   create(data: CreateNotebookData): Promise<NotebookRow>;
   findById(id: string): Promise<NotebookRow | null>;
+  /** This session's notebooks plus the demo one, which belongs to nobody. */
   listBySession(sessionId: string): Promise<NotebookRow[]>;
   /**
    * Moves `lastUsedAt` to now. The cleanup job deletes notebooks nobody has

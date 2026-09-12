@@ -35,6 +35,7 @@ function toSummary(row: NotebookApiRow): NotebookSummary {
     updatedAt: row.lastUsedAt,
     summary: row.summary,
     suggestedQuestions: row.suggestedQuestions,
+    isDemo: row.isDemo,
     // A notebook nobody has written to since it was made. The card then says
     // "Created" instead of "Updated", which is the difference between an empty
     // notebook and one somebody worked in.

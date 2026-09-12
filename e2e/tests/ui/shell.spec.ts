@@ -57,6 +57,21 @@ test.describe('home', () => {
     await expect(page.getByRole('button', { name: 'Create new notebook' })).toHaveCount(2);
   });
 
+  test('offers the demo notebook, and says it can only be read', async ({ page }) => {
+    // The first second of the product. The demo notebook is in every visitor's
+    // list, including one who has nothing of their own, and the card says what
+    // it is rather than letting the first write explain it.
+    await page.goto('/');
+
+    const demo = page.getByRole('link', { name: /EU-KI-Verordnung/ });
+    await expect(demo).toBeVisible();
+    await expect(demo).toHaveAttribute('href', '/n/demo');
+    await expect(demo.getByTestId('demo-badge')).toHaveText('Read-only example');
+
+    // Only that one. A notebook of this session's own carries no badge.
+    await expect(page.getByTestId('demo-badge')).toHaveCount(1);
+  });
+
   test('scrolls the grid and not the page', async ({ page }) => {
     await page.goto('/');
 

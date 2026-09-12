@@ -38,10 +38,24 @@ export class PrismaNotebooksRepository implements NotebooksRepository {
     return row ? withCount(row) : null;
   }
 
+  /**
+   * This session's notebooks, and the demo notebook after them.
+   *
+   * The demo is in the list because the home page is the first thing a visitor
+   * sees and an empty grid is a product that looks broken: the notebook exists,
+   * it is readable by everyone (SECURITY.md 7.2), and it was only reachable by
+   * typing `/n/demo`. It belongs to no session, so `sessionId` alone can never
+   * match it.
+   *
+   * Own notebooks first: `isDemo` sorts false before true, and a visitor with
+   * work of their own should not have to scroll past the demo to find it. The
+   * demo is touched by every visitor who opens it, so ordering the whole list
+   * by `lastUsedAt` would let it float to the top of everybody's grid.
+   */
   async listBySession(sessionId: string): Promise<NotebookRow[]> {
     const rows = await this.prisma.notebook.findMany({
-      where: { sessionId },
-      orderBy: { lastUsedAt: 'desc' },
+      where: { OR: [{ sessionId }, { isDemo: true }] },
+      orderBy: [{ isDemo: 'asc' }, { lastUsedAt: 'desc' }],
       include: WITH_SOURCE_COUNT,
     });
     return rows.map(withCount);
