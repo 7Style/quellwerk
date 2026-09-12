@@ -93,8 +93,10 @@ export async function registerModules(app: Express): Promise<void> {
       prisma,
       sessionIdOf,
       notebooks: {
-        writable: async (notebookId, sessionId) =>
-          notebooks.service.writable(notebookId, sessionId),
+        // Eine neue Quelle darf das Demo-Notizbuch kopieren; genau dafür ist
+        // Copy-on-first-write da (M7-T1).
+        writableOrCopy: async (notebookId, sessionId) =>
+          notebooks.service.writableOrCopy(notebookId, sessionId),
         readable: async (notebookId, sessionId) =>
           notebooks.service.readable(notebookId, sessionId),
       },

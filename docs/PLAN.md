@@ -527,8 +527,9 @@ Goal: The held-out split is run once, and both model rows are in RESULTS.md.
 Files: backend/evals/RESULTS.md, backend/evals/HILLCLIMB.md
 Test: `pnpm eval --full`
 Expected: the table shows the previous run beside this one; the held-out numbers appear for the first time; the self-judged row is marked.
+Result: run on 2026-09-12, 30 items, 425.6s. Citation validity 100.0% (146/146), abstention 85.7% (6/7), false refusals 0 of 23, correctness 100.0%, faithfulness 1.00, judge `claude-sonnet-5` and therefore not self-judged. **Abstention is under its threshold**: `g30` answered instead of refusing, and neither the prompt nor the metric was changed against that number. The case and the order in which it would be fixed are in RESULTS.md.
 Box: 45
-Status: [ ]
+Status: [x]
 
 ### M9-T2 README, AI declaration, transcripts
 Goal: The documents a reviewer reads first are complete and honest.

@@ -23,24 +23,33 @@ Konto.
 
 ## Was gemessen ist
 
-Der Dev-Split des Golden Sets, zwanzig Items aus
+Der Abschlusslauf über das ganze Golden Set, dreißig Items aus
 [`backend/evals/golden.jsonl`](backend/evals/golden.jsonl), beantwortet über die
-echte Route mit `claude-opus-5`. Die vollen Blöcke mit Deltas stehen in
+echte Route mit `claude-opus-5`. Die zehn Held-out-Items sind darin einmal
+gemessen, zum ersten und einzigen Mal. Die vollen Blöcke mit Deltas stehen in
 [backend/evals/RESULTS.md](backend/evals/RESULTS.md).
 
-| Metrik | Wert | Wie sie zustande kommt |
-|---|---|---|
-| Beleggüte | 100,0 % (97/97) | `source.text.slice(start, end) === cited_text`, kein Richter, kein Ermessen |
-| Abstinenz | 100,0 % (5/5) | fünf Fragen, die der Korpus nicht beantwortet, fünf Ablehnungen |
-| Korrektheit | 100,0 % | Richter `claude-sonnet-5`, ein anderes Modell als das geprüfte (ADR-0011) |
-| Treue | 1,00 | derselbe Richter, je Behauptung geprüft, Ablehnungen ausgenommen |
+| Metrik | Wert | Schwelle | Wie sie zustande kommt |
+|---|---|---|---|
+| Beleggüte | 100,0 % (146/146) | 100 % | `source.text.slice(start, end) === cited_text`, kein Richter, kein Ermessen |
+| Abstinenz | 85,7 % (6/7) | 100 % | Fragen, die der Korpus nicht beantwortet, programmatisch am wörtlichen Satzanfang |
+| Korrektheit | 100,0 % | ≥ 85 % | Richter `claude-sonnet-5`, ein anderes Modell als das geprüfte (ADR-0011) |
+| Treue | 1,00 | ≥ 0,90 | derselbe Richter, je Behauptung geprüft, Ablehnungen ausgenommen |
 
 Dazu zwei Zahlen, die null sein müssen und null sind: keine falsche Ablehnung
-bei fünfzehn beantwortbaren Items, kein Beleg an einer Ablehnung.
+bei dreiundzwanzig beantwortbaren Items, kein Beleg an einer Ablehnung.
 
-Die zehn Held-out-Items sind bis zum Abschlusslauf ungemessen. Ein
-Held-out-Split, der jeden Tag gemessen wird, ist ein Dev-Split mit
-Zusatzschritten.
+**Die Abstinenz liegt unter ihrer Schwelle, und das ist die interessanteste Zahl
+im Repository.** Ein Held-out-Item, `g30`, fragt nach harmonisierten Normen zu
+Artikel 15: der Artikel steht im Korpus, die Normen nicht. Das Modell hat nicht
+erfunden, sondern geantwortet, es sei keine genannt, und danach mit fünf
+geprüften Belegen erzählt, was die Quellen über die laufende Normungsarbeit
+sagen. Nur hat es den wörtlichen Ablehnungssatz nicht benutzt, auf dem die
+Messung besteht. Was gebrochen ist, ist die Regel, nicht die Erdung -- und ob
+die Regel oder die Messung falsch ist, ist eine Produktentscheidung. Getroffen
+wird sie nicht gegen diese Zahl: ein Held-out-Split, gegen den man tunt, ist ein
+Dev-Split mit Zusatzschritten. Die Begründung und die Reihenfolge stehen in
+RESULTS.md.
 
 ### Am laufenden Server gemessen
 

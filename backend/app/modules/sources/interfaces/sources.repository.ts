@@ -66,11 +66,14 @@ export interface WritableNotebook {
 
 export interface NotebookAccess {
   /**
-   * The notebook when this session may write to it, otherwise a throw from the
-   * notebooks module (404, never 403). Returning null instead would tempt a
-   * caller to carry on with a notebook it does not own.
+   * Das Notizbuch, in das dieser Schreibzugriff gehört, oder ein Wurf aus dem
+   * Notizbuch-Modul (404, nie 403).
+   *
+   * **Nicht unbedingt das Notizbuch, nach dem gefragt wurde.** Beim
+   * Demo-Notizbuch ist es eine Kopie in der eigenen Sitzung, die dabei
+   * entsteht. Ab hier gilt `notebook.id`, nicht die Id aus der Route.
    */
-  writable(notebookId: string, sessionId: string): Promise<WritableNotebook>;
+  writableOrCopy(notebookId: string, sessionId: string): Promise<WritableNotebook>;
   /**
    * The notebook when this session may read it, which includes the demo
    * notebook (SECURITY.md 7.2). Listing sources and opening one are reads, and

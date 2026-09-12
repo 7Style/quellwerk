@@ -50,9 +50,17 @@ Alle Eval-Zahlen vor dem 12.09.2026 stammen aus dem Entwurf. Der Runner schreibt
 das in jeden Lauf und in jede Ergebnisdatei, und die Blöcke in
 `backend/evals/RESULTS.md` sagen es in ihrer ersten Zeile.
 
-Die zehn Held-out-Items bleiben bis M9-T1 ungemessen. Bis dahin läuft jede
-Messung auf den zwanzig Dev-Items; ein Held-out-Split, der jeden Tag gemessen
-wird, ist ein Dev-Split mit Zusatzschritten.
+Die zehn Held-out-Items sind einmal gemessen, in M9-T1 am 12.09.2026, und davor
+kein einziges Mal; jede Messung während der Entwicklung lief auf den zwanzig
+Dev-Items. Ein Held-out-Split, der jeden Tag gemessen wird, ist ein Dev-Split
+mit Zusatzschritten.
+
+Der Lauf hat einen Fehlschlag gefunden: `g30` wurde nicht mit dem wörtlichen
+Satz abgelehnt, die Abstinenz liegt damit bei 85,7 Prozent statt bei 100. Weder
+der Prompt noch die Messung sind danach geändert worden, und das ist die
+eigentliche Aussage dieses Abschnitts: die Zahl steht in RESULTS.md, im README
+und hier, mit dem Grund und mit der Reihenfolge, in der sie zu beheben wäre.
+Eine Zahl, die man nach dem Messen passend macht, ist keine Messung.
 
 ### Vom Modell erzeugte Daten, die im Repository liegen
 

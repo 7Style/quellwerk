@@ -7,6 +7,7 @@
  */
 import type { NotebookRow, NotebooksRepository } from '../interfaces/notebooks.repository.js';
 import { NotebookNotFoundError } from '../internal/errors.js';
+import { writeDecision } from '../internal/copy-on-write.js';
 
 export interface NotebooksServiceDeps {
   repository: NotebooksRepository;
@@ -39,16 +40,42 @@ export class NotebooksService {
   }
 
   /**
-   * A notebook this session may write to. The demo notebook is not one of them:
-   * it is read-only until copy-on-first-write copies it into the caller's own
-   * session (M7-T1), and until that exists a write to it must not happen at all
-   * rather than happen to the original.
+   * Das Notizbuch, in das dieser Schreibzugriff gehört.
+   *
+   * Für ein eigenes Notizbuch ist das es selbst. Für das Demo-Notizbuch ist es
+   * eine Kopie in der eigenen Sitzung, die hier entsteht: es gehört keiner
+   * Sitzung, und ein Schreibzugriff darin würde verändern, was alle anderen
+   * sehen (SECURITY.md 7.2).
+   *
+   * **Der Rückgabewert ist deshalb nicht immer das Notizbuch, nach dem gefragt
+   * wurde.** Jeder Aufrufer muss ab hier mit `notebook.id` weiterarbeiten und
+   * nicht mit der Id aus der Route, sonst schreibt er in das Original, dessen
+   * Kopie er gerade bekommen hat. Die Route gibt die neue Id mit der Antwort
+   * zurück, und die Oberfläche wechselt dorthin.
+   */
+  async writableOrCopy(id: string, sessionId: string): Promise<NotebookRow> {
+    const notebook = await this.deps.repository.findById(id);
+    const decision = writeDecision(notebook, sessionId);
+
+    if (decision.kind === 'refuse') throw new NotebookNotFoundError();
+    if (decision.kind === 'copy') return this.deps.repository.copyForSession(id, sessionId);
+    return notebook as NotebookRow;
+  }
+
+  /**
+   * Wie oben, aber ohne Kopie: für einen Schreibzugriff, der nichts anlegen
+   * kann.
+   *
+   * Das ist "nochmal versuchen" an einem fehlgeschlagenen Report. Eine Kopie
+   * dafür anzulegen hätte ein leeres Notizbuch zur Folge, in dem die Zeile
+   * fehlt, um die es ging.
    */
   async writable(id: string, sessionId: string): Promise<NotebookRow> {
     const notebook = await this.deps.repository.findById(id);
-    if (!notebook) throw new NotebookNotFoundError();
-    if (notebook.sessionId !== sessionId) throw new NotebookNotFoundError();
-    return notebook;
+    const decision = writeDecision(notebook, sessionId, false);
+
+    if (decision.kind !== 'own') throw new NotebookNotFoundError();
+    return notebook as NotebookRow;
   }
 
   async touch(id: string): Promise<void> {

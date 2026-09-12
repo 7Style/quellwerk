@@ -7,6 +7,23 @@ as a zero.
 
 The thresholds live in `docs/SPEC.md` and are not repeated here.
 
+## 2026-09-12, M9-T1: the held-out split, and no revision after it
+
+No prompt changed in this entry, which is why it is one. `pnpm eval --full`
+measured the ten held-out items for the first time and found one miss: `g30` was
+answered rather than refused with the literal sentence, so abstention came out
+at 85.7 percent against a threshold of 100.
+
+The revision that would catch it is easy to imagine - the refusal rule in
+`notebook-chat-system.md` could insist harder on the exact wording when the
+question is half-covered by the corpus. It is not written, and no number in this
+file moved after the held-out run. Everything above this line was hill-climbed
+on twenty dev items; that is what makes the number below it worth anything.
+
+The diagnosis, the two readings of what actually failed and the order in which
+they should be resolved are in RESULTS.md, not here: this file is for revisions,
+and there was none.
+
 ## 2026-09-12, M6-T0: six report prompts, and no run yet
 
 `report-common.md` and the five structure blocks. CLAUDE.md asks for

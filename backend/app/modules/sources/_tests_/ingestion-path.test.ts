@@ -147,7 +147,7 @@ class Store implements SourcesRepository {
 let store: Store;
 
 const notebooks: NotebookAccess = {
-  writable: async () => ({ id: NOTEBOOK, tokenCount: store.notebookTokens }),
+  writableOrCopy: async () => ({ id: NOTEBOOK, tokenCount: store.notebookTokens }),
   readable: async () => ({ id: NOTEBOOK, tokenCount: store.notebookTokens }),
 };
 

@@ -120,9 +120,12 @@ export class SourcesService {
     sessionId: string,
     input: PastedSourceInput
   ): Promise<SourceRow> {
-    const notebook = await this.deps.notebooks.writable(notebookId, sessionId);
+    // Ab hier `target` und nicht `notebookId`: beim Demo-Notizbuch ist das eine
+    // frische Kopie dieser Sitzung, und die neue Quelle gehört in die Kopie.
+    const notebook = await this.deps.notebooks.writableOrCopy(notebookId, sessionId);
+    const target = notebook.id;
     await this.deps.assertBudgetLeft();
-    const sourceCount = await this.deps.repository.countByNotebook(notebookId);
+    const sourceCount = await this.deps.repository.countByNotebook(target);
 
     // First gate: no measuring yet. A full notebook and a notebook with fifty
     // sources are both refused without counting a single token.
@@ -148,9 +151,9 @@ export class SourcesService {
     // Second gate, now with the real number.
     this.refuseIfOver(notebook.tokenCount, sourceCount, { addedTokens });
 
-    const position = (await this.deps.repository.maxPosition(notebookId)) + 1;
+    const position = (await this.deps.repository.maxPosition(target)) + 1;
     const source = await this.deps.repository.create({
-      notebookId,
+      notebookId: target,
       position,
       title: input.title,
       kind: 'paste',
@@ -162,8 +165,8 @@ export class SourcesService {
       status: 'queued',
     });
 
-    await this.deps.repository.addNotebookTokens(notebookId, addedTokens);
-    await this.deps.enqueueIngest({ sourceId: source.id, notebookId });
+    await this.deps.repository.addNotebookTokens(target, addedTokens);
+    await this.deps.enqueueIngest({ sourceId: source.id, notebookId: target });
     return source;
   }
 
@@ -172,17 +175,19 @@ export class SourcesService {
     sessionId: string,
     input: UploadedSourceInput
   ): Promise<SourceRow> {
-    const notebook = await this.deps.notebooks.writable(notebookId, sessionId);
+    // Ab hier `target` und nicht `notebookId`; siehe `addPasted`.
+    const notebook = await this.deps.notebooks.writableOrCopy(notebookId, sessionId);
+    const target = notebook.id;
     await this.deps.assertBudgetLeft();
-    const sourceCount = await this.deps.repository.countByNotebook(notebookId);
+    const sourceCount = await this.deps.repository.countByNotebook(target);
 
     // The only gate that can run here. The file's tokens are unknown until the
     // worker has extracted it, and that gate lives there (docs/ARCHITECTURE.md).
     this.refuseIfOver(notebook.tokenCount, sourceCount, {});
 
-    const position = (await this.deps.repository.maxPosition(notebookId)) + 1;
+    const position = (await this.deps.repository.maxPosition(target)) + 1;
     const source = await this.deps.repository.create({
-      notebookId,
+      notebookId: target,
       position,
       title: input.title,
       kind: input.kind,

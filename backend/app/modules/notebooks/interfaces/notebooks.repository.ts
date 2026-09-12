@@ -43,6 +43,15 @@ export interface CreateNotebookData {
 export interface NotebooksRepository {
   create(data: CreateNotebookData): Promise<NotebookRow>;
   findById(id: string): Promise<NotebookRow | null>;
+  /**
+   * Kopiert das Demo-Notizbuch in eine Sitzung, oder gibt die Kopie zurück, die
+   * es dort schon gibt.
+   *
+   * Einmal je Sitzung, nicht einmal je Schreibzugriff: zwei Uploads
+   * hintereinander sind ein Notizbuch mit zwei Quellen und nicht zwei
+   * Notizbücher. `clonedFrom` auf der Kopie ist die Stelle, an der das steht.
+   */
+  copyForSession(sourceId: string, sessionId: string): Promise<NotebookRow>;
   /** This session's notebooks plus the demo one, which belongs to nobody. */
   listBySession(sessionId: string): Promise<NotebookRow[]>;
   /**

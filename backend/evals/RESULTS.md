@@ -11,6 +11,73 @@ leaves the word out will be quoted as if it were the better of the two.
 
 Why a revision moved a number belongs in `HILLCLIMB.md`, not here.
 
+## 2026-09-12, M9-T1: the final run, and the one thing the held-out split found
+
+**One metric is below its threshold**: abstention accuracy is 85.7 percent
+where docs/SPEC.md asks for 100. Six of seven unanswerable items were refused;
+`g30` was answered. Everything else cleared, including the one that is measured
+without a judge: 146 of 146 citations valid.
+
+`pnpm eval --full`, thirty items from `golden.jsonl`, 425.6s, live answerer on
+claude-opus-5 at effort low. This is the first and only measurement of the ten
+held-out items.
+
+| Metric | M6 close (dev, 20) | M9-T1 (all, 30) | Threshold | |
+|---|---|---|---|---|
+| Citation validity | 100.0% (97/97) | 100.0% (146/146) | 100% | met |
+| Abstention accuracy | 100.0% (5/5) | 85.7% (6/7) | 100% | **missed** |
+| False refusals | 0 of 15 | 0 of 23 | 0 | met |
+| Citations on a refusal | 0 | 0 | 0 | met |
+| Correctness | 100.0% | 100.0% | >= 85% | met |
+| Faithfulness | 1.00 | 1.00 | >= 0.90 | met |
+| Judge | `claude-sonnet-5` | `claude-sonnet-5` | different model | not self-judged (ADR-0011) |
+
+Results file: `evals/results/2026-09-12T14-09-39-934Z-full.json`.
+
+### The case: g30
+
+The question is a held-out one and it is built as a trap: *"Which harmonised
+standards have been published for the accuracy requirements of Article 15?"*
+Article 15 is in the excerpt, the harmonised standards are not. The item's own
+note says it: "Die halbe Kenntnis ist der Koeder."
+
+What came back was not an invention. It began:
+
+> None are named in the sources, and the standardisation work has not
+> delivered: in May 2023 the Commission mandated CEN and CENELEC to develop
+> standards for the high-risk requirements ...
+
+Five citations, all five valid, and the judge scored the content correct. The
+model said there is nothing to name and then said what the sources do carry
+about the standardisation work.
+
+So what failed is not the grounding, it is the rule. Abstention is measured
+programmatically on the literal opening sentence (docs/SPEC.md), and
+`beginsWithRefusal` did not match "None are named in the sources". The frozen
+system prompt asks for that exact sentence and the model paraphrased it.
+
+**Two candidate reasons, and they lead to different fixes.** Either the prompt
+is too weak about the exact wording on a question whose answer is half in the
+corpus - then the fix is a prompt revision. Or the measurement is too narrow,
+because an answer that says "none are named in the sources" and cites the
+surrounding facts is arguably the better product behaviour than a bare refusal -
+then the fix is the metric, and the golden set would have to say which of the two
+it wants.
+
+**Neither is done here, and that is the point of a held-out split.** Tuning
+either the prompt or the metric against this number would turn the one honest
+measurement in this repository into a dev run with extra steps. What belongs
+next, in this order: decide which of the two readings is right (it is a product
+decision, not a bug), write it into docs/SPEC.md, then revise prompt or metric
+and measure on the dev split, and only a *new* held-out set may check the
+result.
+
+### What these numbers do not cover
+
+The same three things as every run before: the report path has no judge, the
+follow-up questions have no golden item, and the notebook overview has none
+either. The eval measures a chat turn.
+
 ## 2026-09-12, M6 close: unchanged, and the first run from the real golden set
 
 **From `golden.jsonl`**, not from the draft. M1-T3 took the set over by hand

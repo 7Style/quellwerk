@@ -20,7 +20,7 @@ import type {
 } from '../interfaces/notebooks.repository.js';
 
 class InMemoryNotebooks implements NotebooksRepository {
-  readonly rows: NotebookRow[] = [];
+  readonly rows: Array<NotebookRow & { clonedFrom?: string }> = [];
   private next = 0;
 
   async create(data: CreateNotebookData): Promise<NotebookRow> {
@@ -55,6 +55,27 @@ class InMemoryNotebooks implements NotebooksRepository {
     return this.rows
       .filter((row) => row.sessionId === sessionId || row.isDemo)
       .sort((a, b) => Number(a.isDemo) - Number(b.isDemo));
+  }
+
+  /** Wie die echte Ablage: einmal je Sitzung, und die Quellen kommen mit. */
+  async copyForSession(sourceId: string, sessionId: string): Promise<NotebookRow> {
+    const existing = this.rows.find(
+      (row) => row.clonedFrom === sourceId && row.sessionId === sessionId
+    );
+    if (existing) return existing;
+
+    const original = this.rows.find((row) => row.id === sourceId);
+    if (!original) throw new Error(`no notebook ${sourceId}`);
+
+    const copy: NotebookRow & { clonedFrom?: string } = {
+      ...original,
+      id: `copy-of-${sourceId}-for-${sessionId}`,
+      sessionId,
+      isDemo: false,
+      clonedFrom: sourceId,
+    };
+    this.rows.push(copy);
+    return copy;
   }
 
   async touch(id: string): Promise<void> {

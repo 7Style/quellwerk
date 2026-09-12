@@ -90,7 +90,7 @@ let budgetSpent: boolean;
 
 /** Only NOTEBOOK belongs to session-a; anything else answers the way the real one does. */
 const notebooks: NotebookAccess = {
-  writable: async (notebookId, sessionId) => {
+  writableOrCopy: async (notebookId, sessionId) => {
     if (notebookId !== NOTEBOOK || sessionId !== 'session-a') {
       throw Object.assign(new Error('No such notebook.'), {
         statusCode: 404,
