@@ -483,7 +483,12 @@ measurement on the live site.
 Goal: The demo notebook is reproducible and the app survives a missing API key.
 Files: backend/prisma/seed.ts, backend/scripts/demo-reset.ts, backend/app/config/env.config.ts
 Test: `pnpm db:seed && pnpm --filter @quellwerk/backend exec tsx scripts/demo-reset.ts --check`
-Expected: the demo notebook is restored to its seeded state; with `DEMO_OFFLINE=true` the chat answers from recorded fixtures instead of failing.
+Expected: the demo notebook is restored to its seeded state; with `DEMO_OFFLINE=true` the chat answers from recorded fixtures instead of failing. It also runs in the container (`docker compose exec backend ...`), because it is run on the server and not only here.
+
+Two things the M6 close found in the seeded demo notebook, both of them this task's:
+
+- **The source ids are not uuids.** `seed.ts` writes `demo-1` to `demo-4` and reasons that "both route schemas allow this one exception" - only the notebook id schema does. `sourceIdParamSchema` is `z.uuid()`, so `/api/notebooks/demo/sources/demo-1/text` answers 400 and every chip in the demo notebook opens "The document could not be loaded". The notebook keeps its typeable `demo`; the sources get deterministic uuids, derived from the position so a second run still updates the same rows.
+- **The sources have no guide and the notebook has no overview.** They were written straight into the table, so `guide` is null on all four, `languageOf` finds no language and falls back to English: the demo notebook is German and its Briefing Doc came out in English (measured, 2026-09-12). A seeded source has to look like an ingested one, guide included, and the overview and its four questions have to be there before the first visitor.
 Box: 45
 Status: [ ]
 
