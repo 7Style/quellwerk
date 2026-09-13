@@ -129,8 +129,7 @@ ADR-0004, ADR-0006).
 ## Where things live
 
 SECURITY.md (rules from three server break-ins, firewall and Docker doctrine, the target state of
-the app controls in section 7, deploy checklist), docs/BRIEF.md (handwritten, the only file no
-model touched), docs/SPEC.md, docs/PLAN.md,
+the app controls in section 7, deploy checklist), docs/SPEC.md, docs/PLAN.md,
 docs/ARCHITECTURE.md, docs/DEPLOY.md, docs/KNOWN-LIMITS.md, docs/adr/, docs/ai-process/
 (PROMPTS.md, AI-DECLARATION.md, TRANSCRIPTS.md, LOOM.md, DECISION-LOG.md, offset-check.md),
 prompts/, backend/evals/ (golden.jsonl, run.ts, RESULTS.md, HILLCLIMB.md, corpus/, fixtures/,

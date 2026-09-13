@@ -10,7 +10,7 @@ processes:
   testing: pair
   documentation: assist
   review: pair          # Reviewer-Subagent plus eigene Durchsicht
-  deployment: assist
+  deployment: copilot   # Server, .env und Deploy von der zweiten Session
 tools:
   - Claude Code (Fable 5.1 / Opus 5)
   - Claude API (Opus 5, Haiku 4.5, Sonnet 5 als Eval-Richter)
@@ -18,24 +18,45 @@ tools:
 
 ## Notes
 
-Von mir allein geschrieben: docs/BRIEF.md und die README-Prosa nach der
-Überarbeitung.
+### Zwei Sessions, und wer was gemacht hat
+
+Gearbeitet wurde mit zwei Claude-Code-Sessions nebeneinander, und das ist für
+diese Erklärung der wichtigste Satz: nicht alles in diesem Repository kommt aus
+der Session, die den Code geschrieben hat. Unten wird deshalb benannt, welche
+gemeint ist.
+
+Die **bauende Session** schreibt den Code: eine Aufgabe aus docs/PLAN.md nach
+der anderen, ein Commit je Aufgabe, Tests und Screenshots dazu.
+
+Die **zweite Session** hat mit mir geplant und vorbereitet. Sie hat die Prompts
+vorformuliert, mit denen ich die bauende Session gesteuert habe; SECURITY.md aus
+meinen vier eigenen Dokumenten zusammengesetzt; den Demo-Korpus zusammengestellt;
+`golden.jsonl` nach meiner Freigabe aus dem Entwurf kopiert; den Server
+eingerichtet samt `.env` und den dort erzeugten Secrets — den Anthropic-Schlüssel
+habe ich selbst eingetragen; und sie hat deployt und danach live nachgeprüft.
+
+Entschieden und freigegeben habe ich. Beide Sessions haben vorgeschlagen; was
+ich abgelehnt habe, steht weiter unten.
+
+Von mir allein geschrieben: die README-Prosa nach der Überarbeitung.
 
 ### Das Golden Set, genau wie es entstanden ist
 
 Es ist der Grenzfall dieser Erklärung, deshalb steht es hier ausführlich und
 nicht in einem Halbsatz.
 
-Den Entwurf hat der Agent aus dem Korpus geschrieben: dreißig Fragen über fünf
-Typen, die erwarteten Fakten dazu und dreiunddreißig Belegzitate. Ablegen durfte
-er ihn nur als `backend/evals/golden.draft.jsonl`; ein Hook verbietet dem Agenten
-jeden Schreibzugriff auf `backend/evals/golden.jsonl` (ADR-0008). Der Grund ist
+Den Entwurf hat die bauende Session aus dem Korpus geschrieben: dreißig Fragen
+über fünf Typen, die erwarteten Fakten dazu und dreiunddreißig Belegzitate.
+Ablegen durfte sie ihn nur als `backend/evals/golden.draft.jsonl`; ein Hook
+verbietet ihr jeden Schreibzugriff auf `backend/evals/golden.jsonl` (ADR-0008). Der Grund ist
 nicht Misstrauen gegen den Entwurf, sondern die Rolle der Datei: ein Harness, das
 seine eigenen Hausaufgaben benotet, misst nichts.
 
-Ich habe den Entwurf durchgesehen und unverändert nach `golden.jsonl`
-übernommen. Unverändert heißt hier byteweise identisch, und das ist eine Aussage
-über die Prüfung, nicht über ihren Aufwand: ein Item ging vorher zurück. `g14`
+Ich habe den Entwurf durchgesehen und freigegeben; kopiert hat ihn danach die
+zweite Session. Der Hook sperrt die Session, die den Eval schreibt, gegen die
+Datei, an der sie gemessen wird — eine andere Hand als die, die geprüft wird.
+Unverändert heißt hier byteweise identisch, und das ist eine Aussage über die
+Prüfung, nicht über ihren Aufwand: ein Item ging vorher zurück. `g14`
 verlangte, bei widersprüchlichen Terminen den Verordnungstext als bindend zu
 markieren. Das widerspricht der Konfliktregel des eingefrorenen Systemprompts,
 die bei einer veralteten Quelle die neuere bevorzugt, und dem Korpus, in dem die
@@ -108,21 +129,27 @@ einzigen; sie sind die, bei denen der Unterschied zwischen "sieht gut aus" und
    Erst danach die Korrektur.
 
 Dazu drei Dinge, die ich am Prozess selbst geändert habe, statt an einer Datei:
-`golden.jsonl` ist für den Agenten schreibgeschützt (Hook), ADRs sind
-unveränderlich (Hook), und jede Datei mit Secrets ist für jedes Werkzeug
-gesperrt, auch für `cat` in einer beiläufigen Shell-Zeile. Die
-Konfigurationsdateien auf dem Server schreibe ich von Hand.
+`golden.jsonl` ist für die bauende Session schreibgeschützt (Hook), ADRs sind
+unveränderlich (Hook), und jede Datei mit Secrets ist dort für jedes Werkzeug
+gesperrt, auch für `cat` in einer beiläufigen Shell-Zeile — die bauende Session
+hat nie einen Schlüssel gesehen.
+
+Auf dem Server hat die zweite Session die Konfiguration eingerichtet und die
+Secrets dort erzeugt; den Anthropic-Schlüssel habe ich selbst eingetragen. Das
+ist die Stelle, an der `deployment` oben auf `copilot` steht und nicht auf
+`assist`.
 
 ### Die Sicherheitsprüfung
 
 Am Ende von M2, M3, M4 und M6 hat ein Reviewer-Subagent den Diff des
 Meilensteins gegen SPEC, PLAN und SECURITY.md gelesen
 (`.claude/agents/reviewer.md`, im Repository nachlesbar). Zwölf Funde in M6,
-zwei davon hoch. Bevor ich etwas behoben habe, habe ich die ernsten selbst
-nachgestellt: die verworfene Neueinreihung gegen das echte Redis, die verlorene
-Seitenzahl gegen die Datenbank, die falsche Schranke gegen die Konfiguration,
-die sie seit M0 nicht gelesen hat. Was offen geblieben ist, steht in
-KNOWN-LIMITS mit dem Grund. Ein Agent, der einen Agenten prüft, ist kein Review; ein Agent, der
+zwei davon hoch. Behoben wurde erst, was vorher nachgestellt war: die verworfene
+Neueinreihung gegen das echte Redis, die verlorene Seitenzahl gegen die
+Datenbank, die falsche Schranke gegen die Konfiguration, die sie seit M0 nicht
+gelesen hat. Nachgestellt hat das die bauende Session, auf meine Ansage, und die
+Ausgaben stehen in den Commit-Nachrichten — nachlesbar für jemanden, der mir
+nicht glaubt. Was offen geblieben ist, steht in KNOWN-LIMITS mit dem Grund. Ein Agent, der einen Agenten prüft, ist kein Review; ein Agent, der
 eine Spur legt, die ich nachlaufen kann, ist eins.
 
 Die Co-Authored-By-Trailer in der Git-Historie sind korrekt.

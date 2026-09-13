@@ -17,7 +17,8 @@ Was von der Arbeit mit dem Agenten nachlesbar ist, und wo.
 
 ## Nicht im Repository
 
-Die vollständigen Chat-Transkripte liegen lokal unter
+Die vollständigen Chat-Transkripte beider Sessions — der bauenden und der
+planenden, siehe AI-DECLARATION.md — liegen lokal unter
 `~/.claude/projects/<projektpfad>/*.jsonl` und sind nicht eingecheckt. Drei
 Gründe, in dieser Reihenfolge:
 
