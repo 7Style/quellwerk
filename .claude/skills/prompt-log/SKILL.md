@@ -1,17 +1,28 @@
 ---
 name: prompt-log
-description: Append this session's entry to docs/ai-process/PROMPTS.md (date, goal, the prompt as pasted, what was accepted, what was rejected and why). Run at the end of every session.
+description: Append this session's entry to the "Abgelehnt und warum" section of docs/ai-process/PROMPTS.md (date, goal, what the user rejected and why). Run at the end of every session.
 allowed-tools: Read, Edit, Write, Bash(date *), Bash(git log *)
 argument-hint: "[one-line session goal]"
 ---
-Append one row to the table in docs/ai-process/PROMPTS.md:
+The prompts themselves are no longer logged here: they are exported verbatim to
+docs/ai-process/sessions/<date>.md by scripts/export-sessions.mjs. Do not
+summarise them again. What the export cannot show is what the user threw away,
+and that is what this skill records.
 
-| Datum | Session-Ziel | Prompt (wie eingegeben) | Übernommen | Abgelehnt und warum |
+Append one entry to the end of the "Abgelehnt und warum" section of
+docs/ai-process/PROMPTS.md, in this shape:
 
-- Datum: today's date from `date +%Y-%m-%d`.
-- Session-Ziel: $ARGUMENTS if given, otherwise one line derived from the first user message of this session.
-- Prompt: the first user prompt of this session, shortened to at most 400 characters with "..." if longer, escaped pipe characters; the full prompt goes to docs/ai-process/sessions/<date>-<slug>.md and the cell links to it.
-- Übernommen: the files created or changed and the commit hash(es) from `git log --oneline -5`, one line.
-- Abgelehnt und warum: everything the user rejected, reverted, or rewrote by hand during this session, with the reason the user gave. If nothing was rejected, write "nichts" and do not invent an entry.
+### YYYY-MM-DD -- <session goal>
 
-Never edit earlier rows. Never delete anything from the file.
+<one paragraph per rejected item>
+
+- Date: today's date from `date +%Y-%m-%d`.
+- Session goal: $ARGUMENTS if given, otherwise one line derived from the first
+  user message of this session. Name the commits from `git log --oneline -5` in
+  the paragraph if they are what the rejection led to.
+- Content: everything the user rejected, reverted, or rewrote by hand during this
+  session, with the reason the user gave, in the user's words where they gave
+  one. If nothing was rejected, write a single line "Nichts abgelehnt." and do
+  not invent an entry.
+
+Never edit earlier entries. Never delete anything from the file.

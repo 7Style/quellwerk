@@ -270,6 +270,12 @@ Repository und drei Fälle, in denen ich Ausgaben verworfen habe, stehen in
 nachlesbar ist und was nicht, steht in
 [docs/ai-process/TRANSCRIPTS.md](docs/ai-process/TRANSCRIPTS.md).
 
+Die bauende Session selbst liegt unter
+[docs/ai-process/sessions/](docs/ai-process/sessions/): sechs Tage, meine Prompts
+wörtlich, die Antworten als Text, jeder Werkzeugaufruf als eine Zeile. Ohne
+Werkzeugausgaben und ohne Thinking, und vor dem Schreiben geschwärzt — warum
+jeweils, steht in TRANSCRIPTS.md.
+
 ## Lizenz
 
 MIT, siehe [LICENSE](LICENSE). Der Code darf benutzt werden; die vier

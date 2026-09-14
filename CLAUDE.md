@@ -131,7 +131,9 @@ ADR-0004, ADR-0006).
 SECURITY.md (rules from three server break-ins, firewall and Docker doctrine, the target state of
 the app controls in section 7, deploy checklist), docs/SPEC.md, docs/PLAN.md,
 docs/ARCHITECTURE.md, docs/DEPLOY.md, docs/KNOWN-LIMITS.md, docs/adr/, docs/ai-process/
-(PROMPTS.md, AI-DECLARATION.md, TRANSCRIPTS.md, LOOM.md, DECISION-LOG.md, offset-check.md),
+(PROMPTS.md, AI-DECLARATION.md, TRANSCRIPTS.md, LOOM.md, DECISION-LOG.md, offset-check.md,
+sessions/ - die bauende Session als Markdown, erzeugt von scripts/export-sessions.mjs und
+geprueft von scripts/scan-secrets.mjs),
 prompts/, backend/evals/ (golden.jsonl, run.ts, RESULTS.md, HILLCLIMB.md, corpus/, fixtures/,
 results/), backend/app/{modules,adapters/llm (documents, chat-request, artifact-request),
 services,config,worker.ts}, backend/prisma/ (schema, seed.ts, seed-data/), backend/scripts/
